@@ -115,20 +115,32 @@ def Inverter()
 
     def invert(self, method, guess):
 
-        self.initial_guess(method)
+        self.initial_guess(guess)
 
 
-    def initial_guess(self, method):
+    def initial_guess(self, guess):
 
-        self.guess_a = 
-        self.guess_b =
+        self.guess_a = np.zeros_like(self.T)
+        self.guess_b = np.zeros_like(self.T)
 
-        if "fermi_amaldi" in method:
+        if "fermi_amaldi" in guess:
+            if self.debug == True:
+                print("Adding Fermi Amaldi potential to initial guess")
 
+            J, _ = self.form_jk( self.ct[0], self.ct[1] )
+            v_fa = (-1/N) * (J[0] + J[1])
 
-        if "svwn" in method or "pbe" in method:
+            self.guess_a += v_fa
+            self.guess_b += v_fa
+
+        if "svwn" in guess or "pbe" in guess:
             if self.debug == True:
                 print(f"Adding XC potential {method} to initial guess")
+
+            if "svwn" in guess:
+                method = guess.index("svwn")
+            elif "pbe" in guess:
+                method = guess.index("pbe")
 
             _, wfn_guess = psi4.energy( method+/+self.basis_str, molecule=self.mol , return_wfn = True)
             na_target = self.nt[0]
@@ -143,7 +155,7 @@ def Inverter()
             self.guess_b += vb_target
 
 
-
+        
 
 
 
