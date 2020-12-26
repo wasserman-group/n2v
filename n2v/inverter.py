@@ -5,6 +5,54 @@ Density-to-potential inversion module
 Handles the primary functions
 """
 
+import numpy as np
+from scipy.optimize import minimize
+from opt_einsum import contract
+
+import psi4
+psi4.core.be_quiet()
+
+
+def Inverter()
+
+    def __init__(self, mol, basis_str, nt, aux="same"):
+
+        self.basis_str = basis_str
+        self.aux_str   = aux_str
+
+        self.mol       = mol
+        self.nt        = nt
+
+        #Verify reference
+        self.ref = psi4.core.get_global_option("REFERENCE")
+        if self.ref == "UKS" or self.ref == "UHF" and len(nt) == 1:
+            raise ValueError("Reference is set as Unrestricted but target density's dimension == 1")
+        if self.ref == "RKS" or self.ref == "RHF" and len(nt) == 2:
+            raise ValueError("Reference is set as Restricted but target density's dimension == 2")
+
+        #Generate Basis set
+        self.build_basis()
+
+
+    def build_basis(self):
+        """
+        Build basis set object and auxiliary basis set object
+        """
+
+        basis = psi4.core.BasisSet.build( mol, key='BASIS', target=self)
+        self.basis = basis
+        self.nbf   = self.basis.nbf()
+        self.naux  = self.basis.nbf()
+
+        if self.aux_str is not "same":
+            aux_basis = psi4.core.BasisSet.build( self.mol, key='Basis', target=self.aux_str)
+            self.aux = aux_basis
+            self.naux = aux_basis.nbf()
+
+
+
+
+
 
 def canvas(with_attribution=True):
     """
