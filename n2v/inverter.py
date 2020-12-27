@@ -12,49 +12,39 @@ from opt_einsum import contract
 import psi4
 psi4.core.be_quiet()
 
+from .methods.wuyang import wuyang
 
-def Inverter()
 
-    def __init__(self, mol, basis_str, nt, aux="same"):
-
+class Inverter():
+    def __init__(self, mol, basis_str, aux_str="same", debug=False):
         self.basis_str = basis_str
         self.aux_str   = aux_str
-
         self.mol       = mol
-        self.nt        = nt
-
-        #Verify reference
-        self.ref = psi4.core.get_global_option("REFERENCE")
-        if self.ref == "UKS" or self.ref == "UHF" and len(nt) == 1:
-            raise ValueError("Reference is set as Unrestricted but target density's dimension == 1")
-        if self.ref == "RKS" or self.ref == "RHF" and len(nt) == 2:
-            raise ValueError("Reference is set as Restricted but target density's dimension == 2")
-        if len(nt == 1):
-            nt.append(nt[0])
-
-        #Generate Basis set
         self.build_basis()
-        #Generate matrices from Mints
-        self.generate_mint_matrices()
-        self.generate_core_matrices()
+        self.generate_mints_matrices()
         self.generate_jk()
 
         #Plotting Grid
-        self.grid = Grider()
+        # self.grid = Grider()
+        #Inversion
+        self.v0 = np.zeros_like( 2 * self.naux )
+        self.reg = 0.0
+        #Anything else
+        self.debug = debug
 
 
-    #-------------  Basics
+    #------------->  Basics:
 
     def build_basis(self):
         """
         Build basis set object and auxiliary basis set object
         """
 
-        basis = psi4.core.BasisSet.build( mol, key='BASIS', target=self)
+        basis = psi4.core.BasisSet.build( self.mol, key='BASIS', target=self.basis_str)
         self.basis = basis
         self.nbf   = self.basis.nbf()
 
-        if self.aux_str is not "same":
+        if self.aux_str != "same":
             aux_basis = psi4.core.BasisSet.build( self.mol, key='Basis', target=self.aux_str)
             self.aux = aux_basis
             self.naux = aux_basis.nbf()
@@ -78,10 +68,8 @@ def Inverter()
         self.jk = None 
 
         #Core Matrices
-        self.T = self.mints.ao_kinetic().np.copy()
-        self.V = self.mints.ao_potential().np.copy()
-
-        self.mints = mints
+        self.T = mints.ao_kinetic().np.copy()
+        self.V = mints.ao_potential().np.copy()
 
     def generate_jk(self, gen_K=True, memory=2.50e9):
         """
@@ -92,31 +80,54 @@ def Inverter()
         jk.set_memory(int(memory)) 
         jk.set_do_K(gen_K)
         jk.initialize()
+        self.jk = jk
 
-    def form_jk(self, coca, cocb):
+    def form_jk(self, Cocc_a, Cocc_b):
         """
         Generates Coulomb and Exchange matrices from occupied orbitals
         """
 
-        self.jk.C_left_add(C_occ_a)
-        self.jk.C_left_add(C_occ_b)
+        self.jk.C_left_add(Cocc_a)
+        self.jk.C_left_add(Cocc_b)
         self.jk.compute()
         self.jk.C_clear()
 
-        J = [self.jk.J()[0], self.jk.J()[1]]
-        K = [self.jk.K()[0], self.jk.K()[1]]
+        J = [self.jk.J()[0].np, self.jk.J()[1].np]
+        K = [self.jk.K()[0].np, self.jk.K()[1].np]
 
         return J, K
 
+    def diagonalize(self, matrix, ndocc):
+        matrix = psi4.core.Matrix.from_array( matrix )
+        Fp = psi4.core.triplet(self.part.A, matrix, self.part.A, True, False, True)
+        nbf = self.part.A.shape[0]
+        Cp = psi4.core.Matrix(nbf, nbf)
+        eigvecs = psi4.core.Vector(nbf)
+        Fp.diagonalize(Cp, eigvecs, psi4.core.DiagonalizeOrder.Ascending)
+        C = psi4.core.doublet(self.part.A, Cp, False, False)
+        Cocc = psi4.core.Matrix(nbf, ndocc)
+        Cocc.np[:] = C.np[:, :ndocc]
+        D = psi4.core.doublet(Cocc, Cocc, False, True)
 
+        return C.np, Cocc.np, D.np, eigvecs.np
 
+    #------------->  Inversion:
 
-    #Inversion
+    def invert(self, wfn, method, opt_method='bfgs', guess=["fermi_amaldi"]):
+        """
+        Handler to all available inversion methods
+        """
 
-    def invert(self, method, guess):
-
+        self.nt = [wfn.Da().np, wfn.Db().np]
+        self.ct = [wfn.Ca_subset("AO", "OCC"), wfn.Cb_subset("AO", "OCC")]
         self.initial_guess(guess)
 
+        if method.lower() == "wuyang":
+            wuyang(self, opt_method)
+        if method.lower() == "pde":
+            pass
+        if method.lower() == "mrks":
+            pass
 
     def initial_guess(self, guess):
 
@@ -127,6 +138,7 @@ def Inverter()
             if self.debug == True:
                 print("Adding Fermi Amaldi potential to initial guess")
 
+            N = self.mol.nallatom()
             J, _ = self.form_jk( self.ct[0], self.ct[1] )
             v_fa = (-1/N) * (J[0] + J[1])
 
@@ -142,9 +154,11 @@ def Inverter()
             elif "pbe" in guess:
                 method = guess.index("pbe")
 
-            _, wfn_guess = psi4.energy( method+/+self.basis_str, molecule=self.mol , return_wfn = True)
+            _, wfn_guess = psi4.energy( method+"/"+self.basis_str, molecule=self.mol , return_wfn = True)
             na_target = self.nt[0]
             nb_target = self.nt[1]
+            self.nalpha = wfn_guess.nalpha()
+            self.nbeta = wfn_guess.nbeta()
             #Get density-drivenless vxc
             wfn_guess.V_potential().set_D( [na_target, nb_target] )
             va_target = psi4.core.Matrix( self.nbf, self.nbf )
@@ -153,9 +167,6 @@ def Inverter()
 
             self.guess_a += va_target
             self.guess_b += vb_target
-
-
-        
 
 
 
