@@ -13,9 +13,10 @@ import psi4
 psi4.core.be_quiet()
 
 from .methods.wuyang import WuYang
+from .grider import Grider
 
 
-class Inverter(WuYang):
+class Inverter(WuYang, Grider):
     def __init__(self, mol, basis_str, aux_str="same", debug=False):
         self.basis_str = basis_str
         self.aux_str   = aux_str
@@ -24,14 +25,9 @@ class Inverter(WuYang):
         self.build_basis()
         self.generate_mints_matrices()
         self.generate_jk()
-
-        #Plotting Gridgi
-        # self.grid = Grider()
-
         #Inversion
         self.v0 = np.zeros( (2 * self.naux) )
         self.reg = 0.0
-
         self.debug = debug
 
 
@@ -100,6 +96,9 @@ class Inverter(WuYang):
         return J, K
 
     def diagonalize(self, matrix, ndocc):
+        """
+        Diagonalizes Fock Matrix
+        """
         matrix = psi4.core.Matrix.from_array( matrix )
         Fp = psi4.core.triplet(self.A, matrix, self.A, True, False, True)
         Cp = psi4.core.Matrix(self.nbf, self.nbf)
@@ -132,10 +131,12 @@ class Inverter(WuYang):
             pass
 
     def initial_guess(self, guess):
+        """
+        Generates Initial guess for inversion
+        """
 
         self.guess_a = np.zeros_like(self.T)
         self.guess_b = np.zeros_like(self.T)
-
 
         if "fermi_amaldi" in guess:
             if self.debug is True:
@@ -143,7 +144,11 @@ class Inverter(WuYang):
 
             N = self.nalpha + self.nbeta
             J, _ = self.form_jk( self.ct[0], self.ct[1] )
+            self.Hartree_a, self.Hartree_b = J[0], J[1]
             v_fa = (-1/N) * (J[0] + J[1])
+
+            # print("J target\n", J[0] + J[1])
+
             self.guess_a += v_fa
             self.guess_b += v_fa
 
@@ -156,7 +161,7 @@ class Inverter(WuYang):
                 method = guess[indx]
 
             if self.debug == True:
-                print(f"Adding XC potential {guess} to initial guess")
+                print(f"Adding XC potential to initial guess")
 
             _, wfn_guess = psi4.energy( method+"/"+self.basis_str, molecule=self.mol , return_wfn = True)
             self.nalpha = wfn_guess.nalpha()
@@ -171,7 +176,6 @@ class Inverter(WuYang):
                 wfn_guess.V_potential().compute_V([va_target, vb_target])
                 self.guess_a += va_target.np
                 self.guess_b += vb_target.np
-\
             else:
                 ntarget = psi4.core.Matrix.from_array( [ self.nt[0] + self.nt[1] ] )
                 wfn_guess.V_potential().set_D( [ntarget] )
@@ -181,6 +185,35 @@ class Inverter(WuYang):
                 self.guess_a += v_target.np / 2
                 self.guess_b += v_target.np / 2
 
+    def generate_grid(self):
+        self.get_from_grid()
 
+    def finalize_energy(self):
+        """
+        Calculates energy contributions
+        """
 
+        energy_kinetic    = contract('ij,ij', self.T, (self.Da + self.Db))
+        energy_external   = contract('ij,ij', self.V, (self.Da + self.Db))
+        energy_hartree_a  = 0.5 * contract('ij,ji', self.Hartree_a + self.Hartree_b, self.Da)
+        energy_hartree_b  = 0.5 * contract('ij,ji', self.Hartree_a + self.Hartree_b, self.Db)
 
+        print("WARNING: XC Energy is not yet properly calculated")
+        energy_ks = 0.0
+
+        # # alpha = 0.0
+        # bucket = get_from_grid(self.part.mol_str, self.part.basis_str, self.Da, self.Db )
+        # # energy_exchange_a = -0.5 * alpha * contract('ij,ji', K[0], self.Da)
+        # # energy_exchange_b = -0.5 * alpha * contract('ij,ji', K[1], self.Db)
+        # energy_ks            =  1.0 * bucket.exc
+
+        energies = {"One-Electron Energy" : energy_kinetic + energy_external,
+                    "Two-Electron Energy" : energy_hartree_a + energy_hartree_b,
+                    "XC"                  : energy_ks,
+                    "Total Energy"        : energy_kinetic   + energy_external  + \
+                                            energy_hartree_a + energy_hartree_b + \
+                                            energy_ks }
+        self.energy   = energies["Total Energy"] 
+        self.energies = energies
+
+        print(f"Final Energies: {self.energies}")
