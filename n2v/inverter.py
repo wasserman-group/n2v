@@ -24,7 +24,7 @@ class Inverter(WuYang, Grider):
         self.ref       = psi4.core.get_global_option("REFERENCE")
         self.build_basis()
         self.generate_mints_matrices()
-        self.generate_jk()
+        # self.generate_jk()
         #Inversion
         self.v0 = np.zeros( (2 * self.naux) )
         self.reg = 0.0
@@ -117,6 +117,8 @@ class Inverter(WuYang, Grider):
         """
         Handler to all available inversion methods
         """
+        if hasattr(wfn, "jk") is False:
+            self.generate_jk()
 
         self.nalpha, self.nbeta = wfn.nalpha(), wfn.nbeta()
         self.nt = [wfn.Da().np, wfn.Db().np]
