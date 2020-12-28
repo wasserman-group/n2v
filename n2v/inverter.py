@@ -12,7 +12,7 @@ from opt_einsum import contract
 import psi4
 psi4.core.be_quiet()
 
-from .methods._wuyang import WuYang
+from .methods.wuyang import WuYang
 
 
 class Inverter(WuYang):
@@ -20,6 +20,7 @@ class Inverter(WuYang):
         self.basis_str = basis_str
         self.aux_str   = aux_str
         self.mol       = mol
+        self.ref       = psi4.core.get_global_option("REFERENCE")
         self.build_basis()
         self.generate_mints_matrices()
         self.generate_jk()
@@ -27,7 +28,7 @@ class Inverter(WuYang):
         #Plotting Grid
         # self.grid = Grider()
         #Inversion
-        self.v0 = np.zeros_like( 2 * self.naux )
+        self.v0 = np.zeros( (2 * self.naux) )
         self.reg = 0.0
         #Anything else
         self.debug = debug
@@ -99,13 +100,12 @@ class Inverter(WuYang):
 
     def diagonalize(self, matrix, ndocc):
         matrix = psi4.core.Matrix.from_array( matrix )
-        Fp = psi4.core.triplet(self.part.A, matrix, self.part.A, True, False, True)
-        nbf = self.part.A.shape[0]
-        Cp = psi4.core.Matrix(nbf, nbf)
-        eigvecs = psi4.core.Vector(nbf)
+        Fp = psi4.core.triplet(self.A, matrix, self.A, True, False, True)
+        Cp = psi4.core.Matrix(self.nbf, self.nbf)
+        eigvecs = psi4.core.Vector(self.nbf)
         Fp.diagonalize(Cp, eigvecs, psi4.core.DiagonalizeOrder.Ascending)
-        C = psi4.core.doublet(self.part.A, Cp, False, False)
-        Cocc = psi4.core.Matrix(nbf, ndocc)
+        C = psi4.core.doublet(self.A, Cp, False, False)
+        Cocc = psi4.core.Matrix(self.nbf, ndocc)
         Cocc.np[:] = C.np[:, :ndocc]
         D = psi4.core.doublet(Cocc, Cocc, False, True)
 
@@ -120,7 +120,11 @@ class Inverter(WuYang):
 
         self.nt = [wfn.Da().np, wfn.Db().np]
         self.ct = [wfn.Ca_subset("AO", "OCC"), wfn.Cb_subset("AO", "OCC")]
+
+        print("I am about to calculate initial guess")
         self.initial_guess(guess)
+
+        print("I just calculated initial guess")
 
         if method.lower() == "wuyang":
             self.wuyang(opt_method)
@@ -150,23 +154,30 @@ class Inverter(WuYang):
                 print(f"Adding XC potential {method} to initial guess")
 
             if "svwn" in guess:
-                method = guess.index("svwn")
+                indx = guess.index("svwn")
+                method = guess[indx]
             elif "pbe" in guess:
-                method = guess.index("pbe")
+                indx = guess.index("pbe")
+                method = guess[indx]
 
             _, wfn_guess = psi4.energy( method+"/"+self.basis_str, molecule=self.mol , return_wfn = True)
-            na_target = self.nt[0]
-            nb_target = self.nt[1]
             self.nalpha = wfn_guess.nalpha()
             self.nbeta = wfn_guess.nbeta()
             #Get density-drivenless vxc
-            wfn_guess.V_potential().set_D( [na_target, nb_target] )
-            va_target = psi4.core.Matrix( self.nbf, self.nbf )
-            vb_target = psi4.core.Matrix( self.nbf, self.nbf )
-            wfn_guess.V_potential().compute_V([va_target, vb_target])
-
-            self.guess_a += va_target
-            self.guess_b += vb_target
-
-
+            if self.ref == "UKS" or self.ref == "UHF":
+                na_target = psi4.core.Matrix.from_array( self.nt[0] )
+                nb_target = psi4.core.Matrix.from_array( self.nt[1] )
+                wfn_guess.V_potential().set_D( [na_target, nb_target] )
+                va_target = psi4.core.Matrix( self.nbf, self.nbf )
+                vb_target = psi4.core.Matrix( self.nbf, self.nbf )
+                wfn_guess.V_potential().compute_V([va_target, vb_target])
+                self.guess_a += va_target
+                self.guess_b += vb_target
+            else:
+                ntarget = psi4.core.Matrix.from_array( [ self.nt[0] + self.nt[1] ] )
+                wfn_guess.V_potential().set_D( [ntarget] )
+                v_target = psi4.core.Matrix( self.nbf, self.nbf )
+                wfn_guess.V_potential().compute_V([v_target])
+                self.guess_a += v_target
+                self.guess_b += v_target
 
