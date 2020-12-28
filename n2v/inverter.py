@@ -24,9 +24,7 @@ class Inverter(WuYang, Grider):
         self.ref       = psi4.core.get_global_option("REFERENCE")
         self.build_basis()
         self.generate_mints_matrices()
-        # self.generate_jk()
-        #Inversion
-        self.v0 = np.zeros( (2 * self.naux) )
+        self.v0 = np.zeros( (2 * self.naux) ) if self.ref == "UKS" or self.ref == "UHF" else np.zeros( self.naux )
         self.reg = 0.0
         self.debug = debug
 
@@ -131,6 +129,8 @@ class Inverter(WuYang, Grider):
             pass
         if method.lower() == "mrks":
             pass
+        else:
+            raise ValueError(f"Inversion method not available. Try: {['wuyang', 'pde', 'mrks']}")
 
     def initial_guess(self, guess):
         """
