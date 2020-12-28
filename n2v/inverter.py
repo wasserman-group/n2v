@@ -25,12 +25,13 @@ class Inverter(WuYang):
         self.generate_mints_matrices()
         self.generate_jk()
 
-        #Plotting Grid
+        #Plotting Gridgi
         # self.grid = Grider()
+
         #Inversion
         self.v0 = np.zeros( (2 * self.naux) )
         self.reg = 0.0
-        #Anything else
+
         self.debug = debug
 
 
@@ -118,13 +119,10 @@ class Inverter(WuYang):
         Handler to all available inversion methods
         """
 
+        self.nalpha, self.nbeta = wfn.nalpha(), wfn.nbeta()
         self.nt = [wfn.Da().np, wfn.Db().np]
         self.ct = [wfn.Ca_subset("AO", "OCC"), wfn.Cb_subset("AO", "OCC")]
-
-        print("I am about to calculate initial guess")
         self.initial_guess(guess)
-
-        print("I just calculated initial guess")
 
         if method.lower() == "wuyang":
             self.wuyang(opt_method)
@@ -138,27 +136,27 @@ class Inverter(WuYang):
         self.guess_a = np.zeros_like(self.T)
         self.guess_b = np.zeros_like(self.T)
 
+
         if "fermi_amaldi" in guess:
-            if self.debug == True:
+            if self.debug is True:
                 print("Adding Fermi Amaldi potential to initial guess")
 
-            N = self.mol.nallatom()
+            N = self.nalpha + self.nbeta
             J, _ = self.form_jk( self.ct[0], self.ct[1] )
             v_fa = (-1/N) * (J[0] + J[1])
-
             self.guess_a += v_fa
             self.guess_b += v_fa
 
         if "svwn" in guess or "pbe" in guess:
-            if self.debug == True:
-                print(f"Adding XC potential {method} to initial guess")
-
             if "svwn" in guess:
                 indx = guess.index("svwn")
                 method = guess[indx]
             elif "pbe" in guess:
                 indx = guess.index("pbe")
                 method = guess[indx]
+
+            if self.debug == True:
+                print(f"Adding XC potential {guess} to initial guess")
 
             _, wfn_guess = psi4.energy( method+"/"+self.basis_str, molecule=self.mol , return_wfn = True)
             self.nalpha = wfn_guess.nalpha()
@@ -171,13 +169,18 @@ class Inverter(WuYang):
                 va_target = psi4.core.Matrix( self.nbf, self.nbf )
                 vb_target = psi4.core.Matrix( self.nbf, self.nbf )
                 wfn_guess.V_potential().compute_V([va_target, vb_target])
-                self.guess_a += va_target
-                self.guess_b += vb_target
+                self.guess_a += va_target.np
+                self.guess_b += vb_target.np
+\
             else:
                 ntarget = psi4.core.Matrix.from_array( [ self.nt[0] + self.nt[1] ] )
                 wfn_guess.V_potential().set_D( [ntarget] )
                 v_target = psi4.core.Matrix( self.nbf, self.nbf )
                 wfn_guess.V_potential().compute_V([v_target])
-                self.guess_a += v_target
-                self.guess_b += v_target
+
+                self.guess_a += v_target.np / 2
+                self.guess_b += v_target.np / 2
+
+
+
 
