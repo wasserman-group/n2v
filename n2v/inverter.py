@@ -12,10 +12,10 @@ from opt_einsum import contract
 import psi4
 psi4.core.be_quiet()
 
-from .methods.wuyang import wuyang
+from .methods._wuyang import WuYang
 
 
-class Inverter():
+class Inverter(WuYang):
     def __init__(self, mol, basis_str, aux_str="same", debug=False):
         self.basis_str = basis_str
         self.aux_str   = aux_str
@@ -123,7 +123,7 @@ class Inverter():
         self.initial_guess(guess)
 
         if method.lower() == "wuyang":
-            wuyang(self, opt_method)
+            self.wuyang(opt_method)
         if method.lower() == "pde":
             pass
         if method.lower() == "mrks":
@@ -167,13 +167,6 @@ class Inverter():
 
             self.guess_a += va_target
             self.guess_b += vb_target
-
-
-
-
-
-
-
 
 
 
