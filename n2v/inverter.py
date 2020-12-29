@@ -21,10 +21,11 @@ class Inverter(WuYang, Grider):
         self.basis_str = basis_str
         self.aux_str   = aux_str
         self.mol       = mol
-        self.ref       = psi4.core.get_global_option("REFERENCE")
+        self.ref       = 1 if psi4.core.get_global_option("REFERENCE") == "RHF" or \
+                              psi4.core.get_global_option("REFERENCE") == "RKS" else 2
         self.build_basis()
         self.generate_mints_matrices()
-        self.v0 = np.zeros( (2 * self.naux) ) if self.ref == "UKS" or self.ref == "UHF" else np.zeros( self.naux )
+        self.v0 = np.zeros( (self.naux) ) if self.ref == 1 else np.zeros( 2 * self.naux )
         self.reg = 0.0
         self.debug = debug
 
@@ -67,10 +68,10 @@ class Inverter(WuYang, Grider):
         self.T = mints.ao_kinetic().np.copy()
         self.V = mints.ao_potential().np.copy()
 
-    def generate_jk(self, gen_K=True, memory=2.50e9):
+    def generate_jk(self, gen_K=False, memory=2.50e9):
         """
         Creates jk object for generation of Coulomb and Exchange matrices
-        2.5e9 B -> 2.5 GB
+        1.0e9 B -> 1.0 GB
         """
         jk = psi4.core.JK.build(self.basis)
         jk.set_memory(int(memory)) 
@@ -89,7 +90,7 @@ class Inverter(WuYang, Grider):
         self.jk.C_clear()
 
         J = [self.jk.J()[0].np, self.jk.J()[1].np]
-        K = [self.jk.K()[0].np, self.jk.K()[1].np]
+        K = []
 
         return J, K
 
@@ -115,8 +116,11 @@ class Inverter(WuYang, Grider):
         """
         Handler to all available inversion methods
         """
+
         if hasattr(wfn, "jk") is False:
             self.generate_jk()
+        else:
+            self.jk = wfn.jk()
 
         self.nalpha, self.nbeta = wfn.nalpha(), wfn.nbeta()
         self.nt = [wfn.Da().np, wfn.Db().np]
@@ -169,7 +173,14 @@ class Inverter(WuYang, Grider):
             self.nalpha = wfn_guess.nalpha()
             self.nbeta = wfn_guess.nbeta()
             #Get density-drivenless vxc
-            if self.ref == "UKS" or self.ref == "UHF":
+            if self.ref == 1:
+                ntarget = psi4.core.Matrix.from_array( [ self.nt[0] + self.nt[1] ] )
+                wfn_guess.V_potential().set_D( [ntarget] )
+                v_target = psi4.core.Matrix( self.nbf, self.nbf )
+                wfn_guess.V_potential().compute_V([v_target])
+                self.guess_a += v_target.np
+                self.guess_b += v_target.np
+            elif self.ref == 2:
                 na_target = psi4.core.Matrix.from_array( self.nt[0] )
                 nb_target = psi4.core.Matrix.from_array( self.nt[1] )
                 wfn_guess.V_potential().set_D( [na_target, nb_target] )
@@ -178,14 +189,7 @@ class Inverter(WuYang, Grider):
                 wfn_guess.V_potential().compute_V([va_target, vb_target])
                 self.guess_a += va_target.np
                 self.guess_b += vb_target.np
-            else:
-                ntarget = psi4.core.Matrix.from_array( [ self.nt[0] + self.nt[1] ] )
-                wfn_guess.V_potential().set_D( [ntarget] )
-                v_target = psi4.core.Matrix( self.nbf, self.nbf )
-                wfn_guess.V_potential().compute_V([v_target])
 
-                self.guess_a += v_target.np / 2
-                self.guess_b += v_target.np / 2
 
     def generate_grid(self):
         self.get_from_grid()

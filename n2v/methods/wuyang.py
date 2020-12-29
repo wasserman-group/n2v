@@ -61,12 +61,12 @@ class WuYang():
         fock_a = self.V + self.T + vks_a 
         self.Ca, self.Coca, self.Da, self.eigvecs_a = self.diagonalize( fock_a, self.nalpha )
 
-        if self.ref == "UHF" or self.ref == "UKS":
+        if self.ref == 1:
+            self.Cb, self.Coca, self.Db, self.eigvecs_b = self.Ca.copy(), self.Coca.copy(), self.Da.copy(), self.eigvecs_a.copy()
+        else:
             vks_b = contract("ijk,k->ij", self.S3, v[self.nbf:]) + self.guess_b
             fock_b = self.V + self.T + vks_b        
             self.Cb, self.Cocb, self.Db, self.eigvecs_b = self.diagonalize( fock_b, self.nbeta )
-        else:
-            self.Cb, self.Coca, self.Db, self.eigvecs_b = self.Ca.copy(), self.Coca.copy(), self.Da.copy(), self.eigvecs_a.copy()
 
     def lagrangian(self, v):
         """
@@ -82,13 +82,14 @@ class WuYang():
         potential   =   contract('ij,ji', self.V + self.guess_a, self.Da - self.nt[0])
         optimizing  =   contract('i,i'  , v[:self.naux], self.grad_a)
 
-        if self.ref == "UKS" or self.ref == "UHF":
+        if self.ref == 1:
+            L = 2 * (kinetic + potential + optimizing)
+
+        else:
             kinetic    +=   contract('ij,ji', self.T, (self.Db))
             potential  +=   contract('ij,ji', self.V + self.guess_b, self.Db - self.nt[0])
             optimizing +=   contract('i,i'  , v[self.naux:], self.grad_b)
             L = kinetic + potential + optimizing
-        else:
-            L = 2 * (kinetic + potential + optimizing)
 
         if self.debug == True:
             print(f"Kinetic: {kinetic:6.4f} | Potential: {np.abs(potential):6.4e} | From Optimization: {np.abs(optimizing):6.4e}")
@@ -108,10 +109,10 @@ class WuYang():
         self.grad_a = contract('ij,ijt->t', (self.Da - self.nt[0]), self.S3)
         self.grad_b = contract('ij,ijt->t', (self.Db - self.nt[1]), self.S3) 
 
-        if self.ref == "UKS" or self.ref == "UHF":
-            self.grad   = np.concatenate(( self.grad_a, self.grad_b ))
-        else:
+        if self.ref == 1:
             self.grad   = self.grad_a
+        else:
+            self.grad   = np.concatenate(( self.grad_a, self.grad_b ))
 
         return -self.grad
 
@@ -129,21 +130,17 @@ class WuYang():
         C3a = contract('mi,va,mvt->iat', self.Ca[:,:na], self.Ca[:,nb:], self.S3)
         Ha = 2 * contract('iau,iat,ia->ut', C3a, C3a, eigs_diff_a**-1)
 
-        if self.ref == "UHF" or self.ref == "UKS":
+        if self. ref == 1:
+            Hs = Ha
+
+        else:
             eigs_diff_b = self.eigvecs_b[:nb, None] - self.eigvecs_b[None, nb:]
             C3b = contract('mi,va,mvt->iat', self.Cb[:,:nb], self.Cb[:,nb:], self.S3)
             Hb = 2 * contract('iau,iat,ia->ut', C3b, C3b, eigs_diff_b**-1)
-        else:
-            Hb = Ha.copy()
-
-        if self.ref == "UHF" or self.ref == "UKS":
             Hs = np.block( 
                             [[Ha,                               np.zeros((self.naux, self.naux))],
                             [np.zeros((self.naux, self.naux)), Hb                              ]] 
                         )
-        
-        else:
-            Hs = Ha
 
         if self.reg > 0.0:
             pass
