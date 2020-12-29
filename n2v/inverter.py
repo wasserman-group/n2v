@@ -18,6 +18,38 @@ from .grider import Grider
 
 class Inverter(WuYang, Grider):
     def __init__(self, wfn, aux_str="same", debug=False):
+        """
+        Handles Inversion
+        
+        Parameters
+        ----------
+        wfn : psi4.core.{RHF, UHF, RKS, UKS, Wavefunction, CCWavefuncion...}
+            Psi4 wavefunction object
+        mol : psi4.core.Molecule
+            Psi4 molecule object
+        basis : psi4.core.BasisSet
+            Psi4 basis set object
+        basis_str : str
+            Basis set
+        nbf : int
+            Number of basis functions for main calculation
+        nalpha : int
+            Number of alpha electrons
+        nbeta : int 
+            Number of beta electrons
+        ref : {1,2}
+            Reference calculation
+            1 -> Restricted
+            2 -> Unrestricted
+        nt : List
+            List of psi4.core.Matrix for target densities
+        ct : List
+            List of psi4.core.Matrix for occupied orbitals
+        aux : psi4.core.BasisSet
+            Auxiliary basis set for calculation of potential
+        v0  : np.ndarray
+            Initial zero guess for optimizer
+        """
         self.wfn       = wfn
         self.mol       = wfn.molecule()
         self.basis     = wfn.basisset()
@@ -29,13 +61,12 @@ class Inverter(WuYang, Grider):
                               psi4.core.get_global_option("REFERENCE") == "RKS" else 2
         self.nt        = [wfn.Da().np, wfn.Db().np]
         self.ct        = [wfn.Ca_subset("AO", "OCC"), wfn.Cb_subset("AO", "OCC")]
-        self.aux       = self.basis if aux_str is same 
+        self.aux       = self.basis if aux_str is "same" \
                                     else psi4.core.BasisSet.build( self.mol, key='BASIS', target=self.aux_str)
         self.naux      = self.aux.nbf()
         self.v0        = np.zeros( (self.naux) ) if self.ref == 1 \
                                                  else np.zeros( 2 * self.naux )
         self.generate_mints_matrices()
-        self.debug = debug
 
     #------------->  Basics:
 
@@ -102,7 +133,7 @@ class Inverter(WuYang, Grider):
 
     #------------->  Inversion:
 
-    def invert(self, method="wuyang", opt_method='trust-krylov', potential_components = ["fermi_amaldi"], reg=0.0):
+    def invert(self, method="wuyang", opt_method='trust-krylov', potential_components = ["fermi_amaldi", "svwn"], reg=0.0):
         """
         Handler to all available inversion methods
         """
@@ -119,7 +150,7 @@ class Inverter(WuYang, Grider):
         else:
             raise ValueError(f"Inversion method not available. Try: {['wuyang', 'pde', 'mrks']}")
 
-    def generate_components(self, v_components):
+    def generate_components(self, potential_components):
         """
         Generates exact
         """
@@ -146,10 +177,10 @@ class Inverter(WuYang, Grider):
             if self.ref == 1:
                 ntarget = psi4.core.Matrix.from_array( [ self.nt[0] + self.nt[1] ] )
                 wfn_guess.V_potential().set_D( [ntarget] )
-                v_target = psi4.core.Matrix( self.nbf, self.nbf )
-                wfn_guess.V_potential().compute_V([v_target])
-                self.guess_a += v_target.np
-                self.guess_b += v_target.np
+                va_target = psi4.core.Matrix( self.nbf, self.nbf )
+                wfn_guess.V_potential().compute_V([va_target])
+                self.guess_a += va_target.np
+                self.guess_b += va_target.np
             elif self.ref == 2:
                 na_target = psi4.core.Matrix.from_array( self.nt[0] )
                 nb_target = psi4.core.Matrix.from_array( self.nt[1] )
