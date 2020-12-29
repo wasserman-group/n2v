@@ -43,14 +43,15 @@ class WuYang():
             raise ValueError("Optimization was unsucessful, try a different intitial guess")
         else:
             print("Optimization Successful")
+            self.v = opt_results.x
 
         self.finalize_energy()
-        self.generate_grid()
+        # self.generate_grid()
 
         # if debug=True:
         #     self.density_accuracy()
 
-        self.v = opt_results.x
+
 
     def diagonalize_with_guess(self, v):
         """
@@ -77,15 +78,20 @@ class WuYang():
         self.grad_a = contract('ij,ijt->t', (self.Da - self.nt[0]), self.S3)
         self.grad_b = contract('ij,ijt->t', (self.Db - self.nt[1]), self.S3) 
 
-        kinetic     =   contract('ij,ji', self.T, (self.Da + self.Db))
+        kinetic     =   contract('ij,ji', self.T, (self.Da))
         potential   =   contract('ij,ji', self.V + self.guess_a, self.Da - self.nt[0])
-        potential  +=   contract('ij,ji', self.V + self.guess_b, self.Db - self.nt[1])
         optimizing  =   contract('i,i'  , v[:self.naux], self.grad_a)
-        optimizing +=   contract('i,i'  , v[self.naux:], self.grad_b)
+
+        if self.ref == "UKS" or self.ref == "UHF":
+            kinetic    +=   contract('ij,ji', self.T, (self.Db))
+            potential  +=   contract('ij,ji', self.V + self.guess_b, self.Db - self.nt[0])
+            optimizing +=   contract('i,i'  , v[self.naux:], self.grad_b)
+            L = kinetic + potential + optimizing
+        else:
+            L = 2 * (kinetic + potential + optimizing)
 
         if self.debug == True:
-            print(f"Kinetic: {kinetic:6.4f} | Potential {np.abs(potential):6.4e} | From Optimization {np.abs(optimizing):6.4e}")
-        L = kinetic + potential + optimizing
+            print(f"Kinetic: {kinetic:6.4f} | Potential: {np.abs(potential):6.4e} | From Optimization: {np.abs(optimizing):6.4e}")
 
         reg = 0.0
         if self.reg > 0:
@@ -101,7 +107,11 @@ class WuYang():
         self.diagonalize_with_guess(v)
         self.grad_a = contract('ij,ijt->t', (self.Da - self.nt[0]), self.S3)
         self.grad_b = contract('ij,ijt->t', (self.Db - self.nt[1]), self.S3) 
-        self.grad   = np.concatenate(( self.grad_a, self.grad_b ))
+
+        if self.ref == "UKS" or self.ref == "UHF":
+            self.grad   = np.concatenate(( self.grad_a, self.grad_b ))
+        else:
+            self.grad   = self.grad_a
 
         return -self.grad
 
@@ -126,10 +136,14 @@ class WuYang():
         else:
             Hb = Ha.copy()
 
-        Hs = np.block( 
-                        [[Ha, np.zeros((self.naux, self.naux))],
-                            [np.zeros((self.naux, self.naux)), Hb]] 
+        if self.ref == "UHF" or self.ref == "UKS":
+            Hs = np.block( 
+                            [[Ha,                               np.zeros((self.naux, self.naux))],
+                            [np.zeros((self.naux, self.naux)), Hb                              ]] 
                         )
+        
+        else:
+            Hs = Ha
 
         if self.reg > 0.0:
             pass

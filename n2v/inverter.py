@@ -125,9 +125,9 @@ class Inverter(WuYang, Grider):
 
         if method.lower() == "wuyang":
             self.wuyang(opt_method)
-        if method.lower() == "pde":
+        elif method.lower() == "pde":
             pass
-        if method.lower() == "mrks":
+        elif method.lower() == "mrks":
             pass
         else:
             raise ValueError(f"Inversion method not available. Try: {['wuyang', 'pde', 'mrks']}")
