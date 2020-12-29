@@ -9,8 +9,11 @@ import numpy as np
 from scipy.optimize import minimize
 from opt_einsum import contract
 
+import sys
+
 import psi4
 psi4.core.be_quiet()
+psi4.core.clean()
 
 from .methods.wuyang import WuYang
 from .grider import Grider
@@ -59,9 +62,10 @@ class Inverter(WuYang, Grider):
         self.nbeta     = wfn.nbeta()
         self.ref       = 1 if psi4.core.get_global_option("REFERENCE") == "RHF" or \
                               psi4.core.get_global_option("REFERENCE") == "RKS" else 2
-        self.nt        = [wfn.Da().np, wfn.Db().np]
+        self.jk        = wfn.jk() if hasattr(wfn, "jk") == True else self.generate_jk()
+        self.nt        = [wfn.Da_subset("AO").np, wfn.Db_subset("AO").np]
         self.ct        = [wfn.Ca_subset("AO", "OCC"), wfn.Cb_subset("AO", "OCC")]
-        self.aux       = self.basis if aux_str is "same" \
+        self.aux       = self.basis if aux_str == "same" \
                                     else psi4.core.BasisSet.build( self.mol, key='BASIS', target=self.aux_str)
         self.naux      = self.aux.nbf()
         self.v0        = np.zeros( (self.naux) ) if self.ref == 1 \
@@ -83,7 +87,6 @@ class Inverter(WuYang, Grider):
         A.power( -0.5, 1e-16 )
         self.A = A
         self.S3 = np.squeeze(mints.ao_3coverlap(self.basis,self.basis,self.aux))
-        self.jk = None 
 
         #Core Matrices
         self.T = mints.ao_kinetic().np.copy()
@@ -98,7 +101,8 @@ class Inverter(WuYang, Grider):
         jk.set_memory(int(memory)) 
         jk.set_do_K(gen_K)
         jk.initialize()
-        self.jk = jk
+        
+        return jk
 
     def form_jk(self, Cocc_a, Cocc_b):
         """
@@ -133,16 +137,21 @@ class Inverter(WuYang, Grider):
 
     #------------->  Inversion:
 
-    def invert(self, method="wuyang", opt_method='trust-krylov', potential_components = ["fermi_amaldi", "svwn"], reg=0.0):
+    def invert(self, method="wuyang", 
+                     opt_method='trust-krylov', 
+                     potential_components = ["fermi_amaldi", "svwn"], 
+                     opt_max_iter = 50,
+                     opt_tol      = 1e-6,
+                     reg=0.0):
         """
         Handler to all available inversion methods
         """
 
         self.reg = reg
-        self.generate_components(v_components)
+        self.generate_components(potential_components)
 
         if method.lower() == "wuyang":
-            self.wuyang(opt_method)
+            self.wuyang(opt_method, opt_max_iter, opt_tol)
         elif method.lower() == "pde":
             pass
         elif method.lower() == "mrks":
@@ -155,46 +164,48 @@ class Inverter(WuYang, Grider):
         Generates exact
         """
 
-        self.v = np.zeros_like(self.T)
-        self.v = np.zeros_like(self.T)
+        self.va = np.zeros_like(self.T)
+        self.vb = np.zeros_like(self.T)
 
-        if "fermi_amaldi" in guess:
+        if "fermi_amaldi" in potential_components:
             N = self.nalpha + self.nbeta
             J, _ = self.form_jk( self.ct[0], self.ct[1] )
             self.Hartree_a, self.Hartree_b = J[0], J[1]
             v_fa = (-1/N) * (J[0] + J[1])
 
-            self.v += v_fa
-            self.v += v_fa
+            self.va += v_fa
+            self.vb += v_fa
 
-        if "svwn" in guess or "pbe" in guess:
-
-            if "svwn" in guess:
-                _, wfn_guess = psi4.energy( "svwn"+"/"+self.basis_str, molecule=self.mol , return_wfn = True)
+        if "svwn" in potential_components or "pbe" in potential_components:
+            if "svwn" in potential_components:
+                _, wfn_0 = psi4.energy( "svwn"+"/"+self.basis_str, molecule=self.mol , return_wfn = True)
             else:
-                _, wfn_guess = psi4.energy( "pbe"+"/"+self.basis_str, molecule=self.mol , return_wfn = True)
-            #Get density-drivenless vxc
+                _, wfn_0 = psi4.energy( "pbe"+"/"+self.basis_str, molecule=self.mol , return_wfn = True)
+
             if self.ref == 1:
                 ntarget = psi4.core.Matrix.from_array( [ self.nt[0] + self.nt[1] ] )
-                wfn_guess.V_potential().set_D( [ntarget] )
-                va_target = psi4.core.Matrix( self.nbf, self.nbf )
-                wfn_guess.V_potential().compute_V([va_target])
-                self.guess_a += va_target.np
-                self.guess_b += va_target.np
+                wfn_0.V_potential().set_D( [ntarget] )
+                vxc_a = psi4.core.Matrix( self.nbf, self.nbf )
+                wfn_0.V_potential().compute_V([vxc_a])
+                self.va += vxc_a.np
+                self.vb += vxc_a.np
             elif self.ref == 2:
                 na_target = psi4.core.Matrix.from_array( self.nt[0] )
                 nb_target = psi4.core.Matrix.from_array( self.nt[1] )
-                wfn_guess.V_potential().set_D( [na_target, nb_target] )
-                va_target = psi4.core.Matrix( self.nbf, self.nbf )
-                vb_target = psi4.core.Matrix( self.nbf, self.nbf )
-                wfn_guess.V_potential().compute_V([va_target, vb_target])
-                self.guess_a += va_target.np
-                self.guess_b += vb_target.np
+                wfn_0.V_potential().set_D( [na_target, nb_target] )
+                vxc_a = psi4.core.Matrix( self.nbf, self.nbf )
+                vxc_b = psi4.core.Matrix( self.nbf, self.nbf )
+                wfn_0.V_potential().compute_V([vxc_a, vxc_b])
+                self.va += vxc_a.np
+                self.vb += vxc_b.np
 
     def finalize_energy(self):
         """
         Calculates energy contributions
         """
+
+        target_one        = self.wfn.to_file()['floatvar']['ONE-ELECTRON ENERGY']
+        target_two        = self.wfn.to_file()['floatvar']['TWO-ELECTRON ENERGY']
 
         energy_kinetic    = contract('ij,ij', self.T, (self.Da + self.Db))
         energy_external   = contract('ij,ij', self.V, (self.Da + self.Db))
@@ -205,11 +216,18 @@ class Inverter(WuYang, Grider):
         energy_ks = 0.0
         energies = {"One-Electron Energy" : energy_kinetic + energy_external,
                     "Two-Electron Energy" : energy_hartree_a + energy_hartree_b,
-                    "XC"                  : energy_ks,
-                    "Total Energy"        : energy_kinetic   + energy_external  + \
-                                            energy_hartree_a + energy_hartree_b + \
-                                            energy_ks }
-        self.energy   = energies["Total Energy"] 
+                    # "XC"                  : energy_ks,
+                    # "Total Energy"        : energy_kinetic   + energy_external  + \
+                    #                         energy_hartree_a + energy_hartree_b + \
+                    #                         energy_ks 
+                    }
+
+        target_energies =  {"One-Electron Energy" : target_one,
+                            "Two-Electron Energy" : target_two,
+                           }
+
         self.energies = energies
+        self.target_energies = target_energies
 
         print(f"Final Energies: {self.energies}")
+        print(f"Target Energies: {self.target_energies}")

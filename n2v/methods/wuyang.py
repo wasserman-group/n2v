@@ -13,7 +13,7 @@ class WuYang():
     Performs Optimization as in: 10.1063/1.1535422 - Qin Wu + Weitao Yang
     """
 
-    def wuyang(self, opt_method):
+    def wuyang(self, opt_method, opt_max_iter, opt_tol):
         """
         Calls scipy minimizer to minimize lagrangian. 
         """
@@ -22,9 +22,9 @@ class WuYang():
             opt_results = minimize( fun = self.lagrangian,
                                     x0  = self.v0, 
                                     jac = self.gradient,
-                                    method = opt_method,
-                                    tol    = 1e-7,
-                                    options = {"maxiter" : 50,
+                                    method  = opt_method,
+                                    tol     = opt_tol,
+                                    options = {"maxiter" : opt_max_iter,
                                                 "disp"    : False,}
                                     )
 
@@ -34,8 +34,8 @@ class WuYang():
                                     jac = self.gradient,
                                     hess = self.hessian,
                                     method = opt_method,
-                                    tol    = 1e-7,
-                                    options = {"maxiter" : 50,
+                                    tol    = opt_tol,
+                                    options = {"maxiter"  : opt_max_iter,
                                                 "disp"    : False, }
                                     )
 
@@ -43,7 +43,7 @@ class WuYang():
             raise ValueError("Optimization was unsucessful, try a different intitial guess")
         else:
             print("Optimization Successful")
-            self.v = opt_results.x
+            self.v_opt = opt_results.x
 
         self.finalize_energy()
         # self.generate_grid()
@@ -51,20 +51,18 @@ class WuYang():
         # if debug=True:
         #     self.density_accuracy()
 
-
-
     def diagonalize_with_guess(self, v):
         """
         Diagonalize Fock matrix with additional external potential
         """
-        vks_a = contract("ijk,k->ij", self.S3, v[:self.nbf]) + self.guess_a
+        vks_a = contract("ijk,k->ij", self.S3, v[:self.nbf]) + self.va
         fock_a = self.V + self.T + vks_a 
         self.Ca, self.Coca, self.Da, self.eigvecs_a = self.diagonalize( fock_a, self.nalpha )
 
         if self.ref == 1:
             self.Cb, self.Coca, self.Db, self.eigvecs_b = self.Ca.copy(), self.Coca.copy(), self.Da.copy(), self.eigvecs_a.copy()
         else:
-            vks_b = contract("ijk,k->ij", self.S3, v[self.nbf:]) + self.guess_b
+            vks_b = contract("ijk,k->ij", self.S3, v[self.nbf:]) + self.vb
             fock_b = self.V + self.T + vks_b        
             self.Cb, self.Cocb, self.Db, self.eigvecs_b = self.diagonalize( fock_b, self.nbeta )
 
@@ -79,7 +77,7 @@ class WuYang():
         self.grad_b = contract('ij,ijt->t', (self.Db - self.nt[1]), self.S3) 
 
         kinetic     =   contract('ij,ji', self.T, (self.Da))
-        potential   =   contract('ij,ji', self.V + self.guess_a, self.Da - self.nt[0])
+        potential   =   contract('ij,ji', self.V + self.va, self.Da - self.nt[0])
         optimizing  =   contract('i,i'  , v[:self.naux], self.grad_a)
 
         if self.ref == 1:
@@ -87,11 +85,11 @@ class WuYang():
 
         else:
             kinetic    +=   contract('ij,ji', self.T, (self.Db))
-            potential  +=   contract('ij,ji', self.V + self.guess_b, self.Db - self.nt[0])
+            potential  +=   contract('ij,ji', self.V + self.vb, self.Db - self.nt[0])
             optimizing +=   contract('i,i'  , v[self.naux:], self.grad_b)
             L = kinetic + potential + optimizing
 
-        if self.debug == True:
+        if True:
             print(f"Kinetic: {kinetic:6.4f} | Potential: {np.abs(potential):6.4e} | From Optimization: {np.abs(optimizing):6.4e}")
 
         reg = 0.0
