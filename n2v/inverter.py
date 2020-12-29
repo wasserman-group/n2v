@@ -17,37 +17,27 @@ from .grider import Grider
 
 
 class Inverter(WuYang, Grider):
-    def __init__(self, mol, basis_str, aux_str="same", debug=False):
-        self.basis_str = basis_str
-        self.aux_str   = aux_str
-        self.mol       = mol
+    def __init__(self, wfn, aux_str="same", debug=False):
+        self.wfn       = wfn
+        self.mol       = wfn.molecule()
+        self.basis     = wfn.basisset()
+        self.basis_str = wfn.basisset().name()
+        self.nbf       = wfn.basisset().nbf()
+        self.nalpha    = wfn.nalpha()
+        self.nbeta     = wfn.nbeta()
         self.ref       = 1 if psi4.core.get_global_option("REFERENCE") == "RHF" or \
                               psi4.core.get_global_option("REFERENCE") == "RKS" else 2
-        self.build_basis()
+        self.nt        = [wfn.Da().np, wfn.Db().np]
+        self.ct        = [wfn.Ca_subset("AO", "OCC"), wfn.Cb_subset("AO", "OCC")]
+        self.aux       = self.basis if aux_str is same 
+                                    else psi4.core.BasisSet.build( self.mol, key='BASIS', target=self.aux_str)
+        self.naux      = self.aux.nbf()
+        self.v0        = np.zeros( (self.naux) ) if self.ref == 1 \
+                                                 else np.zeros( 2 * self.naux )
         self.generate_mints_matrices()
-        self.v0 = np.zeros( (self.naux) ) if self.ref == 1 else np.zeros( 2 * self.naux )
-        self.reg = 0.0
         self.debug = debug
 
-
     #------------->  Basics:
-
-    def build_basis(self):
-        """
-        Build basis set object and auxiliary basis set object
-        """
-
-        basis = psi4.core.BasisSet.build( self.mol, key='BASIS', target=self.basis_str)
-        self.basis = basis
-        self.nbf   = self.basis.nbf()
-
-        if self.aux_str != "same":
-            aux_basis = psi4.core.BasisSet.build( self.mol, key='Basis', target=self.aux_str)
-            self.aux = aux_basis
-            self.naux = aux_basis.nbf()
-        else:
-            self.aux  = self.basis
-            self.naux = self.nbf
 
     def generate_mints_matrices(self):
         """
@@ -112,20 +102,13 @@ class Inverter(WuYang, Grider):
 
     #------------->  Inversion:
 
-    def invert(self, wfn, method, opt_method='bfgs', guess=["fermi_amaldi"]):
+    def invert(self, method="wuyang", opt_method='trust-krylov', potential_components = ["fermi_amaldi"], reg=0.0):
         """
         Handler to all available inversion methods
         """
 
-        if hasattr(wfn, "jk") is False:
-            self.generate_jk()
-        else:
-            self.jk = wfn.jk()
-
-        self.nalpha, self.nbeta = wfn.nalpha(), wfn.nbeta()
-        self.nt = [wfn.Da().np, wfn.Db().np]
-        self.ct = [wfn.Ca_subset("AO", "OCC"), wfn.Cb_subset("AO", "OCC")]
-        self.initial_guess(guess)
+        self.reg = reg
+        self.generate_components(v_components)
 
         if method.lower() == "wuyang":
             self.wuyang(opt_method)
@@ -136,42 +119,29 @@ class Inverter(WuYang, Grider):
         else:
             raise ValueError(f"Inversion method not available. Try: {['wuyang', 'pde', 'mrks']}")
 
-    def initial_guess(self, guess):
+    def generate_components(self, v_components):
         """
-        Generates Initial guess for inversion
+        Generates exact
         """
 
-        self.guess_a = np.zeros_like(self.T)
-        self.guess_b = np.zeros_like(self.T)
+        self.v = np.zeros_like(self.T)
+        self.v = np.zeros_like(self.T)
 
         if "fermi_amaldi" in guess:
-            if self.debug is True:
-                print("Adding Fermi Amaldi potential to initial guess")
-
             N = self.nalpha + self.nbeta
             J, _ = self.form_jk( self.ct[0], self.ct[1] )
             self.Hartree_a, self.Hartree_b = J[0], J[1]
             v_fa = (-1/N) * (J[0] + J[1])
 
-            # print("J target\n", J[0] + J[1])
-
-            self.guess_a += v_fa
-            self.guess_b += v_fa
+            self.v += v_fa
+            self.v += v_fa
 
         if "svwn" in guess or "pbe" in guess:
+
             if "svwn" in guess:
-                indx = guess.index("svwn")
-                method = guess[indx]
-            elif "pbe" in guess:
-                indx = guess.index("pbe")
-                method = guess[indx]
-
-            if self.debug == True:
-                print(f"Adding XC potential to initial guess")
-
-            _, wfn_guess = psi4.energy( method+"/"+self.basis_str, molecule=self.mol , return_wfn = True)
-            self.nalpha = wfn_guess.nalpha()
-            self.nbeta = wfn_guess.nbeta()
+                _, wfn_guess = psi4.energy( "svwn"+"/"+self.basis_str, molecule=self.mol , return_wfn = True)
+            else:
+                _, wfn_guess = psi4.energy( "pbe"+"/"+self.basis_str, molecule=self.mol , return_wfn = True)
             #Get density-drivenless vxc
             if self.ref == 1:
                 ntarget = psi4.core.Matrix.from_array( [ self.nt[0] + self.nt[1] ] )
@@ -190,10 +160,6 @@ class Inverter(WuYang, Grider):
                 self.guess_a += va_target.np
                 self.guess_b += vb_target.np
 
-
-    def generate_grid(self):
-        self.get_from_grid()
-
     def finalize_energy(self):
         """
         Calculates energy contributions
@@ -206,13 +172,6 @@ class Inverter(WuYang, Grider):
 
         print("WARNING: XC Energy is not yet properly calculated")
         energy_ks = 0.0
-
-        # # alpha = 0.0
-        # bucket = get_from_grid(self.part.mol_str, self.part.basis_str, self.Da, self.Db )
-        # # energy_exchange_a = -0.5 * alpha * contract('ij,ji', K[0], self.Da)
-        # # energy_exchange_b = -0.5 * alpha * contract('ij,ji', K[1], self.Db)
-        # energy_ks            =  1.0 * bucket.exc
-
         energies = {"One-Electron Energy" : energy_kinetic + energy_external,
                     "Two-Electron Energy" : energy_hartree_a + energy_hartree_b,
                     "XC"                  : energy_ks,
