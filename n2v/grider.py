@@ -8,9 +8,11 @@ import numpy as np
 from dataclasses import dataclass
 import psi4
 psi4.core.be_quiet()
+from pylibxc import LibXCFunctional as Functional
 
 from .cubeprop import Cubeprop
 
+import warnings
 import matplotlib.pyplot as plt
 from opt_einsum import contract
 
@@ -21,14 +23,21 @@ class data_bucket:
 class Grider(Cubeprop):
 
     def build_rectangular_grid(self, 
-                               L = [3.0, 3.0, 3.0], 
-                               D = [0.1, 0.1, 0.1]):
+                               L = [3.1, 3.1, 3.1], 
+                               D = [0.09, 0.09, 0.09]):
 
         psi4.set_options({"CUBIC_BLOCK_MAX_POINTS" : 1000000})
                     
         O, N = self.build_grid(L, D)
         block, points, nxyz, npoints, grid =  self.populate_grid(O, N, D)
         # return block, points, nxyz, npoints, [x_plot, y_plot, z_plot]
+
+        # lpos = np.array(block.functions_local_to_global())
+        # phi = points_func.basis_values()["PHI"])[:npoints, :lpos.shape[0]]
+
+        x = grid[0]
+        y = grid[1]
+        z = grid[2]
 
         # GENERATE DENSITY
         density = np.zeros(int(npoints))
@@ -43,26 +52,80 @@ class Grider(Cubeprop):
         cube_density = np.reshape(density, (int(N[0]), int(N[1]), int(N[2])))
 
         self.grid = data_bucket
-        self.grid.x, self.grid.y, self.grid.z = grid[0], grid[1], grid[2]
-        self.grid.density = cube_density
-        self.grid.full_dnesity = density 
+        # self.grid.x, self.grid.y, self.grid.z = grid[0], grid[1], grid[2]
+        self.grid.xyz = np.array((grid[0],grid[1],grid[2])).T    
+        self.grid.cube_density = cube_density
+        self.grid.scatter_density = density 
 
 
-        #GENERATE HARTREE
+        #GENERATE EXTERNAL
+        mol_dict = self.mol.to_schema(dtype='psi4')
+        natoms = len(mol_dict["elem"])
+        indx = [i for i in range(natoms) if self.mol.charge(i) != 0.0]
+        natoms = len(indx)
+        #Atomic numbers and Atomic positions
+        zs = [mol_dict["elez"][i] for i in indx]
+        rs = [self.mol.geometry().np[i] for i in indx]
 
+        vext = np.zeros(npoints)
+        for atom in range(natoms):
+            r =  np.sqrt( (x-rs[atom][0])**2 + (y-rs[atom][1])**2+ (z-rs[atom][2])**2)
+            vext += -1.0 * zs[atom] / r
+            vext[r < 1e-15] = 0                           
+        self.grid.vext = vext
+
+        #ESP
+        grid_block = np.array((x,y,z)).T    
+        esp_wfn = psi4.core.ESPPropCalc(self.wfn)
+        grid_block = psi4.core.Matrix.from_array(grid_block)
+        esp = esp_wfn.compute_esp_over_grid_in_memory(grid_block).np
+        self.grid.esp = esp
 
         #Hartree
+        hartree = - 1.0 * (vext + esp)
+        self.grid.hartree = hartree
 
         #XC
+        warnings.warn("Only LDA fucntionals are supported to be represented on the grid")
+        ingredients = {}
+        ingredients["rho"] = density
+        functional = Functional(1, 1)
+        xc_dictionary = functional.compute(ingredients)
+        vxc = xc_dictionary['vrho']  
+
+        self.grid.vxc = vxc
 
         #From Optz
 
-        #Density
+        #Generate ONE DIMENSIONAL
+        
+        z_indx  = []
+
+        indx  = []
+        for i in range(len(grid[0])):
+            if np.abs(grid[0][i]) < 1e-11:
+                if np.abs(grid[1][i]) < 1e-11:
+                    indx.append( i )
+        indx = np.array(indx)
+
+        print("index", indx)
+
+        self.grid.z         = grid[0][indx]
+        self.grid.z_density = density[indx]
+        self.grid.z_esp     = esp[indx]
+        self.grid.z_hartree = hartree[indx]
+        self.grid.z_vext     = vext[indx]
+
 
         psi4.set_options({"CUBIC_BLOCK_MAX_POINTS" : 1000})
 
-        return grid, density, N
+        block, points = 0, 0
+
+        return
         
+    # def generate_hartree(self):
+
+    # def generate_density(self)
 
     def get_from_grid(self):
     
