@@ -71,7 +71,7 @@ class Grider(Cubeprop):
         for atom in range(natoms):
             r =  np.sqrt( (x-rs[atom][0])**2 + (y-rs[atom][1])**2+ (z-rs[atom][2])**2)
             vext += -1.0 * zs[atom] / r
-            vext[r < 1e-15] = 0                           
+            # vext[r < 1e-15] = 0                           
         self.grid.vext = vext
 
         #ESP
@@ -98,23 +98,23 @@ class Grider(Cubeprop):
         #From Optz
 
         #Generate ONE DIMENSIONAL
-        
-        z_indx  = []
+    
 
         indx  = []
         for i in range(len(grid[0])):
-            if np.abs(grid[0][i]) < 1e-11:
-                if np.abs(grid[1][i]) < 1e-11:
+            if np.abs(grid[0][i]) < 1e-8:
+                if np.abs(grid[1][i]) < 1e-8:
                     indx.append( i )
+        if len(indx) == 0:
+            warnings.warn("Warning. Cubic grid is not covering the z axis")
         indx = np.array(indx)
 
-        print("index", indx)
-
-        self.grid.z         = grid[0][indx]
+        self.grid.z         = grid[2][indx]
         self.grid.z_density = density[indx]
         self.grid.z_esp     = esp[indx]
         self.grid.z_hartree = hartree[indx]
         self.grid.z_vext     = vext[indx]
+        self.grid.z_vxc      = vxc[indx]
 
 
         psi4.set_options({"CUBIC_BLOCK_MAX_POINTS" : 1000})

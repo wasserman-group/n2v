@@ -122,10 +122,10 @@ class Cubeprop():
 
         npoints = (N[0]) * (N[1]) * (N[2])
 
-        x = np.zeros(int(npoints))
-        y = np.zeros(int(npoints))
-        z = np.zeros(int(npoints))
-        w = np.zeros(int(npoints))
+        x = np.zeros(int(npoints), dtype=np.half)
+        y = np.zeros(int(npoints), dtype=np.half)
+        z = np.zeros(int(npoints), dtype=np.half)
+        w = np.zeros(int(npoints), dtype=np.half)
 
         max_points = psi4.core.get_global_option("CUBIC_BlOCK_MAX_POINTS")
         nxyz = int(np.round(max_points**(1/3)))
@@ -187,7 +187,7 @@ class Cubeprop():
         y_out = np.array( y_plot )
         z_out = np.array( z_plot )
 
-        return block, points, nxyz, npoints, [x_out, y_out, z_out]
+        return block, points, nxyz, int(npoints), [x_out, y_out, z_out]
         #return block, points, nxyz, npoints
 
     def add_density(self, npoints, points, block, matrix):
