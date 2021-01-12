@@ -33,7 +33,7 @@ python setup.py install
 - If any unexpected error occurs, please contact us at: gonza445@purdue.edu 
 
 ### Tutorials:
-Learn how to use n2v with these [examples](https://github.com/wasserman-group/nv2_examples).  
+Learn how to use n2v with these [examples](https://github.com/wasserman-group/n2v_examples).  
 Or try it [without installing](https://jupyter.org/binder)
   
 ### Copyright
