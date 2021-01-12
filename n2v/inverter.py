@@ -16,10 +16,12 @@ psi4.core.be_quiet()
 psi4.core.clean()
 
 from .methods.wuyang import WuYang
+from .methods.zmp import ZMP
+from .methods.rmks import MRKS
 from .grider import Grider
 
 
-class Inverter(WuYang, Grider):
+class Inverter(WuYang, ZMP, MRKS, Grider):
     def __init__(self, wfn, aux_str="same", debug=False):
         """
         Handles Inversion
