@@ -32,7 +32,7 @@ class Grider(Cubeprop):
     def build_rectangular_grid(self, 
                                L = [3.0, 3.0, 3.0], 
                                D = [0.2, 0.2, 0.2], 
-                               elements = ["density", "external", "vxc"],
+                               return_hartree = False,
                                one_dim = False):
 
         psi4.set_options({"CUBIC_BLOCK_MAX_POINTS" : 1000000})
@@ -48,16 +48,15 @@ class Grider(Cubeprop):
         z = grid[2]
 
         # GENERATE DENSITY
-        if "density" in elements:
-            density = np.zeros(int(npoints))
-            points.set_pointers(psi4.core.Matrix.from_array(self.Da))
-            rho = points.point_values()["RHO_A"]
-            offset = 0
-            for i in range(len(block)):
-                points.compute_points(block[i])
-                n_points = block[i].npoints()
-                offset += n_points
-                density[offset-n_points:offset] = 0.5 * rho.np[:n_points]
+        density = np.zeros(int(npoints))
+        points.set_pointers(psi4.core.Matrix.from_array(self.Da))
+        rho = points.point_values()["RHO_A"]
+        offset = 0
+        for i in range(len(block)):
+            points.compute_points(block[i])
+            n_points = block[i].npoints()
+            offset += n_points
+            density[offset-n_points:offset] = 0.5 * rho.np[:n_points]
 
         lpos = np.array(block[0].functions_local_to_global())
         phi = np.array(points.basis_values()["PHI"])[:npoints, :lpos.shape[0]]
@@ -68,29 +67,28 @@ class Grider(Cubeprop):
         self.grid.density = density 
 
         #GENERATE EXTERNAL
-        if "external" in elements:
-            mol_dict = self.mol.to_schema(dtype='psi4')
-            natoms = len(mol_dict["elem"])
-            indx = [i for i in range(natoms) if self.mol.charge(i) != 0.0]
-            natoms = len(indx)
-            #Atomic numbers and Atomic positions
-            zs = [mol_dict["elez"][i] for i in indx]
-            rs = [self.mol.geometry().np[i] for i in indx]
+        mol_dict = self.mol.to_schema(dtype='psi4')
+        natoms = len(mol_dict["elem"])
+        indx = [i for i in range(natoms) if self.mol.charge(i) != 0.0]
+        natoms = len(indx)
+        #Atomic numbers and Atomic positions
+        zs = [mol_dict["elez"][i] for i in indx]
+        rs = [self.mol.geometry().np[i] for i in indx]
 
-            vext = np.zeros(npoints)
-            with np.errstate(divide='ignore'):
-                for atom in range(natoms):
-                    r =  np.sqrt( (x-rs[atom][0])**2 + (y-rs[atom][1])**2+ (z-rs[atom][2])**2)
-                    vext += -1.0 * zs[atom] / r
-            for i in range(len(vext)):
-                if np.isinf(vext[i]) == True:
-                    vext[i] = 0.0
+        vext = np.zeros(npoints)
+        with np.errstate(divide='ignore'):
+            for atom in range(natoms):
+                r =  np.sqrt( (x-rs[atom][0])**2 + (y-rs[atom][1])**2+ (z-rs[atom][2])**2)
+                vext += -1.0 * zs[atom] / r
+        for i in range(len(vext)):
+            if np.isinf(vext[i]) == True:
+                vext[i] = 0.0
 
                                     
             self.grid.vext = vext
 
         #HARTREE
-        if "hartree" in elements:
+        if return_hartree == True:
             esp_wfn = psi4.core.ESPPropCalc(self.wfn)
             grid_block = psi4.core.Matrix.from_array(self.grid.xyz)
             esp = esp_wfn.compute_esp_over_grid_in_memory(grid_block).np
@@ -104,20 +102,23 @@ class Grider(Cubeprop):
             self.grid.v_fa = v_fa
 
         #VXC
-        if "vxc" in elements:
-            warnings.warn("Only LDA fucntionals are supported on the grid")
-            ingredients = {}
-            ingredients["rho"] = density
-            functional = Functional(1, 1)
-            xc_dictionary = functional.compute(ingredients)
-            vxc = np.squeeze(xc_dictionary['vrho'])
+        warnings.warn("Only LDA fucntionals are supported on the grid")
+        ingredients = {}
+        ingredients["rho"] = density
+        functional = Functional(1, 1) 
+        xc_dictionary = functional.compute(ingredients)
+        vxc = np.squeeze(xc_dictionary['vrho'])
 
-            self.grid.vxc = vxc
+        self.grid.vxc = vxc
 
         #POTENTIAL FROM OPTIMIZER
         if self.ref == 1:
-            vopt = contract('pm,m->p', phi, self.v_opt)
+            vopt_a = contract('pm,m->p', phi, self.v_opt)
+            vopt = np.concatenate((vopt_a, vopt_a))
         else:
+            vopt_a = contract('pm,m->p', phi, self.v_opt[:self.naux])
+            vopt_b = contract('pm,m->p', phi, self.v_opt[self.naux:])
+            vopt = np.concatenate(( vopt_a, vopt_b ))
     
         self.grid.vopt = vopt
 
@@ -134,17 +135,17 @@ class Grider(Cubeprop):
 
             self.grid.z         = grid[2][indx]
             self.grid.z_density = density[indx]
-            self.grid.z_esp     = esp[indx] if "hartree" in elements else None
-            self.grid.z_hartree = hartree[indx] if "hartree" in elements else None
-            self.grid.z_vfa     = v_fa[indx] if "hartree" in elements else None
+            self.grid.z_esp     = esp[indx] if return_hartree ==True else None
+            self.grid.z_hartree = hartree[indx] if return_hartree ==True else None
+            self.grid.z_vfa     = v_fa[indx] if return_hartree ==True else None
             self.grid.z_vext     = vext[indx]
             self.grid.z_vxc      = vxc[indx]
             self.grid.z_vopt     = vopt[indx]
 
         #GENERANTE 2 DIMENSIONS
         self.grid.cube_density = np.reshape(density, (int(N[0]), int(N[1]), int(N[2])))
-        self.grid.cube_vopt    = np.reshape(vopt, (int(N[0]), int(N[1]), int(N[2])))
-        self.grid.cube_vxc     = np.reshape(vxc, (int(N[0]), int(N[1]), int(N[2])))
+        # self.grid.cube_vopt    = np.reshape(vopt, (int(N[0]), int(N[1]), int(N[2])))
+        # self.grid.cube_vxc     = np.reshape(vxc, (int(N[0]), int(N[1]), int(N[2])))
 
         psi4.set_options({"CUBIC_BLOCK_MAX_POINTS" : 1000})
         block, points, phi = None, None, None
