@@ -44,9 +44,9 @@ class WuYang():
         else:
             print("Optimization Successful")
             self.v_opt = opt_results.x
+            self.opt_info = opt_results
 
         self.finalize_energy()
-        # self.generate_grid()
 
         # if debug=True:
         #     self.density_accuracy()
