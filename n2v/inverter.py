@@ -108,9 +108,12 @@ class Inverter(WuYang, Grider):
         """
         Generates Coulomb and Exchange matrices from occupied orbitals
         """
-
+        # if  self.jk.memory_estimate() > psi4.get_memory() * 0.8:
+        #     raise ValueError("Requested JK will take too more memory than default. \n \
+        #                       Increase it with psi4.set_memory(int( Many More Bytes )))!")
+        
         self.jk.C_left_add(Cocc_a)
-        self.jk.C_left_add(Cocc_b)
+        self.jk.C_left_add(Cocc_b) 
         self.jk.compute()
         self.jk.C_clear()
 
@@ -141,7 +144,7 @@ class Inverter(WuYang, Grider):
                      opt_method='trust-krylov', 
                      potential_components = ["fermi_amaldi", "svwn"], 
                      opt_max_iter = 50,
-                     opt_tol      = 1e-6,
+                     opt_tol      = 1e-5,
                      reg=0.0):
         """
         Handler to all available inversion methods
@@ -167,10 +170,11 @@ class Inverter(WuYang, Grider):
         self.va = np.zeros_like(self.T)
         self.vb = np.zeros_like(self.T)
 
+        N = self.nalpha + self.nbeta
+        J, _ = self.form_jk( self.ct[0], self.ct[1] )
+        self.Hartree_a, self.Hartree_b = J[0], J[1]
+
         if "fermi_amaldi" in potential_components:
-            N = self.nalpha + self.nbeta
-            J, _ = self.form_jk( self.ct[0], self.ct[1] )
-            self.Hartree_a, self.Hartree_b = J[0], J[1]
             v_fa = (-1/N) * (J[0] + J[1])
 
             self.va += v_fa
@@ -229,5 +233,5 @@ class Inverter(WuYang, Grider):
         self.energies = energies
         self.target_energies = target_energies
 
-        print(f"Final Energies: {self.energies}")
-        print(f"Target Energies: {self.target_energies}")
+        # print(f"Final Energies: {self.energies}")
+        # print(f"Target Energies: {self.target_energies}")

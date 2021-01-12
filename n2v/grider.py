@@ -32,17 +32,13 @@ class Grider(Cubeprop):
     def build_rectangular_grid(self, 
                                L = [3.0, 3.0, 3.0], 
                                D = [0.2, 0.2, 0.2], 
-                               elements = ["density", "ext", "xc"],
+                               elements = ["density", "external", "vxc"],
                                one_dim = False):
 
         psi4.set_options({"CUBIC_BLOCK_MAX_POINTS" : 1000000})
                     
         O, N = self.build_grid(L, D)
         block, points, nxyz, npoints, grid =  self.populate_grid(O, N, D)
-
-
-        # lpos = np.array(block.functions_local_to_global())
-        # phi = points_func.basis_values()["PHI"])[:npoints, :lpos.shape[0]]
 
         x = grid[0]
         y = grid[1]
@@ -59,6 +55,10 @@ class Grider(Cubeprop):
                 n_points = block[i].npoints()
                 offset += n_points
                 density[offset-n_points:offset] = 0.5 * rho.np[:n_points]
+
+        lpos = np.array(block[0].functions_local_to_global())
+        phi = np.array(points.basis_values()["PHI"])[:npoints, :lpos.shape[0]]
+        self.phi = phi
 
         self.grid = data_bucket
         self.grid.xyz = np.array((grid[0],grid[1],grid[2])).T    
@@ -78,7 +78,7 @@ class Grider(Cubeprop):
             for atom in range(natoms):
                 r =  np.sqrt( (x-rs[atom][0])**2 + (y-rs[atom][1])**2+ (z-rs[atom][2])**2)
                 vext += -1.0 * zs[atom] / r
-                vext[r < 1e-15] = 0                           
+                # vext[r < np.abs(1e-15)] = 0                        
             self.grid.vext = vext
 
         #HARTREE
@@ -89,26 +89,30 @@ class Grider(Cubeprop):
             esp = esp_wfn.compute_esp_over_grid_in_memory(grid_block).np
             self.grid.esp = esp
 
-            t5 = time() - t4
-            print(f"Generating ESP: {t5}")
-
             #Hartree
             hartree = - 1.0 * (vext + esp)
             self.grid.hartree = hartree
 
-            t6 = time() - t5
-            print(f"Generate Hartree: {t4}")
+            v_fa = -1.0 / (self.nalpha + self.nbeta) * hartree
+            self.grid.v_fa = v_fa
 
-        #XC
-        if "xc" in elements:
-            warnings.warn("Only LDA fucntionals are supported to be represented on the grid")
+        #VXC
+        if "vxc" in elements:
+            warnings.warn("Only LDA fucntionals are supported on the grid")
             ingredients = {}
             ingredients["rho"] = density
             functional = Functional(1, 1)
             xc_dictionary = functional.compute(ingredients)
-            vxc = xc_dictionary['vrho']  
+            vxc = np.squeeze(xc_dictionary['vrho'])
 
             self.grid.vxc = vxc
+
+        #POTENTIAL FROM OPTIMIZER
+        if self.ref == 1:
+            vopt = contract('pm,m->p', phi, self.v_opt)
+        else:
+            vopt = contract('pm,m->p', phi, self.v_opt[:self.naux])
+        self.grid.vopt = vopt
 
         #GENERATE ONE DIMENSION
         if one_dim is True:
@@ -123,17 +127,20 @@ class Grider(Cubeprop):
 
             self.grid.z         = grid[2][indx]
             self.grid.z_density = density[indx]
-            self.grid.z_esp     = esp[indx]
-            self.grid.z_hartree = hartree[indx]
+            self.grid.z_esp     = esp[indx] if "hartree" in elements else None
+            self.grid.z_hartree = hartree[indx] if "hartree" in elements else None
+            self.grid.z_vfa     = v_fa[indx] if "hartree" in elements else None
             self.grid.z_vext     = vext[indx]
             self.grid.z_vxc      = vxc[indx]
+            self.grid.z_vopt     = vopt[indx]
 
         #GENERANTE 2 DIMENSIONS
-        cube_density = np.reshape(density, (int(N[0]), int(N[1]), int(N[2])))
-        self.grid.cube_density = cube_density
+        self.grid.cube_density = np.reshape(density, (int(N[0]), int(N[1]), int(N[2])))
+        self.grid.cube_vopt    = np.reshape(vopt, (int(N[0]), int(N[1]), int(N[2])))
+        self.grid.cube_vxc     = np.reshape(vxc, (int(N[0]), int(N[1]), int(N[2])))
 
         psi4.set_options({"CUBIC_BLOCK_MAX_POINTS" : 1000})
-        block, points = None, None
+        block, points, phi = None, None, None
         return
         
     # def generate_hartree(self):

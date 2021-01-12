@@ -89,7 +89,7 @@ class WuYang():
             optimizing +=   contract('i,i'  , v[self.naux:], self.grad_b)
             L = kinetic + potential + optimizing
 
-        if True:
+        if False:
             print(f"Kinetic: {kinetic:6.4f} | Potential: {np.abs(potential):6.4e} | From Optimization: {np.abs(optimizing):6.4e}")
 
         reg = 0.0
@@ -125,7 +125,7 @@ class WuYang():
         na, nb = self.nalpha, self.nbeta
 
         eigs_diff_a = self.eigvecs_a[:na, None] - self.eigvecs_a[None, na:]
-        C3a = contract('mi,va,mvt->iat', self.Ca[:,:na], self.Ca[:,nb:], self.S3)
+        C3a = contract('mi,va,mvt->iat', self.Ca[:,:na], self.Ca[:,na:], self.S3)
         Ha = 2 * contract('iau,iat,ia->ut', C3a, C3a, eigs_diff_a**-1)
 
         if self. ref == 1:
