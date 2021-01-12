@@ -38,6 +38,9 @@ class Grider(Cubeprop):
         psi4.set_options({"CUBIC_BLOCK_MAX_POINTS" : 1000000})
                     
         O, N = self.build_grid(L, D)
+        if N[0] * N[1] * N[2] >  125000:
+            warnings.warn("You have selected plenty of points. This will either take too long or run out of memory!")
+
         block, points, nxyz, npoints, grid =  self.populate_grid(O, N, D)
 
         x = grid[0]
@@ -75,15 +78,19 @@ class Grider(Cubeprop):
             rs = [self.mol.geometry().np[i] for i in indx]
 
             vext = np.zeros(npoints)
-            for atom in range(natoms):
-                r =  np.sqrt( (x-rs[atom][0])**2 + (y-rs[atom][1])**2+ (z-rs[atom][2])**2)
-                vext += -1.0 * zs[atom] / r
-                # vext[r < np.abs(1e-15)] = 0                        
+            with np.errstate(divide='ignore'):
+                for atom in range(natoms):
+                    r =  np.sqrt( (x-rs[atom][0])**2 + (y-rs[atom][1])**2+ (z-rs[atom][2])**2)
+                    vext += -1.0 * zs[atom] / r
+            for i in range(len(vext)):
+                if np.isinf(vext[i]) == True:
+                    vext[i] = 0.0
+
+                                    
             self.grid.vext = vext
 
         #HARTREE
         if "hartree" in elements:
-            print("Computing ESP, Hang on tight")
             esp_wfn = psi4.core.ESPPropCalc(self.wfn)
             grid_block = psi4.core.Matrix.from_array(self.grid.xyz)
             esp = esp_wfn.compute_esp_over_grid_in_memory(grid_block).np
@@ -111,7 +118,7 @@ class Grider(Cubeprop):
         if self.ref == 1:
             vopt = contract('pm,m->p', phi, self.v_opt)
         else:
-            vopt = contract('pm,m->p', phi, self.v_opt[:self.naux])
+    
         self.grid.vopt = vopt
 
         #GENERATE ONE DIMENSION
