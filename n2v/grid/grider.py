@@ -503,9 +503,9 @@ class Grider(Cubeprop):
         ###
         elif Da is None and Db is None and vpot is not None:
             density = self.on_grid_density(vpot=vpot)        
-        elif Da is not None and Db is None and vpot is None:
+        elif Da is not None and Db is None and vpot is not None:
             density = self.on_grid_density(Da=Da, vpot=vpot)
-        elif Da is not None and Db is not None and vpot is None:
+        elif Da is not None and Db is not None and vpot is not None:
             density = self.on_grid_density(Da=Da, Db=Db, vpot=vpot)
 
         if vpot is None and grid is not None:
