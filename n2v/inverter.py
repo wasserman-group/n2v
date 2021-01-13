@@ -18,7 +18,7 @@ psi4.core.clean()
 from .methods.wuyang import WuYang
 from .methods.zmp import ZMP
 from .methods.rmks import MRKS
-from .grider import Grider
+from .grid.grider import Grider
 
 
 class Inverter(WuYang, ZMP, MRKS, Grider):
