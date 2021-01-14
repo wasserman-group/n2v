@@ -208,15 +208,14 @@ class Grider(Cubeprop):
             points_function.compute_points(i_block)
             b_points = i_block.npoints()
             offset += b_points
-            w = np.array(i_block.w())
             lpos = np.array(i_block.functions_local_to_global())
             phi = np.array(points_function.basis_values()["PHI"])[:b_points, :lpos.shape[0]]
 
-            l_mat = coeff[(lpos[:, None], lpos)]
-
             if len(coeff.shape) == 1:
+                l_mat = coeff[(lpos[:, None])]
                 coeff_r[offset - b_points : offset] = mat_r = contract('pm,m->p', phi, l_mat)
             elif len(coeff.shape) == 2: 
+                l_mat = coeff[(lpos[:, None], lpos)]
                 coeff_r[offset - b_points : offset] = mat_r = contract('pm,mn,pn->p', phi, l_mat, phi)
 
         if cubic_grid is True:
