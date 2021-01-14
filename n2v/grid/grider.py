@@ -40,19 +40,21 @@ class Grider(Cubeprop):
         Parameters
         ----------
         grid: np.ndarray
-            3 or 4 dimensional array with grid 
-            Size: 3 x npoints for homogeneous grid
-                  4 x npoints for inhomogenous grid to account for weights
+            Grid to be distributed into blocks
+            Size: (npoints, 3) for homogeneous grid
+                  (npoints, 4) for inhomogenous grid to account for weights
 
         Returns
         -------
-        blocks:
+        blocks: list    
+            List with psi4.core.BlockOPoints
         npoints: int
             Total number of points (for one dimension)
-        points: psi4.core.RKS
+        points: psi4.core.{RKS, UKS}
+            Points function to set matrices.
         """
         assert (grid.shape[0] == 3) or (grid.shape[0] == 4), "Grid does not have the correct dimensions. \
-                                                              Array must be of size (3,npoints) or (4, npoints)"
+                                                              Array must be of size (npoints, 3) or (npoints, 4)"
         if_w = grid.shape[0] == 4
              
         epsilon    = psi4.core.get_global_option("CUBIC_BASIS_TOLERANCE")
@@ -105,7 +107,7 @@ class Grider(Cubeprop):
         Parameters
         ----------
         grid: np.ndarray
-            grid needed to be turned into 3d array
+            Grid needed to be turned into 3D mesh.
         
         Returns
         -------
@@ -124,17 +126,24 @@ class Grider(Cubeprop):
 
     def generate_dft_grid(self, wfn):
         """
-        Extracts weights from wfn object
+        Extracts DFT spherical grid and weights from wfn object
 
         Parameters
         ----------
         wfn: psi4.core.{RKS, UKS}
+
+        Returns
+        -------
+        dft_grid: list
+            Numpy arrays corresponding to x,y,z, and w.
+            Shape: (4, npoints**3)
+        
         """
 
         try:
             vpot = wfn.V_potential()
         except:
-            raise ValueError("Wfn object does not contain a Vpotential object. Try with one from a DFT calculation")
+            raise ValueError("Wfn object does not contain a Vpotential object. Try with one obtained from a DFT calculation")
 
         nblocks = vpot.nblocks()
         blocks = [vpot.get_block(i) for i in range(nblocks)]
@@ -156,7 +165,9 @@ class Grider(Cubeprop):
             z[offset - b_points : offset] = i_block.x().np
             w[offset - b_points : offset] = i_block.x().np
 
-        return [x,y,z,w]
+        dft_grid = [x,y,z,w]
+
+        return dft_grid
 
 
     #Quantities on Grid
@@ -168,17 +179,21 @@ class Grider(Cubeprop):
         ----------
         coeff: np.ndarray
             Vector/Matrix of quantity on ao basis. Shape: {(num_ao_basis, ), (num_ao_basis, num_ao_basis)}
-        grid: np.ndarray
-            Grid where density will be computed
+        grid: np.ndarray. Shape ()
+            Grid where density will be computed.
         cubic_grid: bool    
-            Is the grid meant for a volume plot?
+            If False the resulting array won't be reshaped.
+            If True the resulting array will be reshaped as (npoints, nponits, npoints). 
+            Where npoints is the number of points for the grid in any one dimension.
         vpot: psi4.core.VBase
             Vpotential object with info about grid
 
         Returns
         -------
-        orbitals: np.ndarray
-            Orbitals on the given grid of size (nbasis, npoints, ref)
+        coeff_r: np.ndarray
+            Quantity expressed by the coefficient on the given grid 
+            Shape: (npoints) if cubic_grid is False
+                   (npoints, npoints, npoints) if cubic_grid is True
 
         """
 
@@ -234,18 +249,23 @@ class Grider(Cubeprop):
         Parameters
         ----------
         Da, Db: np.ndarray
-            Alpha, Beta densities 
+            Alpha, Beta densities. Shape: (num_ao_basis, num_ao_basis)
         grid: np.ndarray
             Grid where density will be computed
         cubic_grid: bool    
-            Is the grid meant for a volume plot?
+            If False the resulting array won't be reshaped.
+            If True the resulting array will be reshaped as (npoints, nponits, npoints). 
+            Where npoints is the number of points for the grid in any one dimension.
         vpot: psi4.core.VBase
             Vpotential object with info about grid
 
         Returns
         -------
         density: np.ndarray
-            Density on the given grid
+            Density on the given grid. 
+            Shape: (npoints) if cubic_grid is False
+                   (npoints, npoints, npoints) if cubic_grid is True
+
 
         """
 
@@ -303,18 +323,23 @@ class Grider(Cubeprop):
         Parameters
         ----------
         Ca, Cb: np.ndarray
-            Alpha, Beta densities 
+            Alpha, Beta Orbital Coefficient Matrix. Shape: (num_ao_basis, num_ao_basis)
         grid: np.ndarray
-            Grid where density will be computed
+            Grid where density will be computed. Shape: {(npoints, 3), (npoints, 4)}
         cubic_grid: bool    
-            Is the grid meant for a volume plot?
+            If False the resulting array won't be reshaped.
+            If True the resulting array will be reshaped as (npoints, nponits, npoints). 
+            Where npoints is the number of points for the grid in any one dimension.
         vpot: psi4.core.VBase
             Vpotential object with info about grid
 
         Returns
         -------
         orbitals: np.ndarray
-            Orbitals on the given grid of size (nbasis, npoints, ref)
+            Orbitals on the given grid of size . 
+            Shape: (nbasis, npoints, ref) if cubic_grid is False
+                   (nbasis, npoints, npoints, npoints, ref) if cubic_grid is True
+
 
         """
 
@@ -380,19 +405,23 @@ class Grider(Cubeprop):
 
         Parameters
         ----------
-        wfn: RKS, UKS
-            Alpha, Beta densities 
+        wfn: psi4.core.{UKS, RKS, CCWavefunction,...}
+            Wavefunction Object 
         grid: np.ndarray
-            Grid where density will be computed
+            Grid where density will be computed. Shape: {(npoints, 3), (npoints, 4)}
         cubic_grid: bool    
-            Is the grid meant for a volume plot?
+            If False the resulting array won't be reshaped.
+            If True the resulting array will be reshaped as (npoints, nponits, npoints). 
+            Where npoints is the number of points for the grid in any one dimension.
         vpot: psi4.core.VBase
             Vpotential object with info about grid
 
         Returns
         -------
-        vext: np.ndarray
-            External potential on the given grid
+        vext, hartree, esp, v_fa: np.ndarray
+            External, Hartree, ESP, and Fermi Amaldi potential on the given grid
+            Shape: (npoints) if cubic_grid is False
+                   (npoints, npoints, npoints) if cubic_grid is True
         """
 
         if cubic_grid is True and grid is not None:
@@ -467,14 +496,16 @@ class Grider(Cubeprop):
         Parameters
         ----------
         Da, Db: np.ndarray
-            Alpha, Beta densities 
+            Alpha, Beta densities. Shape: (num_ao_basis, num_ao_basis)
         func_id: int
             Functional ID associated with Density Functional Approximationl.
             Full list of functionals: https://www.tddft.org/programs/libxc/functionals/
         grid: np.ndarray
-            Grid where density will be computed
+            Grid where density will be computed. Shape: {(npoints, 3), (npoints, 4)}
         cubic_grid: bool    
-            Is the grid meant for a volume plot?
+            If False the resulting array won't be reshaped.
+            If True the resulting array will be reshaped as (npoints, nponits, npoints). 
+            Where npoints is the number of points for the grid in any one dimension.
         vpot: psi4.core.VBase
             Vpotential object with info about grid
 
@@ -482,6 +513,8 @@ class Grider(Cubeprop):
         -------
         VXC: np.ndarray
             Exchange correlation potential on the given grid
+            Shape: (npoints) if cubic_grid is False
+                   (npoints, npoints, npoints) if cubic_grid is True
 
         """
         # if self.ref == 2 and Db is None:
