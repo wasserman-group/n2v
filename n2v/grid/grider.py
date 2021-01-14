@@ -160,14 +160,14 @@ class Grider(Cubeprop):
 
 
     #Quantities on Grid
-    def on_grid_ao(self, matrix, grid=None, vpot=None, cubic_grid=False):
+    def on_grid_ao(self, coeff, grid=None, vpot=None, cubic_grid=False):
         """
         Generates a quantity on the grid given its ao representation
 
         Parameters
         ----------
-        matrix: np.ndarray
-            Quantity on ao basis
+        coeff: np.ndarray
+            Vector/Matrix of quantity on ao basis. Shape: {(num_ao_basis, ), (num_ao_basis, num_ao_basis)}
         grid: np.ndarray
             Grid where density will be computed
         cubic_grid: bool    
@@ -196,12 +196,12 @@ class Grider(Cubeprop):
             npoints = vpot.grid().npoints()
             points_function = vpot.properties()[0]
 
-        psi4_matrix = psi4.core.Matrix.from_array(matrix)
+        psi4_coeff = psi4.core.Matrix.from_array(coeff)
         if self.ref == 1:
-            points_function.set_pointers(psi4_matrix)
+            points_function.set_pointers(psi4_coeff)
         elif self.ref == 2:
-            points_function.set_pointers(psi4_matrix, psi4_matrix)
-        matrix_r = np.empty((npoints)) 
+            points_function.set_pointers(psi4_coeff, psi4_coeff)
+        coeff_r = np.empty((npoints)) 
 
         offset = 0
         for i_block in blocks:
@@ -212,17 +212,17 @@ class Grider(Cubeprop):
             lpos = np.array(i_block.functions_local_to_global())
             phi = np.array(points_function.basis_values()["PHI"])[:b_points, :lpos.shape[0]]
 
-            l_mat = matrix[(lpos[:, None], lpos)]
+            l_mat = coeff[(lpos[:, None], lpos)]
 
-            if len(matrix.shape) == 1:
-                matrix_r[offset - b_points : offset] = mat_r = contract('pm,m->p', phi, l_mat)
-            elif len(matrix.shape) == 2: 
-                matrix_r[offset - b_points : offset] = mat_r = contract('pm,mn,pn->p', phi, l_mat, phi)
+            if len(coeff.shape) == 1:
+                coeff_r[offset - b_points : offset] = mat_r = contract('pm,m->p', phi, l_mat)
+            elif len(coeff.shape) == 2: 
+                coeff_r[offset - b_points : offset] = mat_r = contract('pm,mn,pn->p', phi, l_mat, phi)
 
         if cubic_grid is True:
-            matrix_r = np.reshape( matrix_r, (nshape, nshape, nshape))
+            coeff_r = np.reshape( coeff_r, (nshape, nshape, nshape))
 
-        return matrix_r
+        return coeff_r
 
     def on_grid_density(self, grid = None, 
                               Da=None, 
