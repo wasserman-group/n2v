@@ -25,6 +25,9 @@ from opt_einsum import contract
 
 @dataclass
 class data_bucket:
+    """
+    Data class for storing grid attributes. 
+    """
     pass
 
 default_grid = np.concatenate((np.linspace(-10,10,20, dtype=np.half)[:,None],
@@ -32,6 +35,10 @@ default_grid = np.concatenate((np.linspace(-10,10,20, dtype=np.half)[:,None],
                               np.linspace(-10,10,20, dtype=np.half)[:,None]), axis=1)
 
 class Grider(Cubeprop):
+
+    def __init__(self):
+        self.grid = data_bucket
+        self.cubic_grid = data_bucket
 
     def grid_to_blocks(self, grid):
         """
@@ -583,5 +590,64 @@ class Grider(Cubeprop):
             vxc = np.reshape(vxc, (nshape, nshape, nshape, self.ref))
 
         return vxc
+
+        def all_on_grid(self, grid=None, cubic_grid):
+
+    def on_grid_all(self, grid=None, cubic_grid=False):
+        """
+        Calls *all* 'on_grid_x' functions using densities and coefficients stored in Inverter object. 
+
+        Parameters
+        ----------
+        grid: np.ndarray
+            Grid where density will be computed. Shape: {(npoints, 3), (npoints, 4)}
+        cubic_grid: bool    
+            If False the resulting array won't be reshaped.
+            If True the resulting array will be reshaped as (npoints, nponits, npoints). 
+            Where npoints is the number of points for the grid in any one dimension.
+
+        Returns
+        -------
+        None:
+            *Stores all grid quantities on self.grid. 
+
+        """
+
+        if grid is None:
+            grid = default_grid
+
+        npoints = grid.shape[1]
+
+        try:
+            if hasattr(self, "wfn")
+        except:
+            raise ValueError("Inverter object does not have a wfn object.")
+
+        density = self.on_grid_density(grid=grid)
+        orbitals = self.on_grid_orbitals(grid=grid)
+        vext, hartree, esp, v_fa = self.on_grid_esp(wfn=self.wfn, grid=grid)
+        vxc = self.on_grid_vxc(grid=grid)
+
+        if cubic_grid is False:
+            self.grid.density = density
+            self.grid.orbitals = orbitals
+            self.grid.vext = vext
+            self.grid.hartree = Hartree
+            self.grid.esp = esp
+            self.grid.v_fa = v_fa
+            self.grid.vxc = vxc
+        else:
+            self.cubic_grid.density = np.reshape(density, (npoints, npoints, npoints, self.ref))
+            self.cubic_grid.orbitals = np.reshape(orbitals, (self.nbf, npoints, npoints, npoints, self.ref))
+            self.cubic_grid.vext = np.reshape(vext, (npoints, npoints, npoints, self.ref))
+            self.cubic_grid.hartree = np.reshape(hartree, (npoints, npoints, npoints, self.ref))
+            self.cubic_grid.esp = np.reshape(esp, (npoints, npoints, npoints, self.ref))
+            self.cubic_grid.v_fa = np.reshape(v_fa, (npoints, npoints, npoints, self.ref))
+            self.cubic_grid.vxc = np.reshape(vxc, (npoints, npoints, npoints, self.ref))
+
+
+
+
+
 
 
