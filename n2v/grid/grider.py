@@ -203,7 +203,7 @@ class Grider(Cubeprop):
             blocks = [vpot.get_block(i) for i in range(nblocks)]
             npoints = vpot.grid().npoints()
             points_function = vpot.properties()[0]
-        elif grid is None and vpot is None:
+        else:
             blocks, npoints, points_function = self.grid_to_blocks(default_grid)
 
         if self.ref == 1:
@@ -225,9 +225,6 @@ class Grider(Cubeprop):
 
             if coeff.ndim == 1:
                 l_mat = coeff[(lpos[:])]
-                print("Shape of PHI", phi.shape)
-                print("Shape of mat", l_mat.shape)
-
                 coeff_r[offset - b_points : offset] = mat_r = contract('pm,m->p', phi, l_mat)
             elif coeff.ndim == 2: 
                 l_mat = coeff[(lpos[:, None], lpos)]
@@ -293,7 +290,7 @@ class Grider(Cubeprop):
             blocks = [vpot.get_block(i) for i in range(nblocks)]
             npoints = vpot.grid().npoints()
             points_function = vpot.properties()[0]
-        elif grid is None and vpot is None:
+        else:
             blocks, npoints, points_function = self.grid_to_blocks(default_grid)
 
         density   = np.empty((npoints, self.ref))
@@ -370,7 +367,7 @@ class Grider(Cubeprop):
             blocks = [vpot.get_block(i) for i in range(nblocks)]
             npoints = vpot.grid().npoints()
             points_function = vpot.properties()[0]
-        elif grid is None and vpot is None:
+        else:
             blocks, npoints, points_function = self.grid_to_blocks(default_grid)
 
         orbitals_r = [np.empty((npoints, self.ref)) for i_orb in range(self.nbf)]
@@ -431,6 +428,9 @@ class Grider(Cubeprop):
                    (npoints, npoints, npoints) if cubic_grid is True
         """
 
+        nthreads = psi4.get_num_threads()
+        psi4.set_num_threads(1)
+
         if cubic_grid is True and grid is not None:
             nshape = grid.shape[1]
             grid, shape = self.generate_mesh(grid)
@@ -444,7 +444,7 @@ class Grider(Cubeprop):
             blocks = [vpot.get_block(i) for i in range(nblocks)]
             npoints = vpot.grid().npoints()
             points_function = vpot.properties()[0]
-        elif grid is None and vpot is None:
+        else:
             blocks, npoints, points_function = self.grid_to_blocks(default_grid)
 
         #Initialize Arrays
@@ -480,12 +480,13 @@ class Grider(Cubeprop):
                     if np.isinf(vext[i,0]) == True:
                         vext[i,0] = 0.0
                 #ESP
-                xyz = np.concatenate((x[:,None],y[:,None],z[:,None]), axis=1) 
+                xyz = np.concatenate((x[:,None],y[:,None],z[:,None]), axis=1)
                 grid_block = psi4.core.Matrix.from_array(xyz)
                 esp[offset - b_points : offset, 0] = esp_wfn.compute_esp_over_grid_in_memory(grid_block).np
 
         #Hartree
         vext[:,1] = vext[:,0]
+        esp[:,1] = esp[:,0]
         hartree = - 1.0 * (vext + esp)
         v_fa = -1.0 / (self.nalpha + self.nbeta) * hartree
 
@@ -494,6 +495,8 @@ class Grider(Cubeprop):
             hartree = np.reshape(hartree, (nshape, nshape, nshape, self.ref))
             esp     = np.reshape(esp, (nshape, nshape, nshape, self.ref))
             v_fa    = np.reshape(v_fa, (nshape, nshape, nshape, self.ref))
+
+        psi4.set_num_threads(1)
 
         return vext, hartree, v_fa, esp
 
@@ -558,7 +561,7 @@ class Grider(Cubeprop):
             blocks = [vpot.get_block(i) for i in range(nblocks)]
             npoints = vpot.grid().npoints()
             points_function = vpot.properties()[0]
-        elif grid is None and vpot is None:
+        else:
             blocks, npoints, points_function = self.grid_to_blocks(default_grid)
 
         vxc = np.empty((npoints, self.ref))
@@ -610,16 +613,16 @@ class Grider(Cubeprop):
 
         if show_progress == True:
             print("Generating Orbitals") 
-        density = self.on_grid_density(grid=grid)
+        density = self.on_grid_density(grid=grid, cubic_grid=cubic_grid)
         if show_progress == True:
             print("Generating Orbitals") 
-        orbitals = self.on_grid_orbitals(grid=grid)
+        orbitals = self.on_grid_orbitals(grid=grid, cubic_grid=cubic_grid)
         if show_progress is True:
             print("Generating Ext/Hartree/ESP") 
-        vext, hartree, esp, v_fa = self.on_grid_esp(wfn=self.wfn, grid=grid)
+        vext, hartree, esp, v_fa = self.on_grid_esp(wfn=self.wfn, grid=grid, cubic_grid=cubic_grid)
         if show_progress is True:
             print("Generating Vxc") 
-        vxc = self.on_grid_vxc(grid=grid)
+        vxc = self.on_grid_vxc(grid=grid, cubic_grid=cubic_grid)
 
         if cubic_grid is False:
             self.grid.density = density
@@ -629,7 +632,7 @@ class Grider(Cubeprop):
             self.grid.esp = esp
             self.grid.v_fa = v_fa
             self.grid.vxc = vxc
-        else:
+        elif cubic_grid is True:
             self.cubic_grid.density = np.reshape(density, (npoints, npoints, npoints, self.ref))
             self.cubic_grid.orbitals = np.reshape(orbitals, (self.nbf, npoints, npoints, npoints, self.ref))
             self.cubic_grid.vext = np.reshape(vext, (npoints, npoints, npoints, self.ref))
