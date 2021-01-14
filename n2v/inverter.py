@@ -6,6 +6,7 @@ Handles the primary functions
 """
 
 import numpy as np
+from dataclasses import dataclass
 from scipy.optimize import minimize
 from opt_einsum import contract
 
@@ -19,6 +20,14 @@ from .methods.wuyang import WuYang
 from .methods.zmp import ZMP
 from .methods.rmks import MRKS
 from .grid.grider import Grider
+
+
+@dataclass
+class data_bucket:
+    """
+    Data class for storing grid attributes. 
+    """
+    pass
 
 
 class Inverter(WuYang, ZMP, MRKS, Grider):
@@ -74,6 +83,9 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
                                                  else np.zeros( 2 * self.naux )
         self.generate_mints_matrices()
 
+        self.grid = data_bucket
+        self.cubic_grid = data_bucket
+
     #------------->  Basics:
 
     def generate_mints_matrices(self):
@@ -127,6 +139,24 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
     def diagonalize(self, matrix, ndocc):
         """
         Diagonalizes Fock Matrix
+
+        Parameters
+        ----------
+        marrix: np.ndarray
+            Matrix to be diagonalized
+        ndocc: int
+            Number of occupied orbitals
+
+        Returns
+        -------
+        C: np.ndarray
+            Orbital Matrix
+        Cocc: np.ndarray
+            Occupied Orbital Matrix
+        D: np.ndarray
+            Density Matrix
+        eigves: np.ndarray
+            Eigenvalues
         """
         matrix = psi4.core.Matrix.from_array( matrix )
         Fp = psi4.core.triplet(self.A, matrix, self.A, True, False, True)

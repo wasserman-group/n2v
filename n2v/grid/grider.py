@@ -5,40 +5,25 @@ Generates grid for plotting
 """
 
 import numpy as np
-from dataclasses import dataclass
+import warnings
+import matplotlib.pyplot as plt
+from opt_einsum import contract
+from pylibxc import LibXCFunctional as Functional
 import psi4
 psi4.core.be_quiet()
-from pylibxc import LibXCFunctional as Functional
-
-from time import time
-
-from .cubeprop import Cubeprop
 
 try:
     from rich import print
 except:
     pass
 
-import warnings
-import matplotlib.pyplot as plt
-from opt_einsum import contract
-
-@dataclass
-class data_bucket:
-    """
-    Data class for storing grid attributes. 
-    """
-    pass
+from .cubeprop import Cubeprop
 
 default_grid = np.concatenate((np.linspace(-10,10,20, dtype=np.half)[:,None],
                               np.linspace(-10,10,20, dtype=np.half)[:,None],
                               np.linspace(-10,10,20, dtype=np.half)[:,None]), axis=1)
 
 class Grider(Cubeprop):
-
-    def __init__(self):
-        self.grid = data_bucket
-        self.cubic_grid = data_bucket
 
     def grid_to_blocks(self, grid):
         """
@@ -48,8 +33,8 @@ class Grider(Cubeprop):
         ----------
         grid: np.ndarray
             Grid to be distributed into blocks
-            Size: (npoints, 3) for homogeneous grid
-                  (npoints, 4) for inhomogenous grid to account for weights
+            Size: (3, npoints) for homogeneous grid
+                  (4, npoints) for inhomogenous grid to account for weights
 
         Returns
         -------
@@ -60,8 +45,8 @@ class Grider(Cubeprop):
         points: psi4.core.{RKS, UKS}
             Points function to set matrices.
         """
-        assert (grid.shape[0] == 3) or (grid.shape[0] == 4), "Grid does not have the correct dimensions. \
-                                                              Array must be of size (npoints, 3) or (npoints, 4)"
+        assert (grid.shape[0] == 3) or (grid.shape[0] == 4), """Grid does not have the correct dimensions. \n
+                                                              Array must be of size (3, npoints) or (4, npoints)"""
         if_w = grid.shape[0] == 4
              
         epsilon    = psi4.core.get_global_option("CUBIC_BASIS_TOLERANCE")
@@ -252,7 +237,7 @@ class Grider(Cubeprop):
                               Da=None, 
                               Db=None,
                               cubic_grid = False,
-                              vpot=None)
+                              vpot=None):
         """
         Generates Density given grid
 
@@ -591,9 +576,7 @@ class Grider(Cubeprop):
 
         return vxc
 
-        def all_on_grid(self, grid=None, cubic_grid):
-
-    def on_grid_all(self, grid=None, cubic_grid=False):
+    def on_grid_all(self, grid=None, cubic_grid=False, show_progress=False):
         """
         Calls *all* 'on_grid_x' functions using densities and coefficients stored in Inverter object. 
 
@@ -605,6 +588,8 @@ class Grider(Cubeprop):
             If False the resulting array won't be reshaped.
             If True the resulting array will be reshaped as (npoints, nponits, npoints). 
             Where npoints is the number of points for the grid in any one dimension.
+        show_progress: bool 
+            If True. Prints confirmation of each component generated. 
 
         Returns
         -------
@@ -617,22 +602,25 @@ class Grider(Cubeprop):
             grid = default_grid
 
         npoints = grid.shape[1]
-
-        try:
-            if hasattr(self, "wfn")
-        except:
-            raise ValueError("Inverter object does not have a wfn object.")
-
+        
+        if show_progress == True:
+            print("Generating Orbitals") 
         density = self.on_grid_density(grid=grid)
+        if show_progress == True:
+            print("Generating Orbitals") 
         orbitals = self.on_grid_orbitals(grid=grid)
+        if show_progress is True:
+            print("Generating Ext/Hartree/ESP") 
         vext, hartree, esp, v_fa = self.on_grid_esp(wfn=self.wfn, grid=grid)
+        if show_progress is True:
+            print("Generating Vxc") 
         vxc = self.on_grid_vxc(grid=grid)
 
         if cubic_grid is False:
             self.grid.density = density
             self.grid.orbitals = orbitals
             self.grid.vext = vext
-            self.grid.hartree = Hartree
+            self.grid.hartree = hartree
             self.grid.esp = esp
             self.grid.v_fa = v_fa
             self.grid.vxc = vxc
@@ -644,6 +632,8 @@ class Grider(Cubeprop):
             self.cubic_grid.esp = np.reshape(esp, (npoints, npoints, npoints, self.ref))
             self.cubic_grid.v_fa = np.reshape(v_fa, (npoints, npoints, npoints, self.ref))
             self.cubic_grid.vxc = np.reshape(vxc, (npoints, npoints, npoints, self.ref))
+
+        return
 
 
 
