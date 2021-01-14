@@ -186,7 +186,8 @@ class Grider(Cubeprop):
             If True the resulting array will be reshaped as (npoints, nponits, npoints). 
             Where npoints is the number of points for the grid in any one dimension.
         vpot: psi4.core.VBase
-            Vpotential object with info about grid
+            Vpotential object with info about grid. 
+            Provides DFT spherical grid. Only comes to play if no grid is given. 
 
         Returns
         -------
@@ -203,13 +204,15 @@ class Grider(Cubeprop):
         elif cubic_grid is True and grid is None:
             raise ValueError("'Cubic Grid' requires to explicitly specify grid")
 
-        if vpot is None and grid is not None:
+        if grid is not None and vpot is None:
             blocks, npoints, points_function = self.grid_to_blocks(grid)
-        elif vpot is not None and grid is None:
+        elif grid is None and vpot is not None:
             nblocks = vpot.nblocks()
             blocks = [vpot.get_block(i) for i in range(nblocks)]
             npoints = vpot.grid().npoints()
             points_function = vpot.properties()[0]
+        elif grid is None and vpot is None:
+            blocks, npoints, points_function = self.grid_to_blocks(default_grid)
 
         psi4_coeff = psi4.core.Matrix.from_array(coeff)
         if self.ref == 1:
@@ -257,7 +260,8 @@ class Grider(Cubeprop):
             If True the resulting array will be reshaped as (npoints, nponits, npoints). 
             Where npoints is the number of points for the grid in any one dimension.
         vpot: psi4.core.VBase
-            Vpotential object with info about grid
+            Vpotential object with info about grid.
+            Provides DFT spherical grid. Only comes to play if no grid is given. 
 
         Returns
         -------
@@ -285,13 +289,15 @@ class Grider(Cubeprop):
         elif cubic_grid is True and grid is None:
             raise ValueError("'Cubic Grid' requires to explicitly specify grid")
 
-        if vpot is None and grid is not None:
+        if grid is not None and vpot is None:
             blocks, npoints, points_function = self.grid_to_blocks(grid)
-        elif vpot is not None and grid is None:
+        elif grid is None and vpot is not None:
             nblocks = vpot.nblocks()
             blocks = [vpot.get_block(i) for i in range(nblocks)]
             npoints = vpot.grid().npoints()
             points_function = vpot.properties()[0]
+        elif grid is None and vpot is None:
+            blocks, npoints, points_function = self.grid_to_blocks(default_grid)
 
         density   = np.empty((npoints, self.ref))
         if self.ref == 1:
@@ -331,7 +337,8 @@ class Grider(Cubeprop):
             If True the resulting array will be reshaped as (npoints, nponits, npoints). 
             Where npoints is the number of points for the grid in any one dimension.
         vpot: psi4.core.VBase
-            Vpotential object with info about grid
+            Vpotential object with info about grid.
+            Provides DFT spherical grid. Only comes to play if no grid is given. 
 
         Returns
         -------
@@ -359,13 +366,15 @@ class Grider(Cubeprop):
         elif cubic_grid is True and grid is None:
             raise ValueError("'Cubic Grid' requires to explicitly specify grid")
 
-        if vpot is None and grid is not None:
+        if grid is not None and vpot is None:
             blocks, npoints, points_function = self.grid_to_blocks(grid)
-        elif vpot is not None and grid is None:
+        elif grid is None and vpot is not None:
             nblocks = vpot.nblocks()
             blocks = [vpot.get_block(i) for i in range(nblocks)]
             npoints = vpot.grid().npoints()
             points_function = vpot.properties()[0]
+        elif grid is None and vpot is None:
+            blocks, npoints, points_function = self.grid_to_blocks(default_grid)
 
         orbitals_r = [np.empty((npoints, self.ref)) for i_orb in range(self.nbf)]
 
@@ -414,7 +423,8 @@ class Grider(Cubeprop):
             If True the resulting array will be reshaped as (npoints, nponits, npoints). 
             Where npoints is the number of points for the grid in any one dimension.
         vpot: psi4.core.VBase
-            Vpotential object with info about grid
+            Vpotential object with info about grid.
+            Provides DFT spherical grid. Only comes to play if no grid is given. 
 
         Returns
         -------
@@ -430,13 +440,15 @@ class Grider(Cubeprop):
         elif cubic_grid is True and grid is None:
             raise ValueError("'Cubic Grid' requires to explicitly specify grid")
 
-        if vpot is None and grid is not None:
+        if grid is not None and vpot is None:
             blocks, npoints, points_function = self.grid_to_blocks(grid)
-        elif vpot is not None and grid is None:
+        elif grid is None and vpot is not None:
             nblocks = vpot.nblocks()
             blocks = [vpot.get_block(i) for i in range(nblocks)]
             npoints = vpot.grid().npoints()
             points_function = vpot.properties()[0]
+        elif grid is None and vpot is None:
+            blocks, npoints, points_function = self.grid_to_blocks(default_grid)
 
         #Initialize Arrays
         vext = np.empty((npoints, self.ref))
@@ -507,7 +519,8 @@ class Grider(Cubeprop):
             If True the resulting array will be reshaped as (npoints, nponits, npoints). 
             Where npoints is the number of points for the grid in any one dimension.
         vpot: psi4.core.VBase
-            Vpotential object with info about grid
+            Vpotential object with info about grid.
+            Provides DFT spherical grid. Only comes to play if no grid is given. 
 
         Returns
         -------
@@ -517,8 +530,9 @@ class Grider(Cubeprop):
                    (npoints, npoints, npoints) if cubic_grid is True
 
         """
-        # if self.ref == 2 and Db is None:
-        #     raise ValueError("Db is required for an unrestricted system")
+
+        if func_id != 1:
+            raise ValueError("Only LDA fucntionals are supported on the grid")
 
         if cubic_grid is True and grid is not None:
             nshape = grid.shape[1]
@@ -526,7 +540,7 @@ class Grider(Cubeprop):
         elif cubic_grid is True and grid is None:
             raise ValueError("'Cubic Grid' requires to explicitly specify grid")
 
-        if Da is None and Db is None and vpot is None:
+        if  Da is None and Db is None and vpot is None:
             density = self.on_grid_density(grid=grid)
         elif Da is not None and Db is None and vpot is None:
             density = self.on_grid_density(grid=grid, Da=Da)
@@ -540,16 +554,15 @@ class Grider(Cubeprop):
         elif Da is not None and Db is not None and vpot is not None:
             density = self.on_grid_density(Da=Da, Db=Db, vpot=vpot)
 
-        if vpot is None and grid is not None:
+        if grid is not None and vpot is None:
             blocks, npoints, points_function = self.grid_to_blocks(grid)
-        elif vpot is not None and grid is None:
+        elif grid is None and vpot is not None:
             nblocks = vpot.nblocks()
             blocks = [vpot.get_block(i) for i in range(nblocks)]
             npoints = vpot.grid().npoints()
             points_function = vpot.properties()[0]
-
-        if func_id != 1:
-            raise ValueError("Only LDA fucntionals are supported on the grid")
+        elif grid is None and vpot is None:
+            blocks, npoints, points_function = self.grid_to_blocks(default_grid)
 
         vxc = np.empty((npoints, self.ref))
         ingredients = {}
