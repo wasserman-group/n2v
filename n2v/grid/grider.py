@@ -211,10 +211,10 @@ class Grider(Cubeprop):
             lpos = np.array(i_block.functions_local_to_global())
             phi = np.array(points_function.basis_values()["PHI"])[:b_points, :lpos.shape[0]]
 
-            if len(coeff.shape) == 1:
+            if coeff.ndim == 1:
                 l_mat = coeff[(lpos[:, None])]
                 coeff_r[offset - b_points : offset] = mat_r = contract('pm,m->p', phi, l_mat)
-            elif len(coeff.shape) == 2: 
+            elif coeff.ndim == 2: 
                 l_mat = coeff[(lpos[:, None], lpos)]
                 coeff_r[offset - b_points : offset] = mat_r = contract('pm,mn,pn->p', phi, l_mat, phi)
 
@@ -227,7 +227,7 @@ class Grider(Cubeprop):
                               Da=None, 
                               Db=None,
                               cubic_grid = False,
-                              vpot=None):
+                              vpot=None)
         """
         Generates Density given grid
 
