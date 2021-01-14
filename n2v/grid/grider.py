@@ -206,10 +206,12 @@ class Grider(Cubeprop):
         elif grid is None and vpot is None:
             blocks, npoints, points_function = self.grid_to_blocks(default_grid)
 
-        psi4_coeff = psi4.core.Matrix.from_array(coeff)
         if self.ref == 1:
+            psi4_coeff = psi4.core.Vector.from_array(coeff[:,None])
             points_function.set_pointers(psi4_coeff)
         elif self.ref == 2:
+            coeff_0 = coeff[:,None] if coeff.ndim == 1 else coeff.copy()
+            psi4_coeff = psi4.core.Matrix.from_array(coeff_0)
             points_function.set_pointers(psi4_coeff, psi4_coeff)
         coeff_r = np.empty((npoints)) 
 
@@ -222,7 +224,10 @@ class Grider(Cubeprop):
             phi = np.array(points_function.basis_values()["PHI"])[:b_points, :lpos.shape[0]]
 
             if coeff.ndim == 1:
-                l_mat = coeff[(lpos[:, None])]
+                l_mat = coeff[(lpos[:])]
+                print("Shape of PHI", phi.shape)
+                print("Shape of mat", l_mat.shape)
+
                 coeff_r[offset - b_points : offset] = mat_r = contract('pm,m->p', phi, l_mat)
             elif coeff.ndim == 2: 
                 l_mat = coeff[(lpos[:, None], lpos)]
@@ -602,7 +607,7 @@ class Grider(Cubeprop):
             grid = default_grid
 
         npoints = grid.shape[1]
-        
+
         if show_progress == True:
             print("Generating Orbitals") 
         density = self.on_grid_density(grid=grid)
