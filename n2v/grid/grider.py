@@ -401,7 +401,7 @@ class Grider(Cubeprop):
 
         return orbitals_r
 
-    def on_grid_esp(self, wfn,grid=None, cubic_grid=False, vpot=None):
+    def on_grid_esp(self, wfn, grid=None, cubic_grid=False, vpot=None):
 
         """
         Generates EXTERNAL/ESP/HARTREE and Fermi Amaldi Potential on given grid
@@ -642,6 +642,50 @@ class Grider(Cubeprop):
             self.cubic_grid.vxc = np.reshape(vxc, (npoints, npoints, npoints, self.ref))
 
         return
+
+    def DFT_grid_to_fock(self, value, Vpot):
+        """For value on DFT spherical grid, Fock matrix is returned.
+        VFock_ij = \int dx \phi_i(x) \phi_j(x) value(x)
+        
+        Parameters:
+        -----------
+        value: np.ndarray of shape (npoint, ).
+
+        Vpot:psi4.core.VBase
+            Vpotential object with info about grid.
+            Provides DFT spherical grid. Only comes to play if no grid is given.
+        
+        Returns:
+        ---------
+        VFock: np.ndarray of shape (nbasis, nbasis)
+        """
+
+        VFock = np.zeros((self.nbf, self.nbf))
+        points_func = Vpot.properties()[0]
+
+        i = 0
+        # Loop over the blocks
+        for b in range(Vpot.nblocks()):
+            # Obtain block information
+            block = Vpot.get_block(b)
+            points_func.compute_points(block)
+            npoints = block.npoints()
+            lpos = np.array(block.functions_local_to_global())
+
+            # Obtain the grid weight
+            w = np.array(block.w())
+
+            # Compute phi!
+            phi = np.array(points_func.basis_values()["PHI"])[:npoints, :lpos.shape[0]]
+
+            Vtmp = np.einsum('pb,p,p,pa->ab', phi, value[i:i+npoints], w, phi, optimize=True)
+
+            # Add the temporary back to the larger array by indexing, ensure it is symmetric
+            VFock[(lpos[:, None], lpos)] += 0.5 * (Vtmp + Vtmp.T)
+
+            i += npoints
+        assert i == value.shape[0], "Did not run through all the points. %i %i" %(i, value.shape[0])
+        return VFock
 
 
 
