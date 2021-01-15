@@ -31,7 +31,7 @@ class data_bucket:
 
 
 class Inverter(WuYang, ZMP, MRKS, Grider):
-    def __init__(self, wfn, aux_str="same", debug=False):
+    def __init__(self, wfn, pbs_str="same", debug=False):
         """
         Handles Inversion
         
@@ -59,7 +59,7 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
             List of psi4.core.Matrix for target densities
         ct : List
             List of psi4.core.Matrix for occupied orbitals
-        aux : psi4.core.BasisSet
+        pbs : psi4.core.BasisSet
             Auxiliary basis set for calculation of potential
         v0  : np.ndarray
             Initial zero guess for optimizer
@@ -76,11 +76,11 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
         self.jk        = wfn.jk() if hasattr(wfn, "jk") == True else self.generate_jk()
         self.nt        = [wfn.Da_subset("AO").np, wfn.Db_subset("AO").np]
         self.ct        = [wfn.Ca_subset("AO", "OCC"), wfn.Cb_subset("AO", "OCC")]
-        self.aux       = self.basis if aux_str == "same" \
-                                    else psi4.core.BasisSet.build( self.mol, key='BASIS', target=self.aux_str)
-        self.naux      = self.aux.nbf()
-        self.v0        = np.zeros( (self.naux) ) if self.ref == 1 \
-                                                 else np.zeros( 2 * self.naux )
+        self.pbs       = self.basis if pbs_str == "same" \
+                                    else psi4.core.BasisSet.build( self.mol, key='BASIS', target=self.pbs_str)
+        self.npbs      = self.pbs.nbf()
+        self.v0        = np.zeros( (self.npbs) ) if self.ref == 1 \
+                                                 else np.zeros( 2 * self.npbs )
         self.generate_mints_matrices()
 
         self.grid = data_bucket
@@ -100,7 +100,7 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
         A = mints.ao_overlap()
         A.power( -0.5, 1e-16 )
         self.A = A
-        self.S3 = np.squeeze(mints.ao_3coverlap(self.basis,self.basis,self.aux))
+        self.S3 = np.squeeze(mints.ao_3coverlap(self.basis,self.basis,self.pbs))
 
         #Core Matrices
         self.T = mints.ao_kinetic().np.copy()
