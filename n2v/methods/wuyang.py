@@ -11,7 +11,14 @@ from scipy.optimize import minimize
 class WuYang():
     """
     Performs Optimization as in: 10.1063/1.1535422 - Qin Wu + Weitao Yang
+
+    Attributes:
+    -----------
+    lambda_rgl: {None, float}. If float, lambda-regularization is added with lambda=lambda_rgl.
     """
+
+    lambda_rgl = None  # If add lambda regularization
+
 
     def wuyang(self, opt_method, opt_max_iter, opt_tol):
         """
@@ -76,17 +83,17 @@ class WuYang():
         self.grad_a = contract('ij,ijt->t', (self.Da - self.nt[0]), self.S3)
         self.grad_b = contract('ij,ijt->t', (self.Db - self.nt[1]), self.S3) 
 
-        kinetic     =   contract('ij,ji', self.T, (self.Da))
-        potential   =   contract('ij,ji', self.V + self.va, self.Da - self.nt[0])
-        optimizing  =   contract('i,i'  , v[:self.naux], self.grad_a)
+        kinetic     =   np.sum(self.T * (self.Da))
+        potential   =   np.sum((self.V + self.va) * (self.Da - self.nt[0]))
+        optimizing  =   np.sum(v[:self.npbs] * self.grad_a)
 
         if self.ref == 1:
             L = 2 * (kinetic + potential + optimizing)
 
         else:
-            kinetic    +=   contract('ij,ji', self.T, (self.Db))
-            potential  +=   contract('ij,ji', self.V + self.vb, self.Db - self.nt[0])
-            optimizing +=   contract('i,i'  , v[self.naux:], self.grad_b)
+            kinetic    +=   np.sum(self.T * (self.Db))
+            potential  +=   np.sum((self.V + self.vb) * (self.Db - self.nt[1]))
+            optimizing +=   np.sum(v[self.npbs:] * self.grad_b)
             L = kinetic + potential + optimizing
 
         if False:
@@ -136,11 +143,13 @@ class WuYang():
             C3b = contract('mi,va,mvt->iat', self.Cb[:,:nb], self.Cb[:,nb:], self.S3)
             Hb = 2 * contract('iau,iat,ia->ut', C3b, C3b, eigs_diff_b**-1)
             Hs = np.block( 
-                            [[Ha,                               np.zeros((self.naux, self.naux))],
-                            [np.zeros((self.naux, self.naux)), Hb                              ]] 
+                            [[Ha,                               np.zeros((self.npbs, self.npbs))],
+                            [np.zeros((self.npbs, self.npbs)), Hb                              ]]
                         )
 
         if self.reg > 0.0:
             pass
 
         return - Hs
+
+    #TODO Regularization
