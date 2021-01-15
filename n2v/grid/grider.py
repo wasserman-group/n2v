@@ -643,7 +643,7 @@ class Grider(Cubeprop):
 
         return
 
-    def DFT_grid_to_fock(self, value, Vpot):
+    def dft_grid_to_fock(self, value, Vpot):
         """For value on DFT spherical grid, Fock matrix is returned.
         VFock_ij = \int dx \phi_i(x) \phi_j(x) value(x)
         
