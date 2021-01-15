@@ -31,6 +31,53 @@ class data_bucket:
 
 
 class Inverter(WuYang, ZMP, MRKS, Grider):
+    """
+    Attributes:
+    ----------
+    wfn : psi4.core.{RHF, UHF, RKS, UKS, Wavefunction, CCWavefuncion...}
+        Psi4 wavefunction object
+    mol : psi4.core.Molecule
+        Psi4 molecule object
+    basis : psi4.core.BasisSet
+        Psi4 basis set object
+    basis_str : str
+        Basis set
+    nbf : int
+        Number of basis functions for main calculation
+    nalpha : int
+        Number of alpha electrons
+    nbeta : int
+        Number of beta electrons
+    ref : {1,2}
+        Reference calculation
+        1 -> Restricted
+        2 -> Unrestricted
+    nt : List
+        List of psi4.core.Matrix for target densities
+    ct : List
+        List of psi4.core.Matrix for occupied orbitals
+    pbs_str: string
+        name of pbs
+    pbs : psi4.core.BasisSet
+        Potential basis set.
+    v0  : np.ndarray
+        Initial zero guess for optimizer
+    S2  : np.ndarray
+        The ao overlap matrix (i.e. S matrix)
+    S3  : np.ndarray
+        The three ao overlap matrix (ao, ao, pbs)
+    jk  : psi4.core.JK
+        Psi4 jk object. Built if wfn has no jk, otherwise use wfn.jk
+    T   : np.ndarray
+        kinetic matrix on ao
+    V   : np.ndarray
+        external potential matrix on ao
+    T_pbs: np.ndarray
+        kinetic matrix on pbs. Useful for regularization.
+    Methods:
+    --------
+
+    """
     def __init__(self, wfn, pbs_str="same", debug=False):
         """
         Handles Inversion
@@ -39,32 +86,12 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
         ----------
         wfn : psi4.core.{RHF, UHF, RKS, UKS, Wavefunction, CCWavefuncion...}
             Psi4 wavefunction object
-        mol : psi4.core.Molecule
-            Psi4 molecule object
-        basis : psi4.core.BasisSet
-            Psi4 basis set object
-        basis_str : str
-            Basis set
-        nbf : int
-            Number of basis functions for main calculation
-        nalpha : int
-            Number of alpha electrons
-        nbeta : int 
-            Number of beta electrons
-        ref : {1,2}
-            Reference calculation
-            1 -> Restricted
-            2 -> Unrestricted
-        nt : List
-            List of psi4.core.Matrix for target densities
-        ct : List
-            List of psi4.core.Matrix for occupied orbitals
-        pbs : psi4.core.BasisSet
-            Auxiliary basis set for calculation of potential
-        v0  : np.ndarray
-            Initial zero guess for optimizer
+        pbs_str: str. default="same". If same, then the potential basis set (pbs)
+                 is the same as orbital basis set (i.e. ao). Notice that
+                 pbs is not needed for some methods
         """
         self.wfn       = wfn
+        self.pbs_str   = pbs_str
         self.mol       = wfn.molecule()
         self.basis     = wfn.basisset()
         self.basis_str = wfn.basisset().name()
@@ -105,6 +132,7 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
         #Core Matrices
         self.T = mints.ao_kinetic().np.copy()
         self.V = mints.ao_potential().np.copy()
+        self.T_pbs = mints.ao_kinetic(self.pbs, self.pbs).np.copy()
 
     def generate_jk(self, gen_K=False, memory=2.50e9):
         """
