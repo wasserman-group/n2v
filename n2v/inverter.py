@@ -68,12 +68,16 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
         The three ao overlap matrix (ao, ao, pbs)
     jk  : psi4.core.JK
         Psi4 jk object. Built if wfn has no jk, otherwise use wfn.jk
+
     T   : np.ndarray
         kinetic matrix on ao
     V   : np.ndarray
         external potential matrix on ao
     T_pbs: np.ndarray
         kinetic matrix on pbs. Useful for regularization.
+
+    va, vb: np.ndarray of shape (nbasis, nbasis)
+        guide potential component of Fock matrix.
     Methods:
     --------
 
@@ -205,12 +209,12 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
                      potential_components = ["fermi_amaldi", "svwn"], 
                      opt_max_iter = 50,
                      opt_tol      = 1e-5,
-                     reg=0.0):
+                     reg=None):
         """
         Handler to all available inversion methods
         """
 
-        self.reg = reg
+        self.lambda_reg = reg
         self.generate_components(potential_components)
 
         if method.lower() == "wuyang":
