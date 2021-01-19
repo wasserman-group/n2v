@@ -204,7 +204,7 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
 
     #------------->  Inversion:
 
-    def invert(self, method="wuyang", 
+    def invert(self, method,
                      opt_method='trust-krylov', 
                      potential_components = ["fermi_amaldi", "svwn"], 
                      opt_max_iter = 50,
@@ -239,7 +239,7 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
         self.Hartree_a, self.Hartree_b = J[0], J[1]
 
         if "fermi_amaldi" in potential_components:
-            v_fa = (-1/N) * (J[0] + J[1])
+            v_fa = (N-1/N) * (J[0] + J[1])
 
             self.va += v_fa
             self.vb += v_fa
