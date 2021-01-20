@@ -488,7 +488,7 @@ class Grider(Cubeprop):
         vext[:,1] = vext[:,0]
         esp[:,1] = esp[:,0]
         hartree = - 1.0 * (vext + esp)
-        v_fa = -1.0 / (self.nalpha + self.nbeta) * hartree
+        v_fa = (1 -1.0 / (self.nalpha + self.nbeta)) * hartree
 
         if cubic_grid is True:
             vext    = np.reshape(vext, (nshape, nshape, nshape, self.ref))
@@ -496,7 +496,7 @@ class Grider(Cubeprop):
             esp     = np.reshape(esp, (nshape, nshape, nshape, self.ref))
             v_fa    = np.reshape(v_fa, (nshape, nshape, nshape, self.ref))
 
-        psi4.set_num_threads(1)
+        psi4.set_num_threads(nthreads)
 
         return vext, hartree, v_fa, esp
 
