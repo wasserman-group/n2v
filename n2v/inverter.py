@@ -68,17 +68,21 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
         The three ao overlap matrix (ao, ao, pbs)
     jk  : psi4.core.JK
         Psi4 jk object. Built if wfn has no jk, otherwise use wfn.jk
+
     T   : np.ndarray
         kinetic matrix on ao
     V   : np.ndarray
         external potential matrix on ao
     T_pbs: np.ndarray
         kinetic matrix on pbs. Useful for regularization.
+
+    va, vb: np.ndarray of shape (nbasis, nbasis)
+        guide potential component of Fock matrix.
     Methods:
     --------
 
     """
-    def __init__(self, wfn, pbs_str="same", debug=False):
+    def __init__(self, wfn, pbs="same", debug=False):
         """
         Handles Inversion
         
@@ -86,12 +90,12 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
         ----------
         wfn : psi4.core.{RHF, UHF, RKS, UKS, Wavefunction, CCWavefuncion...}
             Psi4 wavefunction object
-        pbs_str: str. default="same". If same, then the potential basis set (pbs)
+        pbs: str. default="same". If same, then the potential basis set (pbs)
                  is the same as orbital basis set (i.e. ao). Notice that
                  pbs is not needed for some methods
         """
         self.wfn       = wfn
-        self.pbs_str   = pbs_str
+        self.pbs_str   = pbs
         self.mol       = wfn.molecule()
         self.basis     = wfn.basisset()
         self.basis_str = wfn.basisset().name()
@@ -103,7 +107,7 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
         self.jk        = wfn.jk() if hasattr(wfn, "jk") == True else self.generate_jk()
         self.nt        = [wfn.Da_subset("AO").np, wfn.Db_subset("AO").np]
         self.ct        = [wfn.Ca_subset("AO", "OCC"), wfn.Cb_subset("AO", "OCC")]
-        self.pbs       = self.basis if pbs_str == "same" \
+        self.pbs       = self.basis if pbs == "same" \
                                     else psi4.core.BasisSet.build( self.mol, key='BASIS', target=self.pbs_str)
         self.npbs      = self.pbs.nbf()
         self.v0        = np.zeros( (self.npbs) ) if self.ref == 1 \
@@ -200,18 +204,18 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
 
     #------------->  Inversion:
 
-    def invert(self, method="wuyang", 
+    def invert(self, method,
                      opt_method='trust-krylov', 
-                     potential_components = ["fermi_amaldi", "svwn"], 
+                     guide_potential_components = ["fermi_amaldi", "svwn"], 
                      opt_max_iter = 50,
                      opt_tol      = 1e-5,
-                     reg=0.0):
+                     reg=None):
         """
         Handler to all available inversion methods
         """
 
-        self.reg = reg
-        self.generate_components(potential_components)
+        self.lambda_reg = reg
+        self.generate_components(guide_potential_components)
 
         if method.lower() == "wuyang":
             self.wuyang(opt_method, opt_max_iter, opt_tol)
@@ -222,7 +226,7 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
         else:
             raise ValueError(f"Inversion method not available. Try: {['wuyang', 'pde', 'mrks']}")
 
-    def generate_components(self, potential_components):
+    def generate_components(self, guide_potential_components):
         """
         Generates exact
         """
@@ -234,17 +238,15 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
         J, _ = self.form_jk( self.ct[0], self.ct[1] )
         self.Hartree_a, self.Hartree_b = J[0], J[1]
 
-        if "fermi_amaldi" in potential_components:
-            v_fa = (-1/N) * (J[0] + J[1])
+        if "fermi_amaldi" in guide_potential_components:
+            v_fa = (1-1/N) * (J[0] + J[1])
 
             self.va += v_fa
             self.vb += v_fa
 
-        if "svwn" in potential_components or "pbe" in potential_components:
-            if "svwn" in potential_components:
+        if "svwn" in guide_potential_components:
+            if "svwn" in guide_potential_components:
                 _, wfn_0 = psi4.energy( "svwn"+"/"+self.basis_str, molecule=self.mol , return_wfn = True)
-            else:
-                _, wfn_0 = psi4.energy( "pbe"+"/"+self.basis_str, molecule=self.mol , return_wfn = True)
 
             if self.ref == 1:
                 ntarget = psi4.core.Matrix.from_array( [ self.nt[0] + self.nt[1] ] )
