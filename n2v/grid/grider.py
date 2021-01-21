@@ -1,7 +1,7 @@
 """
 grider.py
 
-Generates grids for plotting 
+Generates grid for plotting 
 """
 
 import numpy as np
@@ -25,16 +25,16 @@ _default_grid = np.concatenate((np.linspace(-10,10,20, dtype=np.half)[:,None],
 
 class Grider(Cubeprop):
 
-    def grid_to_blocks(self, grids, basis=None):
+    def grid_to_blocks(self, grid, basis=None):
         """
-        Generate list of blocks to allocate given grids
+        Generate list of blocks to allocate given grid
 
         Parameters
         ----------
-        grids: np.ndarray
-            grids to be distributed into blocks
-            Size: (3, npoints) for homogeneous grids
-                  (4, npoints) for inhomogenous grids to account for weights
+        grid: np.ndarray
+            grid to be distributed into blocks
+            Size: (3, npoints) for homogeneous grid
+                  (4, npoints) for inhomogenous grid to account for weights
         basis: psi4.core.BasisSet. Default None
             The basis set. If None, it will use target wfn.basisset().
 
@@ -47,9 +47,9 @@ class Grider(Cubeprop):
         points: psi4.core.{RKS, UKS}
             Points function to set matrices.
         """
-        assert (grids.shape[0] == 3) or (grids.shape[0] == 4), """grids does not have the correct dimensions. \n
+        assert (grid.shape[0] == 3) or (grid.shape[0] == 4), """grid does not have the correct dimensions. \n
                                                               Array must be of size (3, npoints) or (4, npoints)"""
-        if_w = grids.shape[0] == 4
+        if_w = grid.shape[0] == 4
 
         if basis is None:
             basis = self.basis
@@ -57,18 +57,18 @@ class Grider(Cubeprop):
         epsilon    = psi4.core.get_global_option("CUBIC_BASIS_TOLERANCE")
         extens     = psi4.core.BasisExtents(basis, epsilon)
         max_points = psi4.core.get_global_option("DFT_BLOCK_MAX_POINTS")        
-        npoints    = grids.shape[1]
+        npoints    = grid.shape[1]
         nblocks = int(np.floor(npoints/max_points))
         blocks = []
 
         #Run through full blocks
         idx = 0
         for nb in range(nblocks):
-            x = psi4.core.Vector.from_array(grids[0][idx : idx + max_points])
-            y = psi4.core.Vector.from_array(grids[1][idx : idx + max_points])
-            z = psi4.core.Vector.from_array(grids[2][idx : idx + max_points])
+            x = psi4.core.Vector.from_array(grid[0][idx : idx + max_points])
+            y = psi4.core.Vector.from_array(grid[1][idx : idx + max_points])
+            z = psi4.core.Vector.from_array(grid[2][idx : idx + max_points])
             if if_w:
-                w = psi4.core.Vector.from_array(grids[3][idx : idx + max_points])
+                w = psi4.core.Vector.from_array(grid[3][idx : idx + max_points])
             else:
                 w = psi4.core.Vector.from_array(np.zeros(max_points))  # When w is not necessary and not given
 
@@ -77,13 +77,13 @@ class Grider(Cubeprop):
 
         #Run through remaining points
         if idx < npoints:
-            x = psi4.core.Vector.from_array(grids[0][idx:])
-            y = psi4.core.Vector.from_array(grids[1][idx:])
-            z = psi4.core.Vector.from_array(grids[2][idx:])
+            x = psi4.core.Vector.from_array(grid[0][idx:])
+            y = psi4.core.Vector.from_array(grid[1][idx:])
+            z = psi4.core.Vector.from_array(grid[2][idx:])
             if if_w:
-                w = psi4.core.Vector.from_array(grids[3][idx:])
+                w = psi4.core.Vector.from_array(grid[3][idx:])
             else:
-                w = psi4.core.Vector.from_array(np.zeros_like(grids[2][idx:]))  # When w is not necessary and not given
+                w = psi4.core.Vector.from_array(np.zeros_like(grid[2][idx:]))  # When w is not necessary and not given
             blocks.append(psi4.core.BlockOPoints(x, y, z, w, extens))
 
         max_functions = 0 if 0 > len(blocks[-1].functions_local_to_global()) \
@@ -99,31 +99,31 @@ class Grider(Cubeprop):
     def generate_grids(self, x, y, z):
         """
         Genrates Mesh from 3 separate linear spaces and flatten,
-        needed for cubic grids.
+        needed for cubic grid.
 
         Parameters
         ----------
-        grids: tuple of three np.ndarray
+        grid: tuple of three np.ndarray
             (x, y, z)
 
         Returns
         -------
-        grids: np.ndarray
+        grid: np.ndarray
             shape (3, len(x)*len(y)*len(z)).
         """
-        # x,y,z, = grids
+        # x,y,z, = grid
         shape = (len(x), len(y), len(z))
         X,Y,Z = np.meshgrid(x, y, z, indexing='ij')
         X = X.reshape((X.shape[0] * X.shape[1] * X.shape[2], 1))
         Y = Y.reshape((Y.shape[0] * Y.shape[1] * Y.shape[2], 1))
         Z = Z.reshape((Z.shape[0] * Z.shape[1] * Z.shape[2], 1))
-        grids = np.concatenate((X,Y,Z), axis=1).T
+        grid = np.concatenate((X,Y,Z), axis=1).T
 
-        return grids, shape
+        return grid, shape
 
     def generate_dft_grid(self, wfn):
         """
-        Extracts DFT spherical grids and weights from wfn object
+        Extracts DFT spherical grid and weights from wfn object
 
         Parameters
         ----------
@@ -144,7 +144,7 @@ class Grider(Cubeprop):
 
         nblocks = vpot.nblocks()
         blocks = [vpot.get_block(i) for i in range(nblocks)]
-        npoints = vpot.grids().npoints()
+        npoints = vpot.grid().npoints()
         points_function = vpot.properties()[0]
 
         x = np.empty((npoints))
@@ -167,45 +167,45 @@ class Grider(Cubeprop):
         return np.array(dft_grid)
 
 
-    #Quantities on grids
-    def on_grid_ao(self, coeff, grids=None, basis=None, vpot=None):
+    #Quantities on grid
+    def on_grid_ao(self, coeff, grid=None, basis=None, vpot=None):
         """
-        Generates a quantity on the grids given its ao representation.
+        Generates a quantity on the grid given its ao representation.
         *This is the most general function for basis to grid transformation.
 
         Parameters
         ----------
         coeff: np.ndarray
             Vector/Matrix of quantity on ao basis. Shape: {(num_ao_basis, ), (num_ao_basis, num_ao_basis)}
-        grids: np.ndarray Shape: (3, npoints) or (4, npoints)
-            grids where density will be computed.
+        grid: np.ndarray Shape: (3, npoints) or (4, npoints)
+            grid where density will be computed.
         basis: psi4.core.BasisSet. Default None
             The basis set. If None, it will use target wfn.basisset().
         vpot: psi4.core.VBase
-            Vpotential object with info about grids. 
-            Provides DFT spherical grids. Only comes to play if no grids is given. 
+            Vpotential object with info about grid. 
+            Provides DFT spherical grid. Only comes to play if no grid is given. 
 
         Returns
         -------
         coeff_r: np.ndarray Shape: (npoints, )
-            Quantity expressed by the coefficient on the given grids 
+            Quantity expressed by the coefficient on the given grid 
 
 
         """
 
 
-        if grids is not None:
-            if grids.shape[0] != 3 and grids.shape[0] != 4:
-                raise ValueError("The shape of grids should be (3, npoints) "
-                                 "or (4, npoints) but got (%i, %i)"%(grids.shape[0], grids.shape[1]))
-            blocks, npoints, points_function = self.grid_to_blocks(grids, basis=basis)
-        elif grids is None and vpot is not None:
+        if grid is not None:
+            if grid.shape[0] != 3 and grid.shape[0] != 4:
+                raise ValueError("The shape of grid should be (3, npoints) "
+                                 "or (4, npoints) but got (%i, %i)"%(grid.shape[0], grid.shape[1]))
+            blocks, npoints, points_function = self.grid_to_blocks(grid, basis=basis)
+        elif grid is None and vpot is not None:
             nblocks = vpot.nblocks()
             blocks = [vpot.get_block(i) for i in range(nblocks)]
-            npoints = vpot.grids().npoints()
+            npoints = vpot.grid().npoints()
             points_function = vpot.properties()[0]
         else:
-            raise ValueError("A grids or a V_potential (DFT grids) must be given.")
+            raise ValueError("A grid or a V_potential (DFT grid) must be given.")
 
         if self.ref == 1:
             psi4_coeff = psi4.core.Matrix.from_array(coeff[:,None])
@@ -233,27 +233,27 @@ class Grider(Cubeprop):
 
         return coeff_r
 
-    def on_grid_density(self, grids=None,
+    def on_grid_density(self, grid=None,
                               Da=None, 
                               Db=None,
                               vpot=None):
         """
-        Generates Density given grids
+        Generates Density given grid
 
         Parameters
         ----------
         Da, Db: np.ndarray
             Alpha, Beta densities. Shape: (num_ao_basis, num_ao_basis)
-        grids: np.ndarray Shape: (3, npoints) or (4, npoints)
-            grids where density will be computed.
+        grid: np.ndarray Shape: (3, npoints) or (4, npoints)
+            grid where density will be computed.
         vpot: psi4.core.VBase
-            Vpotential object with info about grids.
-            Provides DFT spherical grids. Only comes to play if no grids is given. 
+            Vpotential object with info about grid.
+            Provides DFT spherical grid. Only comes to play if no grid is given. 
 
         Returns
         -------
         density: np.ndarray Shape: (npoints, )
-            Density on the given grids. 
+            Density on the given grid. 
         """
 
         if Da is None and Db is None:
@@ -266,18 +266,18 @@ class Grider(Cubeprop):
         if self.ref == 2 and Db is None:
             raise ValueError("Db is required for an unrestricted system")
 
-        if grids is not None:
-            if grids.shape[0] != 3 and grids.shape[0] != 4:
-                raise ValueError("The shape of grids should be (3, npoints) "
-                                 "or (4, npoints) but got (%i, %i)"%(grids.shape[0], grids.shape[1]))
-            blocks, npoints, points_function = self.grid_to_blocks(grids)
-        elif grids is None and vpot is not None:
+        if grid is not None:
+            if grid.shape[0] != 3 and grid.shape[0] != 4:
+                raise ValueError("The shape of grid should be (3, npoints) "
+                                 "or (4, npoints) but got (%i, %i)"%(grid.shape[0], grid.shape[1]))
+            blocks, npoints, points_function = self.grid_to_blocks(grid)
+        elif grid is None and vpot is not None:
             nblocks = vpot.nblocks()
             blocks = [vpot.get_block(i) for i in range(nblocks)]
-            npoints = vpot.grids().npoints()
+            npoints = vpot.grid().npoints()
             points_function = vpot.properties()[0]
         else:
-            raise ValueError("A grids or a V_potential (DFT grids) must be given.")
+            raise ValueError("A grid or a V_potential (DFT grid) must be given.")
 
         density   = np.empty((npoints, self.ref))
         if self.ref == 1:
@@ -299,24 +299,24 @@ class Grider(Cubeprop):
 
         return density
 
-    def on_grid_orbitals(self, grids=None, Ca=None, Cb=None, vpot=None):
+    def on_grid_orbitals(self, grid=None, Ca=None, Cb=None, vpot=None):
         """
-        Generates orbitals given grids
+        Generates orbitals given grid
 
         Parameters
         ----------
         Ca, Cb: np.ndarray
             Alpha, Beta Orbital Coefficient Matrix. Shape: (num_ao_basis, num_ao_basis)
-        grids: np.ndarray Shape: (3, npoints) or (4, npoints)
-            grids where density will be computed
+        grid: np.ndarray Shape: (3, npoints) or (4, npoints)
+            grid where density will be computed
         vpot: psi4.core.VBase
-            Vpotential object with info about grids.
-            Provides DFT spherical grids. Only comes to play if no grids is given. 
+            Vpotential object with info about grid.
+            Provides DFT spherical grid. Only comes to play if no grid is given. 
 
         Returns
         -------
         orbitals: np.ndarray
-            Orbitals on the given grids of size . 
+            Orbitals on the given grid of size . 
             Shape: (nbasis, npoints, ref)
 
 
@@ -332,18 +332,18 @@ class Grider(Cubeprop):
         if self.ref == 2 and Cb is None:
             raise ValueError("Db is required for an unrestricted system")
 
-        if grids is not None:
-            if grids.shape[0] != 3 and grids.shape[0] != 4:
-                raise ValueError("The shape of grids should be (3, npoints) "
-                                 "or (4, npoints) but got (%i, %i)"%(grids.shape[0], grids.shape[1]))
-            blocks, npoints, points_function = self.grid_to_blocks(grids)
-        elif grids is None and vpot is not None:
+        if grid is not None:
+            if grid.shape[0] != 3 and grid.shape[0] != 4:
+                raise ValueError("The shape of grid should be (3, npoints) "
+                                 "or (4, npoints) but got (%i, %i)"%(grid.shape[0], grid.shape[1]))
+            blocks, npoints, points_function = self.grid_to_blocks(grid)
+        elif grid is None and vpot is not None:
             nblocks = vpot.nblocks()
             blocks = [vpot.get_block(i) for i in range(nblocks)]
-            npoints = vpot.grids().npoints()
+            npoints = vpot.grid().npoints()
             points_function = vpot.properties()[0]
         else:
-            raise ValueError("A grids or a V_potential (DFT grids) must be given.")
+            raise ValueError("A grid or a V_potential (DFT grid) must be given.")
 
         orbitals_r = [np.empty((npoints, self.ref)) for i_orb in range(self.nbf)]
 
@@ -371,37 +371,37 @@ class Grider(Cubeprop):
 
         return orbitals_r
 
-    def on_grid_esp(self, grids=None, vpot=None):
+    def on_grid_esp(self, grid=None, vpot=None):
 
         """
-        Generates EXTERNAL/ESP/HARTREE and Fermi Amaldi Potential on given grids
+        Generates EXTERNAL/ESP/HARTREE and Fermi Amaldi Potential on given grid
 
         Parameters
         ----------
-        grids: np.ndarray Shape: (3, npoints) or (4, npoints)
-            grids where density will be computed.
+        grid: np.ndarray Shape: (3, npoints) or (4, npoints)
+            grid where density will be computed.
         vpot: psi4.core.VBase
-            Vpotential object with info about grids.
-            Provides DFT spherical grids. Only comes to play if no grids is given. 
+            Vpotential object with info about grid.
+            Provides DFT spherical grid. Only comes to play if no grid is given. 
 
         Returns
         -------
         vext, hartree, esp, v_fa: np.ndarray
-            External, Hartree, ESP, and Fermi Amaldi potential on the given grids
+            External, Hartree, ESP, and Fermi Amaldi potential on the given grid
             Shape: (npoints, )
         """
 
         nthreads = psi4.get_num_threads()
         psi4.set_num_threads(1)
 
-        if grids is not None:
-            blocks, npoints, points_function = self.grid_to_blocks(grids)
-        elif grids is None and vpot is not None:
+        if grid is not None:
+            blocks, npoints, points_function = self.grid_to_blocks(grid)
+        elif grid is None and vpot is not None:
             nblocks = vpot.nblocks()
             blocks = [vpot.get_block(i) for i in range(nblocks)]
-            npoints = vpot.grids().npoints()
+            npoints = vpot.grid().npoints()
         else:
-            raise ValueError("A grids or a V_potential (DFT grids) must be given.")
+            raise ValueError("A grid or a V_potential (DFT grid) must be given.")
 
         #Initialize Arrays
         vext = np.zeros(npoints)
@@ -447,10 +447,10 @@ class Grider(Cubeprop):
 
         return vext, hartree, v_fa, esp
 
-    def on_grid_vxc(self, func_id=1, grids=None, Da=None, Db=None,
+    def on_grid_vxc(self, func_id=1, grid=None, Da=None, Db=None,
                           vpot=None):
         """
-        Generates Vxc given grids
+        Generates Vxc given grid
 
         Parameters
         ----------
@@ -459,29 +459,29 @@ class Grider(Cubeprop):
         func_id: int
             Functional ID associated with Density Functional Approximationl.
             Full list of functionals: https://www.tddft.org/programs/libxc/functionals/
-        grids: np.ndarray Shape: (3, npoints) or (4, npoints)
-            grids where density will be computed.
+        grid: np.ndarray Shape: (3, npoints) or (4, npoints)
+            grid where density will be computed.
         vpot: psi4.core.VBase
-            Vpotential object with info about grids.
-            Provides DFT spherical grids. Only comes to play if no grids is given. 
+            Vpotential object with info about grid.
+            Provides DFT spherical grid. Only comes to play if no grid is given. 
 
         Returns
         -------
         VXC: np.ndarray
-            Exchange correlation potential on the given grids
+            Exchange correlation potential on the given grid
             Shape: (npoints, )
 
         """
 
         if func_id != 1:
-            raise ValueError("Only LDA fucntionals are supported on the grids")
+            raise ValueError("Only LDA fucntionals are supported on the grid")
 
         if  Da is None and Db is None and vpot is None:
-            density = self.on_grid_density(grids=grids)
+            density = self.on_grid_density(grid=grid)
         elif Da is not None and Db is None and vpot is None:
-            density = self.on_grid_density(grids=grids, Da=Da)
+            density = self.on_grid_density(grid=grid, Da=Da)
         elif Da is not None and Db is not None and vpot is None:
-            density = self.on_grid_density(grids=grids, Da=Da, Db=Db)
+            density = self.on_grid_density(grid=grid, Da=Da, Db=Db)
         ###
         elif Da is None and Db is None and vpot is not None:
             density = self.on_grid_density(vpot=vpot)        
@@ -490,14 +490,14 @@ class Grider(Cubeprop):
         elif Da is not None and Db is not None and vpot is not None:
             density = self.on_grid_density(Da=Da, Db=Db, vpot=vpot)
 
-        if grids is not None:
-            blocks, npoints, points_function = self.grid_to_blocks(grids)
-        elif grids is None and vpot is not None:
+        if grid is not None:
+            blocks, npoints, points_function = self.grid_to_blocks(grid)
+        elif grid is None and vpot is not None:
             nblocks = vpot.nblocks()
             blocks = [vpot.get_block(i) for i in range(nblocks)]
-            npoints = vpot.grids().npoints()
+            npoints = vpot.grid().npoints()
         else:
-            raise ValueError("A grids or a V_potential (DFT grids) must be given.")
+            raise ValueError("A grid or a V_potential (DFT grid) must be given.")
 
         vxc = np.empty((npoints, self.ref))
         ingredients = {}
@@ -516,39 +516,39 @@ class Grider(Cubeprop):
 
         return vxc
 
-    def on_grid_all(self, grids=None, show_progress=False):
+    def on_grid_all(self, grid=None, show_progress=False):
         """
         Calls *all* 'on_grid_x' functions using densities and coefficients stored in Inverter object. 
 
         Parameters
         ----------
-        grids: np.ndarray Shape: (3, npoints) or (4, npoints)
-            grids where density will be computed.
+        grid: np.ndarray Shape: (3, npoints) or (4, npoints)
+            grid where density will be computed.
         show_progress: bool 
             If True. Prints confirmation of each component generated. 
 
         Returns
         -------
         None:
-            *Stores all grids quantities on self.grid. 
+            *Stores all grid quantities on self.grid. 
 
         """
 
-        if grids is None:
-            grids = _default_grid
+        if grid is None:
+            grid = _default_grid
 
         if show_progress == True:
             print("Generating Orbitals") 
-        density = self.on_grid_density(grids=grids)
+        density = self.on_grid_density(grid=grid)
         if show_progress == True:
             print("Generating Orbitals") 
-        orbitals = self.on_grid_orbitals(grids=grids)
+        orbitals = self.on_grid_orbitals(grid=grid)
         if show_progress is True:
             print("Generating Ext/Hartree/ESP") 
-        vext, hartree, esp, v_fa = self.on_grid_esp(wfn=self.wfn, grids=grids)
+        vext, hartree, esp, v_fa = self.on_grid_esp(wfn=self.wfn, grid=grid)
         if show_progress is True:
             print("Generating Vxc") 
-        vxc = self.on_grid_vxc(grids=grids)
+        vxc = self.on_grid_vxc(grid=grid)
 
         self.grid.density = density
         self.grid.orbitals = orbitals
@@ -561,7 +561,7 @@ class Grider(Cubeprop):
         return
 
     def dft_grid_to_fock(self, value, Vpot):
-        """For value on DFT spherical grids, Fock matrix is returned.
+        """For value on DFT spherical grid, Fock matrix is returned.
         VFock_ij = \int dx \phi_i(x) \phi_j(x) value(x)
         
         Parameters:
@@ -569,8 +569,8 @@ class Grider(Cubeprop):
         value: np.ndarray of shape (npoint, ).
 
         Vpot:psi4.core.VBase
-            Vpotential object with info about grids.
-            Provides DFT spherical grids. Only comes to play if no grids is given.
+            Vpotential object with info about grid.
+            Provides DFT spherical grid. Only comes to play if no grid is given.
         
         Returns:
         ---------
@@ -589,7 +589,7 @@ class Grider(Cubeprop):
             npoints = block.npoints()
             lpos = np.array(block.functions_local_to_global())
 
-            # Obtain the grids weight
+            # Obtain the grid weight
             w = np.array(block.w())
 
             # Compute phi!
