@@ -19,10 +19,6 @@ except:
 
 from .cubeprop import Cubeprop
 
-_default_grid = np.concatenate((np.linspace(-10,10,20, dtype=np.half)[:,None],
-                              np.linspace(-10,10,20, dtype=np.half)[:,None],
-                              np.linspace(-10,10,20, dtype=np.half)[:,None]), axis=1)
-
 class Grider(Cubeprop):
 
     def grid_to_blocks(self, grid, basis=None):
@@ -533,9 +529,6 @@ class Grider(Cubeprop):
             *Stores all grid quantities on self.grid. 
 
         """
-
-        if grid is None:
-            grid = _default_grid
 
         if show_progress == True:
             print("Generating Orbitals") 
