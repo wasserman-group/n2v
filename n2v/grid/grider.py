@@ -141,26 +141,20 @@ class Grider(Cubeprop):
         nblocks = vpot.nblocks()
         blocks = [vpot.get_block(i) for i in range(nblocks)]
         npoints = vpot.grid().npoints()
-        points_function = vpot.properties()[0]
 
-        x = np.empty((npoints))
-        y = np.empty((npoints))
-        z = np.empty((npoints))
-        w = np.empty((npoints))
+        dft_grid = np.empty(4, npoints)
 
         offset = 0
         for i_block in blocks:
             b_points = i_block.npoints()
             offset += b_points
 
-            x[offset - b_points : offset] = i_block.x().np
-            y[offset - b_points : offset] = i_block.x().np
-            z[offset - b_points : offset] = i_block.x().np
-            w[offset - b_points : offset] = i_block.x().np
+            dft_grid[0, offset - b_points : offset] = i_block.x().np
+            dft_grid[1, offset - b_points : offset] = i_block.y().np
+            dft_grid[2, offset - b_points : offset] = i_block.z().np
+            dft_grid[3, offset - b_points : offset] = i_block.w().np
 
-        dft_grid = [x,y,z,w]
-
-        return np.array(dft_grid)
+        return dft_grid
 
 
     #Quantities on grid
