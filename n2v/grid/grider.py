@@ -31,8 +31,8 @@ class Grider(Cubeprop):
             grid to be distributed into blocks
             Size: (3, npoints) for homogeneous grid
                   (4, npoints) for inhomogenous grid to account for weights
-        basis: psi4.core.BasisSet. Default None
-            The basis set. If None, it will use target wfn.basisset().
+        basis: psi4.core.BasisSet; optional
+            The basis set. If not given, it will use target wfn.basisset().
 
         Returns
         -------
@@ -169,8 +169,8 @@ class Grider(Cubeprop):
             Vector/Matrix of quantity on ao basis. Shape: {(num_ao_basis, ), (num_ao_basis, num_ao_basis)}
         grid: np.ndarray Shape: (3, npoints) or (4, npoints)
             grid where density will be computed.
-        basis: psi4.core.BasisSet. Default None
-            The basis set. If None, it will use target wfn.basisset().
+        basis: psi4.core.BasisSet, optional
+            The basis set. If not given it will use target wfn.basisset().
         vpot: psi4.core.VBase
             Vpotential object with info about grid. 
             Provides DFT spherical grid. Only comes to play if no grid is given. 

@@ -244,11 +244,9 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
             self.va += v_fa
             self.vb += v_fa
 
-        if "svwn" in guide_potential_components or "pbe" in guide_potential_components:
+        if "svwn" in guide_potential_components:
             if "svwn" in guide_potential_components:
                 _, wfn_0 = psi4.energy( "svwn"+"/"+self.basis_str, molecule=self.mol , return_wfn = True)
-            else:
-                _, wfn_0 = psi4.energy( "pbe"+"/"+self.basis_str, molecule=self.mol , return_wfn = True)
 
             if self.ref == 1:
                 ntarget = psi4.core.Matrix.from_array( [ self.nt[0] + self.nt[1] ] )
