@@ -28,7 +28,7 @@ class Grider(Cubeprop):
         Parameters
         ----------
         grid: np.ndarray
-            grid to be distributed into blocks
+            Grid to be distributed into blocks
             Size: (3, npoints) for homogeneous grid
                   (4, npoints) for inhomogenous grid to account for weights
         basis: psi4.core.BasisSet; optional
@@ -43,7 +43,7 @@ class Grider(Cubeprop):
         points: psi4.core.{RKS, UKS}
             Points function to set matrices.
         """
-        assert (grid.shape[0] == 3) or (grid.shape[0] == 4), """grid does not have the correct dimensions. \n
+        assert (grid.shape[0] == 3) or (grid.shape[0] == 4), """Grid does not have the correct dimensions. \n
                                                               Array must be of size (3, npoints) or (4, npoints)"""
         if_w = grid.shape[0] == 4
 
@@ -157,7 +157,7 @@ class Grider(Cubeprop):
         return dft_grid
 
 
-    #Quantities on grid
+    #Quantities on Grid
     def on_grid_ao(self, coeff, grid=None, basis=None, vpot=None):
         """
         Generates a quantity on the grid given its ao representation.
