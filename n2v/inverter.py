@@ -179,9 +179,6 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
             Matrix to be diagonalized
         ndocc: int
             Number of occupied orbitals
-        psi4_matrix: bool   
-            if True, runs only on Psi4 Functions. Returns Psi4 Matrices
-            if False, runs numpy arrrays. Returns Numpy arrays
 
         Returns
         -------
