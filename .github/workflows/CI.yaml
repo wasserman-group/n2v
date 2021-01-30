@@ -19,7 +19,6 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-
         cfg:
         - conda-env: test_env
           python-version: [3.7, 3.8, 3.9]
@@ -28,8 +27,8 @@ jobs:
         # conda_env: [test_env]
 
     env: 
-      PYVER: ${{ matrix.python-version }}
-      CONDA_ENV: ${{ matrix.conda-env }}
+      PYVER: ${{ matrix.cfg.python-version }}
+      CONDA_ENV: ${{ matrix.cfg.conda-env }}
 
     steps:
     - uses: actions/checkout@v1
