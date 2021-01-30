@@ -105,7 +105,7 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
         self.ref       = 1 if psi4.core.get_global_option("REFERENCE") == "RHF" or \
                               psi4.core.get_global_option("REFERENCE") == "RKS" else 2
         self.jk        = wfn.jk() if hasattr(wfn, "jk") == True else self.generate_jk()
-        self.nt        = [wfn.Da_subset("AO").np, wfn.Db_subset("AO").np]
+        self.nt        = [np.array(wfn.Da_subset("AO")), np.array(wfn.Db_subset("AO"))]
         self.ct        = [wfn.Ca_subset("AO", "OCC"), wfn.Cb_subset("AO", "OCC")]
         self.pbs       = self.basis if pbs == "same" \
                                     else psi4.core.BasisSet.build( self.mol, key='BASIS', target=self.pbs_str)
@@ -127,7 +127,7 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
         mints = psi4.core.MintsHelper( self.basis )
 
         #Overlap Matrices
-        self.S2 = mints.ao_overlap().np
+        self.S2 = np.array(mints.ao_overlap())
         A = mints.ao_overlap()
         A.power( -0.5, 1e-16 )
         self.A = A
@@ -135,9 +135,9 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
         self.I = np.asarray(mints.ao_eri())
 
         #Core Matrices
-        self.T = mints.ao_kinetic().np.copy()
-        self.V = mints.ao_potential().np.copy()
-        self.T_pbs = mints.ao_kinetic(self.pbs, self.pbs).np.copy()
+        self.T = np.array(mints.ao_kinetic()).copy()
+        self.V = np.array(mints.ao_potential()).copy()
+        self.T_pbs = np.array(mints.ao_kinetic(self.pbs, self.pbs)).copy()
 
     def generate_jk(self, gen_K=False, memory=2.50e9):
         """
@@ -245,7 +245,7 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
         self.J0 = [Ja, Jb]
 
         if "fermi_amaldi" in guide_potential_components:
-            v_fa = (1-1/N) * (J[0] + J[1])
+            v_fa = (1-1/N) * (self.J0[0] + self.J0[1])
 
             self.va += v_fa
             self.vb += v_fa
