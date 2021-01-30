@@ -74,6 +74,7 @@ jobs:
       shell: bash -l {0}
 
       run: |
+        eval "$(conda shell.bash hook)" && conda activate test
         pytest -v --cov=n2v --cov-report=xml --color=yes n2v/tests/
 
     - name: CodeCov
