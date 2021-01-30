@@ -179,6 +179,9 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
             Matrix to be diagonalized
         ndocc: int
             Number of occupied orbitals
+        psi4_matrix: bool   
+            if True, runs only on Psi4 Functions. Returns Psi4 Matrices
+            if False, runs numpy arrrays. Returns Numpy arrays
 
         Returns
         -------
@@ -191,17 +194,14 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
         eigves: np.ndarray
             Eigenvalues
         """
-        matrix = psi4.core.Matrix.from_array( matrix )
-        Fp = psi4.core.triplet(self.A, matrix, self.A, True, False, True)
-        Cp = psi4.core.Matrix(self.nbf, self.nbf)
-        eigvecs = psi4.core.Vector(self.nbf)
-        Fp.diagonalize(Cp, eigvecs, psi4.core.DiagonalizeOrder.Ascending)
-        C = psi4.core.doublet(self.A, Cp, False, False)
-        Cocc = psi4.core.Matrix(self.nbf, ndocc)
-        Cocc.np[:] = C.np[:, :ndocc]
-        D = psi4.core.doublet(Cocc, Cocc, False, True)
 
-        return C.np, Cocc.np, D.np, eigvecs.np
+        A = np.array(self.A).copy()
+        Fp = A.dot(matrix).dot(A)
+        eigvecs, Cp = np.linalg.eigh(Fp)
+        C = A.dot(Cp)
+        Cocc = C[:, :ndocc]
+        D = contract('pi,qi->pq', Cocc, Cocc)
+        return C, Cocc, D, eigvecs
 
     #------------->  Inversion:
 
