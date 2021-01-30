@@ -132,6 +132,7 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
         A.power( -0.5, 1e-16 )
         self.A = A
         self.S3 = np.squeeze(mints.ao_3coverlap(self.basis,self.basis,self.pbs))
+        self.I = np.asarray(mints.ao_eri())
 
         #Core Matrices
         self.T = mints.ao_kinetic().np.copy()
