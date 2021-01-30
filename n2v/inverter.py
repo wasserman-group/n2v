@@ -240,8 +240,9 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
         self.vb = np.zeros_like(self.T)
 
         N = self.nalpha + self.nbeta
-        J, _ = self.form_jk( self.ct[0], self.ct[1] )
-        self.Hartree_a, self.Hartree_b = J[0], J[1]
+        Ja = contract('pqrs,rs->pq', self.I, self.nt[0])
+        Jb = contract('pqrs,rs->pq', self.I, self.nt[1])
+        self.J0 = [Ja, Jb]
 
         if "fermi_amaldi" in guide_potential_components:
             v_fa = (1-1/N) * (J[0] + J[1])
