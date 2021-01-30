@@ -45,7 +45,7 @@ setup(
     setup_requires=[  "numpy", 
                       "scipy",
                       "setuptools",
-                      "wheel"],   ] + pytest_runner,
+                      "wheel"] + pytest_runner,
 
     # Additional entries you may want simply uncomment the lines you want and fill in the data
     # url='http://www.my_package.com',  # Website
