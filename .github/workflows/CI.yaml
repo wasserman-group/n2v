@@ -16,12 +16,13 @@ on:
 jobs:
   test:
     name: Test on ${{ matrix.os }}, Python ${{ matrix.python-version }}
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     strategy:
       matrix:
+
         cfg:
         - conda-env: test_env
-        - python-version: [3.7, 3.8, 3.9]
+          python-version: [3.7, 3.8, 3.9]
         # os: [macOS-latest, ubuntu-latest, windows-latest]
         # python-version: [3.7, 3.8, 3.9]
         # conda_env: [test_env]
