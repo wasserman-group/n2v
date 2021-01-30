@@ -19,13 +19,16 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macOS-latest, ubuntu-latest, windows-latest]
-        python-version: [3.7, 3.8, 3.9]
-        conda_env: [test_env]
+        cfg:
+        - conda-env: test_env
+        - python-version: [3.7, 3.8, 3.9]
+        # os: [macOS-latest, ubuntu-latest, windows-latest]
+        # python-version: [3.7, 3.8, 3.9]
+        # conda_env: [test_env]
 
-    # env: 
-    #   PYVER: ${{ matrix.python-version }}
-    #   CONDA_ENV: ${{ matrix.conda-env }}
+    env: 
+      PYVER: ${{ matrix.python-version }}
+      CONDA_ENV: ${{ matrix.conda-env }}
 
     steps:
     - uses: actions/checkout@v1
@@ -41,7 +44,7 @@ jobs:
       shell: bash
       run: |
         eval "$(conda shell.bash hook)" && conda activate
-        python devtools/scripts/create_conda_env.py -n=test -p=$PYVER devtools/conda-envs/test_env.yaml
+        python devtools/scripts/create_conda_env.py -n=test -p=$PYVER devtools/conda-envs/$CONDA_ENV.yaml
 
     - name: Install package
       # conda setup requires this special shell
