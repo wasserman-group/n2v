@@ -210,22 +210,26 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
                      guide_potential_components = ["fermi_amaldi", "svwn"], 
                      opt_max_iter = 50,
                      opt_tol      = 1e-5,
-                     reg=None):
+                     reg=None,
+                     lam=100):
         """
         Handler to all available inversion methods
         """
 
+        self.lam = lam
         self.lambda_reg = reg
         self.generate_components(guide_potential_components)
 
         if method.lower() == "wuyang":
             self.wuyang(opt_method, opt_max_iter, opt_tol)
-        elif method.lower() == "pde":
-            pass
+        elif method.lower() == "zmp":
+            self.zmp(lam, opt_max_iter, opt_tol)
+        elif method.lower() == "zmp_with_scf":
+            self.zmp_with_scf(lam, opt_max_iter, opt_tol)
         elif method.lower() == "mrks":
             pass
         else:
-            raise ValueError(f"Inversion method not available. Try: {['wuyang', 'pde', 'mrks']}")
+            raise ValueError(f"Inversion method not available. Try: {['wuyang', 'zmp', 'mrks']}")
 
     def generate_components(self, guide_potential_components):
         """
