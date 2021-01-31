@@ -5,8 +5,7 @@ Generates grid for plotting
 """
 
 import numpy as np
-import warnings
-import matplotlib.pyplot as plt
+import warningsgit
 from opt_einsum import contract
 from pylibxc import LibXCFunctional as Functional
 import psi4
