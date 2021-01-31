@@ -71,8 +71,7 @@ jobs:
         conda list --show-channel-urls
 
     - name: Run Pytest
-      # conda setup requires this special shell
-      shell: bash -l {0}
+      shell: bash
 
       run: |
         eval "$(conda shell.bash hook)" && conda activate test
