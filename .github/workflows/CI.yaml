@@ -50,6 +50,7 @@ jobs:
       # conda setup requires this special shell
       shell: bash -l {0}
       run: |
+        eval "$(conda shell.bash hook)" && conda activate test
         python -m pip install . --no-deps
         conda list
 
