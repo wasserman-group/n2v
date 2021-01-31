@@ -1,76 +1,71 @@
 name: CI
 
-on:
-  # GitHub has started calling new repo's first branch "main" https://github.com/github/renaming
-  # Existing codes likely still have "master" as the primary branch
-  # Both are tracked here to keep legacy and new codes working
-  push:
-    branches:
-      - "master"
-      - "main"
-  pull_request:
-    branches:
-      - "master"
-      - "main"
-  schedule:
-    # Nightly tests run on master by default:
-    #   Scheduled workflows run on the latest commit on the default or base branch.
-    #   (from https://help.github.com/en/actions/reference/events-that-trigger-workflows#scheduled-events-schedule)
-    - cron: "0 0 * * *"
+on: [push, pull_request]
 
 jobs:
   test:
-    name: Test on ${{ matrix.os }}, Python ${{ matrix.python-version }}
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     strategy:
       matrix:
-        os: [macOS-latest, ubuntu-latest, windows-latest]
-        python-version: [3.7, 3.8, 3.9]
+        cfg:
+        - conda-env: test_env
+          python-version: 3.7
+          - conda-env: test_env
+          python-version: 3.8
+        - conda-env: test_env
+          python-version: 3.9
+
+    env: 
+      PYVER: ${{ matrix.cfg.python-version }}
+      CONDA_ENV: ${{ matrix.cfg.conda-env }}
 
     steps:
     - uses: actions/checkout@v1
 
-    - name: Additional info about the build
+    - name: Setup Information
       shell: bash
       run: |
         uname -a
         df -h
         ulimit -a
-
-
-    # More info on options: https://github.com/conda-incubator/setup-miniconda
-    - uses: conda-incubator/setup-miniconda@v2
-      with:
-        python-version: ${{ matrix.python-version }}
-        environment-file: devtools/conda-envs/test_env.yaml
-
-        channels: conda-forge,defaults
-
-        activate-environment: test
-        auto-update-conda: false
-        auto-activate-base: false
-        show-channel-urls: true
-
-    - name: Install package
-
-      # conda setup requires this special shell
-      shell: bash -l {0}
+        conda --version
+    - name: Create Environment
+      shell: bash
       run: |
-        python -m pip install . --no-deps
+        eval "$(conda shell.bash hook)" && conda activate
+        python devtools/scripts/create_conda_env.py -n=test -p=$PYVER devtools/conda-envs/$CONDA_ENV.yaml
+    - name: Install package
+      shell: bash
+      run: |
+        eval "$(conda shell.bash hook)" && conda activate test
+        python -m pip install .
         conda list
 
+    # - name: Libxc Python Library
+    #   shell: bash
+    #   run: |
+    #     eval "$(conda shell.bash hook)" && conda activate test
+    #     cd ~
+    #     wget --content-disposition  http://www.tddft.org/programs/libxc/down.php?file=5.0.0/libxc-5.0.0.tar.gz
+    #     tar xf libxc-5.0.0.tar.gz
+    #     cd libxc-5.0.0/
+    #     python -m pip install . --no-deps
 
-    - name: Run tests
-
-      # conda setup requires this special shell
-      shell: bash -l {0}
-
+    - name: Environment Information
+      shell: bash
       run: |
+        eval "$(conda shell.bash hook)" && conda activate test
+        conda list --show-channel-urls
+
+    - name: Run Pytest
+      shell: bash
+      run: |
+        eval "$(conda shell.bash hook)" && conda activate test
         pytest -v --cov=n2v --cov-report=xml --color=yes n2v/tests/
 
     - name: CodeCov
       uses: codecov/codecov-action@v1
-      with:
-        file: ./coverage.xml
-        flags: unittests
-        name: codecov-${{ matrix.os }}-py${{ matrix.python-version }}
+      # with:
+      #   file: ./coverage.xml
+      #   flags: unittests
+      #   name: codecov-${{ matrix.os }}-py${{ matrix.python-version }}
