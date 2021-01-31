@@ -93,11 +93,10 @@ class ZMP():
 #------------->  Generate Fock Matrix:
             Fa = np.zeros((self.nbf, self.nbf))
             Fb = np.zeros((self.nbf, self.nbf))
-            Ja = contract('pqrs,rs->pq', self.I, Da)
-            Jb = contract('pqrs,rs->pq', self.I, Db)
+            J, _ = self.form_jk(Cocca, Coccb)
 
             #Equation 7 of Reference (1)
-            v_c = lam * ( (Ja + Jb) - (self.J0[0] + self.J0[1]) )
+            v_c = lam * ( (J[0] + J[1]) - (self.J0[0] + self.J0[1]) )
 
             #Equation 10 of Reference (1)
             Fa += H + self.va + v_c 
@@ -146,13 +145,13 @@ class ZMP():
                 for i in range(Ca.shape[0] - 1):
                     Fa += Ca[i] * state_vectors_a[i]
 
+                diis_error_a = np.max(np.abs(error_vectors_a[-1]))
                 if self.ref ==  1:
                     Fb = Fa.copy()
-                    diis_error_a = np.max(np.abs(error_vectors_a[-1]))
                     diis_error = 2 * diis_error_a
 
                 else:
-                    grad_b = A.dot(Fa.dot(Db).dot(S2) - S2.dot(Da).dot(Fa)).dot(A)
+                    grad_b = A.dot(Fb.dot(Db).dot(S2) - S2.dot(Db).dot(Fb)).dot(A)
                     grad_b[np.abs(grad_b) < eps] = 0.0
                     
                     if SCF_ITER -1 < self.diis_space:
@@ -162,8 +161,8 @@ class ZMP():
                         state_vectors_b.append(Fb.copy())
                         error_vectors_b.append(grad_b.copy())
 
-                    for i in range(len(state_vectors_a)):
-                        for j in range(len(state_vectors_a)):
+                    for i in range(len(state_vectors_b)):
+                        for j in range(len(state_vectors_b)):
                             Bb[i,j] = np.einsum('ij,ij->', error_vectors_b[i], error_vectors_b[j])
 
                     diis_error_b = np.max(np.abs(error_vectors_b[-1]))
@@ -186,6 +185,9 @@ class ZMP():
                 Cb, Coccb, Db, eigs_b = self.diagonalize(Fb, self.nbeta)
             else: 
                 Cb, Coccb, Db, eigs_b = Ca.copy(), Cocca.copy(), Da.copy(), eigs_a.copy()
+
+            Cocca = psi4.core.Matrix.from_array(Cocca)
+            Coccb = psi4.core.Matrix.from_array(Coccb)
 
             ddm = D_old - Da
             D_old = Da

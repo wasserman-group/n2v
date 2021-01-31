@@ -132,7 +132,6 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
         A.power( -0.5, 1e-16 )
         self.A = A
         self.S3 = np.squeeze(mints.ao_3coverlap(self.basis,self.basis,self.pbs))
-        self.I = np.asarray(mints.ao_eri())
 
         #Core Matrices
         self.T = np.array(mints.ao_kinetic()).copy()
@@ -164,7 +163,7 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
         self.jk.compute()
         self.jk.C_clear()
 
-        J = [self.jk.J()[0].np, self.jk.J()[1].np]
+        J = [np.array(self.jk.J()[0]), np.array(self.jk.J()[1])]
         K = []
 
         return J, K
@@ -191,6 +190,18 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
         eigves: np.ndarray
             Eigenvalues
         """
+        
+        # matrix = psi4.core.Matrix.from_array( matrix )
+        # Fp = psi4.core.triplet(self.A, matrix, self.A, True, False, True)
+        # Cp = psi4.core.Matrix(self.nbf, self.nbf)
+        # eigvecs = psi4.core.Vector(self.nbf)
+        # Fp.diagonalize(Cp, eigvecs, psi4.core.DiagonalizeOrder.Ascending)
+        # C = psi4.core.doublet(self.A, Cp, False, False)
+        # Cocc = psi4.core.Matrix(self.nbf, ndocc)
+        # Cocc.np[:] = C.np[:, :ndocc]
+        # D = psi4.core.doublet(Cocc, Cocc, False, True)
+
+        # return C.np, Cocc.np, D.np, eigvecs.np
 
         A = np.array(self.A).copy()
         Fp = A.dot(matrix).dot(A)
@@ -237,9 +248,7 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
         self.vb = np.zeros_like(self.T)
 
         N = self.nalpha + self.nbeta
-        Ja = contract('pqrs,rs->pq', self.I, self.nt[0])
-        Jb = contract('pqrs,rs->pq', self.I, self.nt[1])
-        self.J0 = [Ja, Jb]
+        self.J0, _ = self.form_jk(self.ct[0], self.ct[1])
 
         if "fermi_amaldi" in guide_potential_components:
             v_fa = (1-1/N) * (self.J0[0] + self.J0[1])
