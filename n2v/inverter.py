@@ -191,18 +191,6 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
             Eigenvalues
         """
         
-        # matrix = psi4.core.Matrix.from_array( matrix )
-        # Fp = psi4.core.triplet(self.A, matrix, self.A, True, False, True)
-        # Cp = psi4.core.Matrix(self.nbf, self.nbf)
-        # eigvecs = psi4.core.Vector(self.nbf)
-        # Fp.diagonalize(Cp, eigvecs, psi4.core.DiagonalizeOrder.Ascending)
-        # C = psi4.core.doublet(self.A, Cp, False, False)
-        # Cocc = psi4.core.Matrix(self.nbf, ndocc)
-        # Cocc.np[:] = C.np[:, :ndocc]
-        # D = psi4.core.doublet(Cocc, Cocc, False, True)
-
-        # return C.np, Cocc.np, D.np, eigvecs.np
-
         A = np.array(self.A).copy()
         Fp = A.dot(matrix).dot(A)
         eigvecs, Cp = np.linalg.eigh(Fp)
