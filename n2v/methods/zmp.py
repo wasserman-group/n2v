@@ -4,21 +4,14 @@ zmp.py
 Functions associated with zmp inversion
 """
 
-from functools import reduce
-import matplotlib.pyplot as plt
-
-import math
-
 import psi4
-psi4.core.be_quiet()
 import numpy as np
-eps = np.finfo(float).eps
 from opt_einsum import contract
 from scipy.optimize import minimize
+from functools import reduce
 
-from psi4.driver.p4util.solvers import DIIS
-
-import sys
+psi4.core.be_quiet()
+eps = np.finfo(float).eps
 
 class ZMP():
 
