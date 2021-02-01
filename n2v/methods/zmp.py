@@ -68,8 +68,6 @@ class ZMP():
         error_vectors_a, error_vectors_b = [], []
 
         #"Initial Guess for SCF
-        Cocca = self.ct[0]
-        Coccb = self.ct[1]
         Da = self.nt[0]
         Db = self.nt[1]
         D_old = Da.copy()
@@ -182,9 +180,6 @@ class ZMP():
                 Cb, Coccb, Db, eigs_b = self.diagonalize(Fb, self.nbeta)
             else: 
                 Cb, Coccb, Db, eigs_b = Ca.copy(), Cocca.copy(), Da.copy(), eigs_a.copy()
-
-            Cocca = psi4.core.Matrix.from_array(Cocca)
-            Coccb = psi4.core.Matrix.from_array(Coccb)
 
             ddm = D_old - Da
             D_old = Da

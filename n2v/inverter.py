@@ -76,8 +76,10 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
     T_pbs: np.ndarray
         kinetic matrix on pbs. Useful for regularization.
 
+    guide_potential_components: list of string
+        guide potential components name
     va, vb: np.ndarray of shape (nbasis, nbasis)
-        guide potential component of Fock matrix.
+        guide potential Fock matrix.
     Methods:
     --------
 
@@ -105,8 +107,8 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
         self.ref       = 1 if psi4.core.get_global_option("REFERENCE") == "RHF" or \
                               psi4.core.get_global_option("REFERENCE") == "RKS" else 2
         self.jk        = wfn.jk() if hasattr(wfn, "jk") == True else self.generate_jk()
-        self.nt        = [np.array(wfn.Da_subset("AO")), np.array(wfn.Db_subset("AO"))]
-        self.ct        = [wfn.Ca_subset("AO", "OCC"), wfn.Cb_subset("AO", "OCC")]
+        self.nt        = (np.array(wfn.Da_subset("AO")), np.array(wfn.Db_subset("AO")))
+        self.ct        = (np.array(wfn.Ca_subset("AO", "OCC")), np.array(wfn.Cb_subset("AO", "OCC")))
         self.pbs       = self.basis if pbs == "same" \
                                     else psi4.core.BasisSet.build( self.mol, key='BASIS', target=self.pbs_str)
         self.npbs      = self.pbs.nbf()
@@ -157,7 +159,8 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
         # if  self.jk.memory_estimate() > psi4.get_memory() * 0.8:
         #     raise ValueError("Requested JK will take too more memory than default. \n \
         #                       Increase it with psi4.set_memory(int( Many More Bytes )))!")
-        
+        Cocc_a = psi4.core.Matrix.from_array(Cocc_a)
+        Cocc_b = psi4.core.Matrix.from_array(Cocc_b)
         self.jk.C_left_add(Cocc_a)
         self.jk.C_left_add(Cocc_b) 
         self.jk.compute()
@@ -275,6 +278,14 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
 
             self.va += v_fa
             self.vb += v_fa
+        elif "hartree" in guide_potential_components:
+            v_fa = (self.J0[0] + self.J0[1])
+
+            self.va += v_fa
+            self.vb += v_fa
+        else:
+            raise ValueError("Either Hartree or Fermi-Amaldi"
+                             "potentials has to be defined.")
 
         if "svwn" in guide_potential_components:
             if "svwn" in guide_potential_components:
@@ -296,6 +307,7 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
                 wfn_0.V_potential().compute_V([vxc_a, vxc_b])
                 self.va += vxc_a.np
                 self.vb += vxc_b.np
+        self.guide_potential_components = guide_potential_components
 
     def finalize_energy(self):
         """
