@@ -1,13 +1,15 @@
 name: test
 channels:
-
   - conda-forge
-
+  - psi4
   - defaults
 dependencies:
     # Base depends
   - python
   - pip
+  - numpy
+  - scipy
+  - psi4
 
     # Testing
   - pytest
@@ -15,6 +17,5 @@ dependencies:
   - codecov
 
     # Pip-only installs
-  #- pip:
-  #  - codecov
-
+  - pip:
+    - opt-einsum

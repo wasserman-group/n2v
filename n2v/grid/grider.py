@@ -6,14 +6,17 @@ Generates grid for plotting
 
 import numpy as np
 import warnings
-import matplotlib.pyplot as plt
 from opt_einsum import contract
-from pylibxc import LibXCFunctional as Functional
 import psi4
 psi4.core.be_quiet()
 
 try:
     from rich import print
+except:
+    pass
+
+try:
+    from pylibxc import LibXCFunctional as Functional
 except:
     pass
 
