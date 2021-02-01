@@ -210,7 +210,8 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
                      opt_max_iter = 50,
                      opt_tol      = 1e-7,
                      reg=None,
-                     lam=50):
+                     zmp_lam=50,
+                     zmp_kernel='Hartree'):
         """
         Handler to all available inversion methods
 
@@ -236,13 +237,13 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
             Regularization constant for Wuyant Inversion. 
             Default: None -> No regularization is added. 
             Becomes attribute of inverter -> inverter.lambda_reg
-        lam = int, opt
+        zmp_lam = int, opt
             Lamda parameter for ZMP method. 
             Default: 50. May become unstable if lam is too big. 
             Becomes attirube of inverter -> inverter.lambda
         """
 
-        self.lam = lam
+        self.lam = zmp_lam
         self.lambda_reg = reg
         self.generate_components(guide_potential_components)
 
