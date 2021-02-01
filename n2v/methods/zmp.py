@@ -183,9 +183,6 @@ class ZMP():
             else: 
                 Cb, Coccb, Db, eigs_b = Ca.copy(), Cocca.copy(), Da.copy(), eigs_a.copy()
 
-            Cocca = psi4.core.Matrix.from_array(Cocca)
-            Coccb = psi4.core.Matrix.from_array(Coccb)
-
             ddm = D_old - Da
             D_old = Da
             derror = np.max(np.abs(ddm))
