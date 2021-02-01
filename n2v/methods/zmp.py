@@ -202,5 +202,5 @@ class ZMP():
         self.Db = Db
 
         #VXC is hartree-like Potential. We remove Fermi_Amaldi Guess. 
-        self.proto_density_a = self.lam * (self.Da) - (self.lam + 1/(self.nalpha + self.nbeta)) * (self.nt[0])
-        self.proto_density_b = self.lam * (self.Db) - (self.lam + 1/(self.nbeta + self.nalpha)) * (self.nt[1])
+        self.proto_density_a = lam * (self.Da) - (lam + 1/(self.nalpha + self.nbeta)) * (self.nt[0])
+        self.proto_density_b = lam * (self.Db) - (lam + 1/(self.nbeta + self.nalpha)) * (self.nt[1])

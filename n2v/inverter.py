@@ -240,10 +240,8 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
         zmp_lam = int, opt
             Lamda parameter for ZMP method. 
             Default: 50. May become unstable if lam is too big. 
-            Becomes attirube of inverter -> inverter.lambda
         """
 
-        self.lam = zmp_lam
         self.lambda_reg = reg
         self.generate_components(guide_potential_components)
 
