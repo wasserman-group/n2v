@@ -279,13 +279,13 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
             self.va += v_fa
             self.vb += v_fa
         elif "hartree" in guide_potential_components:
-            v_fa = (self.J0[0] + self.J0[1])
+            v_hartree = (self.J0[0] + self.J0[1])
 
-            self.va += v_fa
-            self.vb += v_fa
+            self.va += v_hartree
+            self.vb += v_hartree
         else:
-            raise ValueError("Either Hartree or Fermi-Amaldi"
-                             "potentials has to be defined.")
+            raise ValueError("Hartee nor FA was included."
+                             "Convergence will likely not be achieved")
 
         if "svwn" in guide_potential_components:
             if "svwn" in guide_potential_components:
