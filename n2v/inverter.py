@@ -254,7 +254,14 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
 
     def generate_components(self, guide_potential_components):
         """
-        Generates exact
+        Generates exact potential components to be added to
+        the Hamiltonian to aide in the inversion procedure. 
+
+        Parameters:
+        -----------
+        guide_potential_components: list
+            Components added as to guide inversion. 
+            Can be chosen from {"fermi_amandi", "svwn"}
         """
 
         self.va = np.zeros_like(self.T)
