@@ -105,7 +105,7 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
         self.ref       = 1 if psi4.core.get_global_option("REFERENCE") == "RHF" or \
                               psi4.core.get_global_option("REFERENCE") == "RKS" else 2
         self.jk        = wfn.jk() if hasattr(wfn, "jk") == True else self.generate_jk()
-        self.nt        = [wfn.Da_subset("AO").np, wfn.Db_subset("AO").np]
+        self.nt        = [np.array(wfn.Da_subset("AO")), np.array(wfn.Db_subset("AO"))]
         self.ct        = [wfn.Ca_subset("AO", "OCC"), wfn.Cb_subset("AO", "OCC")]
         self.pbs       = self.basis if pbs == "same" \
                                     else psi4.core.BasisSet.build( self.mol, key='BASIS', target=self.pbs_str)
@@ -127,16 +127,16 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
         mints = psi4.core.MintsHelper( self.basis )
 
         #Overlap Matrices
-        self.S2 = mints.ao_overlap().np
+        self.S2 = np.array(mints.ao_overlap())
         A = mints.ao_overlap()
         A.power( -0.5, 1e-16 )
         self.A = A
         self.S3 = np.squeeze(mints.ao_3coverlap(self.basis,self.basis,self.pbs))
 
         #Core Matrices
-        self.T = mints.ao_kinetic().np.copy()
-        self.V = mints.ao_potential().np.copy()
-        self.T_pbs = mints.ao_kinetic(self.pbs, self.pbs).np.copy()
+        self.T = np.array(mints.ao_kinetic()).copy()
+        self.V = np.array(mints.ao_potential()).copy()
+        self.T_pbs = np.array(mints.ao_kinetic(self.pbs, self.pbs)).copy()
 
     def generate_jk(self, gen_K=False, memory=2.50e9):
         """
@@ -163,7 +163,7 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
         self.jk.compute()
         self.jk.C_clear()
 
-        J = [self.jk.J()[0].np, self.jk.J()[1].np]
+        J = [np.array(self.jk.J()[0]), np.array(self.jk.J()[1])]
         K = []
 
         return J, K
@@ -190,56 +190,88 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
         eigves: np.ndarray
             Eigenvalues
         """
-        matrix = psi4.core.Matrix.from_array( matrix )
-        Fp = psi4.core.triplet(self.A, matrix, self.A, True, False, True)
-        Cp = psi4.core.Matrix(self.nbf, self.nbf)
-        eigvecs = psi4.core.Vector(self.nbf)
-        Fp.diagonalize(Cp, eigvecs, psi4.core.DiagonalizeOrder.Ascending)
-        C = psi4.core.doublet(self.A, Cp, False, False)
-        Cocc = psi4.core.Matrix(self.nbf, ndocc)
-        Cocc.np[:] = C.np[:, :ndocc]
-        D = psi4.core.doublet(Cocc, Cocc, False, True)
 
-        return C.np, Cocc.np, D.np, eigvecs.np
+        A = np.array(self.A).copy()
+        Fp = A.dot(matrix).dot(A)
+        eigvecs, Cp = np.linalg.eigh(Fp)
+        C = A.dot(Cp)
+        Cocc = C[:, :ndocc]
+        D = contract('pi,qi->pq', Cocc, Cocc)
+        return C, Cocc, D, eigvecs
 
     #------------->  Inversion:
 
     def invert(self, method,
                      opt_method='trust-krylov', 
-                     guide_potential_components = ["fermi_amaldi", "svwn"], 
+                     guide_potential_components = ["fermi_amaldi"], 
                      opt_max_iter = 50,
-                     opt_tol      = 1e-5,
-                     reg=None):
+                     opt_tol      = 1e-7,
+                     reg=None,
+                     lam=50):
         """
         Handler to all available inversion methods
+
+        Parameters
+        ----------
+
+        method: str
+            Method used to invert density. 
+            Can be chosen from {wuyang, zmp, mrks}
+        opt_method: string, opt
+            Method for scipy optimizer
+            Currently only used by wuyang method. 
+            Defaul: 'trust-krylov'
+            https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html
+        guide_potential_components: list, opt
+            Components added as to guide inversion. 
+            Can be chosen from {"fermi_amandi", "svwn"}
+            Default: ["fermi_amaldi"]
+        opt_max_iter: int, opt
+            Maximum number of iterations inside the chosen inversion.
+            Default: 50
+        reg = float, opt
+            Regularization constant for Wuyant Inversion. 
+            Default: None -> No regularization is added. 
+            Becomes attribute of inverter -> inverter.lambda_reg
+        lam = int, opt
+            Lamda parameter for ZMP method. 
+            Default: 50. May become unstable if lam is too big. 
+            Becomes attirube of inverter -> inverter.lambda
         """
 
+        self.lam = lam
         self.lambda_reg = reg
         self.generate_components(guide_potential_components)
 
         if method.lower() == "wuyang":
             self.wuyang(opt_method, opt_max_iter, opt_tol)
-        elif method.lower() == "pde":
-            pass
+        elif method.lower() == "zmp":
+            self.zmp_with_scf(lam, opt_max_iter, opt_tol)
         elif method.lower() == "mrks":
             pass
         else:
-            raise ValueError(f"Inversion method not available. Try: {['wuyang', 'pde', 'mrks']}")
+            raise ValueError(f"Inversion method not available. Try: {['wuyang', 'zmp', 'mrks']}")
 
     def generate_components(self, guide_potential_components):
         """
-        Generates exact
+        Generates exact potential components to be added to
+        the Hamiltonian to aide in the inversion procedure. 
+
+        Parameters:
+        -----------
+        guide_potential_components: list
+            Components added as to guide inversion. 
+            Can be chosen from {"fermi_amandi", "svwn"}
         """
 
         self.va = np.zeros_like(self.T)
         self.vb = np.zeros_like(self.T)
 
         N = self.nalpha + self.nbeta
-        J, _ = self.form_jk( self.ct[0], self.ct[1] )
-        self.Hartree_a, self.Hartree_b = J[0], J[1]
+        self.J0, _ = self.form_jk(self.ct[0], self.ct[1])
 
         if "fermi_amaldi" in guide_potential_components:
-            v_fa = (1-1/N) * (J[0] + J[1])
+            v_fa = (1-1/N) * (self.J0[0] + self.J0[1])
 
             self.va += v_fa
             self.vb += v_fa
