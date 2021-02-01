@@ -83,7 +83,7 @@ class WuYang():
         """
 
         self.diagonalize_with_guess(v)
-        self.grad_a = contract('ij,ijt->t', (self.Da - self.nt[0]), self.S3)  # why update gradient here?
+        self.grad_a = contract('ij,ijt->t', (self.Da - self.nt[0]), self.S3)  
         self.grad_b = contract('ij,ijt->t', (self.Db - self.nt[1]), self.S3)
 
         kinetic     =   np.sum(self.T * (self.Da))
@@ -110,8 +110,8 @@ class WuYang():
             L -= norm * self.lambda_reg
             self.regul_norm = norm
 
-        if False:
-            print(f"Kinetic: {kinetic:6.4f} | Potential: {np.abs(potential):6.4e} | From Optimization: {np.abs(optimizing):6.4e}")
+        # if print_flag:
+        #    print(f"Kinetic: {kinetic:6.4f} | Potential: {np.abs(potential):6.4e} | From Optimization: {np.abs(optimizing):6.4e}")
 
         return - L
 
