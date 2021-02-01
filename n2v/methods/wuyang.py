@@ -18,13 +18,14 @@ class WuYang():
     """
 
     regul_norm = None  # Regularization norm: ||v||^2
+    lambda_reg = None  # Regularization constant
 
     def wuyang(self, opt_method, opt_max_iter, opt_tol):
         """
         Calls scipy minimizer to minimize lagrangian. 
         """
 
-        if opt_method == 'bfgs' or opt_method == 'l-bfgs-b':
+        if opt_method.lower() == 'bfgs' or opt_method.lower() == 'l-bfgs-b':
             opt_results = minimize( fun = self.lagrangian,
                                     x0  = self.v0, 
                                     jac = self.gradient,
@@ -46,9 +47,12 @@ class WuYang():
                                     )
 
         if opt_results.success == False:
-            raise ValueError("Optimization was unsucessful, try a different intitial guess")
+            raise ValueError("Optimization was unsucessful (|grad|=%.2e) within %i iterations, "
+                             "try a different intitial guess."% (np.linalg.norm(opt_results.jac), opt_results.nit)
+                             + opt_results.message)
         else:
-            print("Optimization Successful")
+            print("Optimization Successful within %i iterations! "
+                  "|grad|=%.2e" % (opt_results.nit, np.linalg.norm(opt_results.jac)))
             self.v_opt = opt_results.x
             self.opt_info = opt_results
 
@@ -61,14 +65,14 @@ class WuYang():
         """
         Diagonalize Fock matrix with additional external potential
         """
-        vks_a = contract("ijk,k->ij", self.S3, v[:self.nbf]) + self.va
+        vks_a = contract("ijk,k->ij", self.S3, v[:self.npbs]) + self.va
         fock_a = self.V + self.T + vks_a 
         self.Ca, self.Coca, self.Da, self.eigvecs_a = self.diagonalize( fock_a, self.nalpha )
 
         if self.ref == 1:
             self.Cb, self.Coca, self.Db, self.eigvecs_b = self.Ca.copy(), self.Coca.copy(), self.Da.copy(), self.eigvecs_a.copy()
         else:
-            vks_b = contract("ijk,k->ij", self.S3, v[self.nbf:]) + self.vb
+            vks_b = contract("ijk,k->ij", self.S3, v[self.npbs:]) + self.vb
             fock_b = self.V + self.T + vks_b        
             self.Cb, self.Cocb, self.Db, self.eigvecs_b = self.diagonalize( fock_b, self.nbeta )
 
@@ -79,8 +83,8 @@ class WuYang():
         """
 
         self.diagonalize_with_guess(v)
-        self.grad_a = contract('ij,ijt->t', (self.Da - self.nt[0]), self.S3)
-        self.grad_b = contract('ij,ijt->t', (self.Db - self.nt[1]), self.S3) 
+        self.grad_a = contract('ij,ijt->t', (self.Da - self.nt[0]), self.S3)  
+        self.grad_b = contract('ij,ijt->t', (self.Db - self.nt[1]), self.S3)
 
         kinetic     =   np.sum(self.T * (self.Da))
         potential   =   np.sum((self.V + self.va) * (self.Da - self.nt[0]))
@@ -99,15 +103,15 @@ class WuYang():
         if self.lambda_reg is not None:
             T = self.T_pbs
             if self.ref == 1:
-                norm = 2 * (v[self.npbs:] @ T @ v[self.npbs:])
+                norm = 2 * (v[:self.npbs] @ T @ v[:self.npbs])
             else:
                 norm = (v[self.npbs:] @ T @ v[self.npbs:]) + (v[:self.npbs] @ T @ v[:self.npbs])
 
-            L += norm * self.lambda_reg
+            L -= norm * self.lambda_reg
             self.regul_norm = norm
 
-        if False:
-            print(f"Kinetic: {kinetic:6.4f} | Potential: {np.abs(potential):6.4e} | From Optimization: {np.abs(optimizing):6.4e}")
+        # if print_flag:
+        #    print(f"Kinetic: {kinetic:6.4f} | Potential: {np.abs(potential):6.4e} | From Optimization: {np.abs(optimizing):6.4e}")
 
         return - L
 
@@ -129,11 +133,10 @@ class WuYang():
             T = self.T_pbs
             if self.ref == 1:
                 rgl_vector = 4 * self.lambda_reg*np.dot(T, v[:self.npbs])
-                self.grad[:self.npbs] += rgl_vector
-                self.grad[self.npbs:] += rgl_vector
+                self.grad -= rgl_vector
             else:
-                self.grad[:self.npbs] += 2 * self.lambda_reg*np.dot(T, v[:self.npbs])
-                self.grad[self.npbs:] += 2 * self.lambda_reg*np.dot(T, v[self.npbs:])
+                self.grad[:self.npbs] -= 2 * self.lambda_reg*np.dot(T, v[:self.npbs])
+                self.grad[self.npbs:] -= 2 * self.lambda_reg*np.dot(T, v[self.npbs:])
 
         return -self.grad
 
@@ -153,15 +156,17 @@ class WuYang():
 
         if self. ref == 1:
             if self.lambda_reg is not None:
-                Ha += 4 * self.T_pbs
+                Ha -= 4 * self.T_pbs * self.lambda_reg
             Hs = Ha
 
         else:
+
             eigs_diff_b = self.eigvecs_b[:nb, None] - self.eigvecs_b[None, nb:]
             C3b = contract('mi,va,mvt->iat', self.Cb[:,:nb], self.Cb[:,nb:], self.S3)
             Hb = 2 * contract('iau,iat,ia->ut', C3b, C3b, eigs_diff_b**-1)
             if self.lambda_reg is not None:
-                Hb += 4 * self.T_pbs
+                Ha -= 2 * self.T_pbs * self.lambda_reg
+                Hb -= 2 * self.T_pbs * self.lambda_reg
             Hs = np.block(
                             [[Ha,                               np.zeros((self.npbs, self.npbs))],
                             [np.zeros((self.npbs, self.npbs)), Hb                              ]]
@@ -169,7 +174,8 @@ class WuYang():
 
         return - Hs
 
-    def find_regularization_constant(self, opt_method, potential_components, tol=None, opt=None, lambda_list=None):
+    def find_regularization_constant(self, guide_potential_components, opt_method="trust-krylov",
+                                     tol=None, opt=None, lambda_list=None):
         """
         Finding regularization constant lambda.
 
@@ -181,22 +187,22 @@ class WuYang():
 
         Parameters:
         -----------
-        opt_method: string
-            opt_methods available in scipy.optimize.minimize
+        guide_potential_components: a list of string
+            the components for guide potential v0.
+            see Inverter.generate_components() for details.
 
-        potential_components: the components for guide potential v0.
+        opt_method: string default: "trust-krylov"
+            opt_methods available in scipy.optimize.minimize
 
         tol: float
             Tolerance for termination. See scipy.optimize.minimize for details.
 
-        opt: default None, or dictionary
-            if None:
-
+        opt: dictionary, optional
             if given:
                 scipy.optimize.minimize(method=opt_method, options=opt)
 
-        lambda_list: default None, or np.ndarray
-            A array of lambda to search. If None, then it will be 10 ** np.linspace(-1, -7, 7).
+        lambda_list: np.ndarray, optional
+            A array of lambda to search; otherwise, it will be 10 ** np.linspace(-1, -7, 7).
 
         Returns:
         --------
@@ -219,7 +225,7 @@ class WuYang():
 
 
         if lambda_list is None:
-            lambda_list = 10 ** np.linspace(-1, -7, 7)
+            lambda_list = 10 ** np.linspace(-3, -9, 7)
 
         if opt is None:
             opt = {
@@ -227,10 +233,10 @@ class WuYang():
                 "disp": False
             }
 
-        self.generate_components(potential_components)
-
+        self.generate_components(guide_potential_components)
+        self.lambda_reg = None
         # Initial calculation with no regularization
-        if opt_method == 'bfgs' or opt_method == 'l-bfgs-b':
+        if opt_method.lower() == 'bfgs' or opt_method.lower() == 'l-bfgs-b':
             initial_result = minimize(fun=self.lagrangian,
                                    x0=self.v0,
                                    jac=self.gradient,
@@ -248,14 +254,17 @@ class WuYang():
                                    options=opt
                                    )
         if initial_result.success == False:
-            raise ValueError("Optimization was unsucessful, try a different intitial guess")
+            raise ValueError("Optimization was unsucessful (|grad|=%.2e) within %i iterations, "
+                             "try a different intitial guess"% (np.linalg.norm(initial_result.jac), initial_result.nit)
+                             + initial_result.message)
         else:
-            L0 = -initial_result.f
+            L0 = -initial_result.fun
             initial_v0 = initial_result.x  # This is used as the initial guess for with regularization calculation.
+
         for reg in lambda_list:
             self.lambda_reg = reg
 
-            if opt_method == 'bfgs' or opt_method == 'l-bfgs-b':
+            if opt_method.lower() == 'bfgs' or opt_method.lower() == 'l-bfgs-b':
                 opt_results = minimize(fun=self.lagrangian,
                                        x0=initial_v0,
                                        jac=self.gradient,
@@ -274,12 +283,10 @@ class WuYang():
                                        options=opt
                                        )
 
-            if opt_results.success == False:
-                raise ValueError("Optimization was unsucessful, try a different intitial guess")
 
             Ts_list.append(np.sum(self.T * (self.Da + self.Db)))
             v_norm_list.append(self.regul_norm)
-            L_list.append(-opt_results.fun - self.lambda_reg * self.regul_norm)
+            L_list.append(-opt_results.fun + self.lambda_reg * self.regul_norm)
 
         P_list = lambda_list * np.array(v_norm_list) / (L0 - np.array(L_list))
 
