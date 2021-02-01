@@ -9,6 +9,7 @@ import numpy as np
 from opt_einsum import contract
 from scipy.optimize import minimize
 from functools import reduce
+import sys
 
 psi4.core.be_quiet()
 eps = np.finfo(float).eps
@@ -16,6 +17,7 @@ eps = np.finfo(float).eps
 class ZMP():
     def zmp(self, 
             lam,
+            zmp_kernel,
             opt_max_iter, 
             opt_tol, 
             ):
@@ -33,16 +35,33 @@ class ZMP():
         for reference implementations and rapid development.' by 
         Daniel G.A. Smith and others. 
         https://doi.org/10.1021/acs.jctc.8b00286
+
+        Functionals that drive the SCF procedure are obtained from:
+        https://doi.org/10.1002/qua.26400
+
+        Parameters:
+        -----------
+        lam: int
+            Lamda parameter used as a coefficient for Hartree 
+            difference in SCF cycle. 
+        zmp_kernel: str
+            Specifies what functional to use to drive the SCF procedure.
+            Options: {'hartree', 'log', 'exp', 'grad'}
+        opt_max_iter: float
+            Maximum number of iterations for scf cycle
+        opt_tol: float
+            Convergence criteria set for Density Difference and DIIS error. 
         """
 
         self.shift = 0.1 * lam
         self.diis_space = 100
 
         print("Running SCF ZMP:")
-        self.zmp_scf(lam, opt_max_iter, D_conv=opt_tol)
+        self.zmp_scf(lam, zmp_kernel, opt_max_iter, D_conv=opt_tol)
 
     def zmp_scf(self, 
-            lam = 100,
+            lam = 50,
+            zmp_kernel = 'hartree',
             maxiter = 100, 
             D_conv = psi4.core.get_option("SCF", "D_CONVERGENCE")):
         """
@@ -72,6 +91,8 @@ class ZMP():
         Coccb = self.ct[1]
         Da = self.nt[0]
         Db = self.nt[1]
+        self.Da = self.nt[0]
+        self.Db = self.nt[1]
         D_old = Da.copy()
 
         # Obtain slice of target density to test convergence on grid
@@ -92,8 +113,12 @@ class ZMP():
             Fb = np.zeros((self.nbf, self.nbf))
             J, _ = self.form_jk(Cocca, Coccb)
 
-            #Equation 7 of Reference (1)
-            v_c = lam * ( (J[0] + J[1]) - (self.J0[0] + self.J0[1]) )
+            if zmp_kernel.lower() == 'hartree':
+                #Equation 7 of Reference (1)
+                v_c = lam * ( (J[0] + J[1]) - (self.J0[0] + self.J0[1]) )
+            else:
+                #Equations 37, 38, 39, 40 of Reference (3)
+                v_c = self.generate_s_fucntional(lam, zmp_kernel)
 
             #Equation 10 of Reference (1)
             Fa += H + self.va + v_c 
@@ -204,3 +229,48 @@ class ZMP():
         #VXC is hartree-like Potential. We remove Fermi_Amaldi Guess. 
         self.proto_density_a = lam * (self.Da) - (lam + 1/(self.nalpha + self.nbeta)) * (self.nt[0])
         self.proto_density_b = lam * (self.Db) - (lam + 1/(self.nbeta + self.nalpha)) * (self.nt[1])
+
+
+    def generate_s_fucntional(self, lam, zmp_kernel):
+        """
+        Generates S_n Functional as described in:
+        https://doi.org/10.1002/qua.26400
+        """
+
+        #Get Density on the grid
+        if hasattr(self.wfn, "V_potential") is not True:
+            _, dft_wfn = psi4.energy('svwn'+'/'+self.basis_str, molecule=self.mol, return_wfn=True)
+        else:
+            dft_wfn = self.wfn
+
+        D = self.on_grid_density(vpot=dft_wfn.V_potential())
+        D0 = self.on_grid_density(grid=None, Da=self.nt[0], Db=self.nt[1],  vpot=dft_wfn.V_potential())
+
+        if self.ref == 1:
+            Da, Db = D[:,0], D[:,0]
+            Da0, Db0 = D0[:,0], D0[:,0]
+        else:
+            Da, Db = D[:, 0], D[:, 1]
+            Da0, Db0 = D0[:,0], D0[:,1]
+            
+        #Calculate kernels
+        if zmp_kernel == 'log':
+            Sa = np.log(Da) + 1
+            Sb = np.log(Db) + 1 
+            Sa0 = np.log(Da0) + 1  
+            Sb0 = np.log(Db0) + 1
+        if zmp_kernel == 'exp':
+            Sa = Da ** 0.05
+            Sb = Db ** 0.05
+            Sa0 = Da0 ** 0.05
+            Sb0 = Db0 ** 0.05
+
+        #Generate AO matrix from functions. 
+        Sa = self.dft_grid_to_fock(Sa, Vpot=dft_wfn.V_potential())
+        Sb = self.dft_grid_to_fock(Sb, Vpot=dft_wfn.V_potential())
+        Sa0 = self.dft_grid_to_fock(Sa0, Vpot=dft_wfn.V_potential())
+        Sb0 = self.dft_grid_to_fock(Sb0, Vpot=dft_wfn.V_potential())
+        v_c = (Sa + Sb) - (Sa0 + Sb0)
+
+        return v_c
+        

@@ -240,6 +240,10 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
         zmp_lam = int, opt
             Lamda parameter for ZMP method. 
             Default: 50. May become unstable if lam is too big. 
+        zmp_kernel: str
+            Specifies what functional to use to drive the SCF procedure.
+            Options: {'hartree', 'log', 'exp', 'grad'}
+            See: https://doi.org/10.1002/qua.26400
         """
 
         self.lambda_reg = reg
@@ -248,7 +252,7 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
         if method.lower() == "wuyang":
             self.wuyang(opt_method, opt_max_iter, opt_tol)
         elif method.lower() == "zmp":
-            self.zmp_with_scf(lam, zmp_kernel, opt_max_iter, opt_tol)
+            self.zmp(zmp_lam, zmp_kernel, opt_max_iter, opt_tol)
         elif method.lower() == "mrks":
             pass
         else:
