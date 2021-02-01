@@ -190,7 +190,7 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
         eigves: np.ndarray
             Eigenvalues
         """
-        
+
         A = np.array(self.A).copy()
         Fp = A.dot(matrix).dot(A)
         eigvecs, Cp = np.linalg.eigh(Fp)
@@ -203,13 +203,40 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
 
     def invert(self, method,
                      opt_method='trust-krylov', 
-                     guide_potential_components = ["fermi_amaldi", "svwn"], 
+                     guide_potential_components = ["fermi_amaldi"], 
                      opt_max_iter = 50,
-                     opt_tol      = 1e-5,
+                     opt_tol      = 1e-7,
                      reg=None,
-                     lam=100):
+                     lam=50):
         """
         Handler to all available inversion methods
+
+        Parameters
+        ----------
+
+        method: str
+            Method used to invert density. 
+            Can be chosen from {wuyang, zmp, mrks}
+        opt_method: string, opt
+            Method for scipy optimizer
+            Currently only used by wuyang method. 
+            Defaul: 'trust-krylov'
+            https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html
+        guide_potential_components: list, opt
+            Components added as to guide inversion. 
+            Can be chosen from {"fermi_amandi", "svwn"}
+            Default: ["fermi_amaldi"]
+        opt_max_iter: int, opt
+            Maximum number of iterations inside the chosen inversion.
+            Default: 50
+        reg = float, opt
+            Regularization constant for Wuyant Inversion. 
+            Default: None -> No regularization is added. 
+            Becomes attribute of inverter -> inverter.lambda_reg
+        lam = int, opt
+            Lamda parameter for ZMP method. 
+            Default: 50. May become unstable if lam is too big. 
+            Becomes attirube of inverter -> inverter.lambda
         """
 
         self.lam = lam
@@ -219,8 +246,6 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
         if method.lower() == "wuyang":
             self.wuyang(opt_method, opt_max_iter, opt_tol)
         elif method.lower() == "zmp":
-            self.zmp(lam, opt_max_iter, opt_tol)
-        elif method.lower() == "zmp_with_scf":
             self.zmp_with_scf(lam, opt_max_iter, opt_tol)
         elif method.lower() == "mrks":
             pass
