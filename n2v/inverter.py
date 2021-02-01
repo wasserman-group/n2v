@@ -166,7 +166,7 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
         self.jk.compute()
         self.jk.C_clear()
 
-        J = [np.array(self.jk.J()[0]), np.array(self.jk.J()[1])]
+        J = (np.array(self.jk.J()[0]), np.array(self.jk.J()[1]))
         K = []
 
         return J, K
@@ -319,8 +319,8 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
 
         energy_kinetic    = contract('ij,ij', self.T, (self.Da + self.Db))
         energy_external   = contract('ij,ij', self.V, (self.Da + self.Db))
-        energy_hartree_a  = 0.5 * contract('ij,ji', self.Hartree_a + self.Hartree_b, self.Da)
-        energy_hartree_b  = 0.5 * contract('ij,ji', self.Hartree_a + self.Hartree_b, self.Db)
+        energy_hartree_a  = 0.5 * contract('ij,ji', self.J0[0] + self.J0[1], self.Da)
+        energy_hartree_b  = 0.5 * contract('ij,ji', self.J0[0] + self.J0[1], self.Db)
 
         print("WARNING: XC Energy is not yet properly calculated")
         energy_ks = 0.0
