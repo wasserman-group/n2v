@@ -68,6 +68,8 @@ class ZMP():
         error_vectors_a, error_vectors_b = [], []
 
         #"Initial Guess for SCF
+        Cocca = self.ct[0]
+        Coccb = self.ct[1]
         Da = self.nt[0]
         Db = self.nt[1]
         D_old = Da.copy()
