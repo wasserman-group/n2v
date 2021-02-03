@@ -200,8 +200,10 @@ class Grider(Cubeprop):
         else:
             raise ValueError("A grid or a V_potential (DFT grid) must be given.")
 
+        if coeff.ndim == 1:
+            coeff = coeff[:, np.newaxis]
         if self.ref == 1:
-            psi4_coeff = psi4.core.Matrix.from_array(coeff[:,None])
+            psi4_coeff = psi4.core.Matrix.from_array(coeff)
             points_function.set_pointers(psi4_coeff)
         elif self.ref == 2:
             coeff_0 = coeff[:,None] if coeff.ndim == 1 else coeff.copy()
