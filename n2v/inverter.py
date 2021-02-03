@@ -252,6 +252,7 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
         if method.lower() == "wuyang":
             self.wuyang(opt_method, opt_max_iter, opt_tol)
         elif method.lower() == "zmp":
+            print("I am about to run ZMP!")
             self.zmp(zmp_lam, zmp_kernel, opt_max_iter, opt_tol)
         elif method.lower() == "mrks":
             pass
