@@ -41,12 +41,14 @@ class ZMP():
 
         Parameters:
         -----------
-        lam: int
-            Lamda parameter used as a coefficient for Hartree 
+        lambda_list: list
+            List of Lamda parameters used as a coefficient for Hartree 
             difference in SCF cycle. 
         zmp_functional: str
             Specifies what functional to use to drive the SCF procedure.
             Options: {'hartree', 'log', 'exp', 'grad'}
+        mixing: float
+            Amount of potential added to next iteration of lambda
         opt_max_iter: float
             Maximum number of iterations for scf cycle
         opt_tol: float
@@ -68,9 +70,12 @@ class ZMP():
         Performs scf cycle
         Parameters
         ----------
-        lam: integer, opt
-            Global lagrange multiplier for effective potential that drives SCF calculation. 
+        lam_list: list, opt
+            Global set lagrange multiplier for effective potential that drives SCF calculation. 
             Defined in equation 7 and 8 of reference (1).
+        zmp_functional: str
+            Specifies what functional to use to drive the SCF procedure.
+            Options: {'hartree', 'log', 'exp', 'grad'}
         maxiter: integer, opt
             Maximum number of iterations for SCF calculation
         D_conv: float

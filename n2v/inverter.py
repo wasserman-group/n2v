@@ -238,9 +238,11 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
             Regularization constant for Wuyant Inversion. 
             Default: None -> No regularization is added. 
             Becomes attribute of inverter -> inverter.lambda_reg
-        zmp_lam = int, opt
-            Lamda parameter for ZMP method. 
+        zmp_lam = list, opt
+            List of lamda parameters for ZMP method. 
             Default: 50. May become unstable if lam is too big. 
+        zmp_mixing: float
+            Amount of potential added to next iteration of lambda
         zmp_functional: str
             Specifies what functional to use to drive the SCF procedure.
             Options: {'hartree', 'log', 'exp'}
