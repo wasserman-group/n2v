@@ -60,6 +60,7 @@ class Grider(Cubeprop):
         nblocks = int(np.floor(npoints/max_points))
         blocks = []
 
+        max_functions = 0
         #Run through full blocks
         idx = 0
         for nb in range(nblocks):
@@ -73,6 +74,8 @@ class Grider(Cubeprop):
 
             blocks.append(psi4.core.BlockOPoints(x, y, z, w, extens))
             idx += max_points
+            max_functions = max_functions if max_functions > len(blocks[-1].functions_local_to_global()) \
+                                          else len(blocks[-1].functions_local_to_global())
 
         #Run through remaining points
         if idx < npoints:
@@ -85,8 +88,8 @@ class Grider(Cubeprop):
                 w = psi4.core.Vector.from_array(np.zeros_like(grid[2][idx:]))  # When w is not necessary and not given
             blocks.append(psi4.core.BlockOPoints(x, y, z, w, extens))
 
-        max_functions = 0 if 0 > len(blocks[-1].functions_local_to_global()) \
-                                      else len(blocks[-1].functions_local_to_global())
+            max_functions = max_functions if max_functions > len(blocks[-1].functions_local_to_global()) \
+                                          else len(blocks[-1].functions_local_to_global())
 
         if self.ref == 1:
             point_func = psi4.core.RKSFunctions(basis, max_points, max_functions)
