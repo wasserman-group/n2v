@@ -57,6 +57,7 @@ class ZMP():
 
 
         self.diis_space = 200
+        self.mixing = 0.01
 
         print("Running SCF ZMP:")
         self.zmp_scf(lambda_list, zmp_kernel, opt_max_iter, D_conv=opt_tol)
@@ -137,14 +138,22 @@ class ZMP():
 
                 if zmp_kernel.lower() == 'hartree':
                     #Equation 7 of Reference (1)
-                    v_c = lam_i * ( (J[0] + J[1]) - (self.J0[0] + self.J0[1]) )
+                    vc = lam_i * ( (J[0] + J[1]) - (self.J0[0] + self.J0[1]) )
                 else:
                     #Equations 37, 38, 39, 40 of Reference (3)
-                    v_c = self.generate_s_fucntional(lam, zmp_kernel)
+                    vc = self.generate_s_fucntional(lam, zmp_kernel)
+
+                # if SCF_ITER == 1:
+                #     vc_old = vc
+                # else: 
+                #     vc = (1 - self.mix) * vc_old + self.mix * vc
+                #     vc_old = vc.copy()
 
                 #Equation 10 of Reference (1)
-                Fa += H + self.va + v_c + vc_global
-                Fb += H + self.vb + v_c + vc_global
+                Fa += H + self.va + vc + vc_global
+                Fb += H + self.vb + vc + vc_global
+
+                diis_error=0.0
 
                 #Level Shift
                 Fa += (S2 - reduce(np.dot, (S2, Da, S2)) * self.shift)
@@ -230,13 +239,30 @@ class ZMP():
                 else: 
                     Cb, Coccb, Db, eigs_b = Ca.copy(), Cocca.copy(), Da.copy(), eigs_a.copy()
 
+
+                # if SCF_ITER == 1:
+                #     oca_old = Cocca 
+                #     ocb_old = Coccb
+                #     da_old = Da
+                #     db_old = Db
+                # else:
+                #     Cocca = (1 - self.mix) * oca_old + self.mix * Cocca
+                #     Coccb = (1 - self.mix) * ocb_old + self.mix * Coccb
+                #     Da = (1 - self.mix) * da_old + self.mix * Da
+                #     Db = (1 - self.mix) * db_old + self.mix * Db
+                #     oca_old = Cocca 
+                #     ocb_old = Coccb
+                #     da_old = Da
+                #     db_old = Db
+                     
+
                 ddm = D_old - Da
                 D_old = Da
                 derror = np.max(np.abs(ddm))
 
                 if True and np.mod(SCF_ITER,5) == 0.0:
                     print(f"Iteration: {SCF_ITER:d} | Self Convergence Error: {derror:10.5e} | DIIS Error: {diis_error:10.5e}")
-                if abs(derror) < D_conv and abs(diis_error) < D_conv:
+                if abs(derror) < D_conv: #and abs(diis_error) < D_conv:
                     break
                 if SCF_ITER == maxiter - 1:
                     raise ValueError("Maximum Number of SCF cycles reached. Try different settings.")
@@ -252,32 +278,13 @@ class ZMP():
             self.proto_density_a = lam_i * (self.Da) - (lam_i + 1/(self.nalpha + self.nbeta)) * (self.nt[0])
             self.proto_density_b = lam_i * (self.Db) - (lam_i + 1/(self.nbeta + self.nalpha)) * (self.nt[1])
 
-            self.protosum_a += self.proto_density_a.copy()
-            self.protosum_b += self.proto_density_b.copy()
+            self.protosum_a += self.mixing * self.proto_density_a.copy()
+            self.protosum_b += self.mixing * self.proto_density_b.copy()
 
-            self.wfn.Da().np[:] = self.protosum_a
-            self.wfn.Db().np[:] = self.protosum_b
+            vc_global += self.mixing * vc
 
-            potentials = self.on_grid_esp(vpot=dft_wfn.V_potential())
-            vxc_current = potentials[1]
-            vxc_sum = vxc_sum + vxc_current if vxc_sum is not None else vxc_current
-            vc_i = self.dft_grid_to_fock(vxc_sum, Vpot=dft_wfn.V_potential())
-            vc_global += vc_i
-
-            # #Printing GRID
-            # npoints=401
-            # x = np.linspace(-0,15,npoints)[:,None]
-            # y = np.linspace(-0,15,npoints)[:,None]
-            # z = np.linspace(-0,15,npoints)[:,None]
-            # grid_0 = np.concatenate((x,y,z), axis=1).T
-            # results = self.on_grid_esp(grid=grid_0, )
-            # vxc_be = results[1]
-
-            # plt.plot(x,  vxc_be, label="vxc")
-            # plt.xscale('log')
-            # plt.legend()
-            # plt.show()
-
+            if lam_i > 100:
+                self.mixing = self.mixing / 2
 
 
 
