@@ -132,7 +132,7 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
         self.S2 = np.array(mints.ao_overlap())
         A = mints.ao_overlap()
         A.power( -0.5, 1e-16 )
-        self.A = A
+        self.A = np.array(A)
         self.S3 = np.squeeze(mints.ao_3coverlap(self.basis,self.basis,self.pbs))
 
         #Core Matrices
@@ -211,7 +211,8 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
                      opt_tol      = 1e-7,
                      reg=None,
                      zmp_lam=50,
-                     zmp_kernel='Hartree'):
+                     zmp_mixing=0.001, 
+                     zmp_functional='hartree'):
         """
         Handler to all available inversion methods
 
@@ -240,9 +241,9 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
         zmp_lam = int, opt
             Lamda parameter for ZMP method. 
             Default: 50. May become unstable if lam is too big. 
-        zmp_kernel: str
+        zmp_functional: str
             Specifies what functional to use to drive the SCF procedure.
-            Options: {'hartree', 'log', 'exp', 'grad'}
+            Options: {'hartree', 'log', 'exp'}
             See: https://doi.org/10.1002/qua.26400
         """
 
@@ -252,8 +253,7 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
         if method.lower() == "wuyang":
             self.wuyang(opt_method, opt_max_iter, opt_tol)
         elif method.lower() == "zmp":
-            print("I am about to run ZMP!")
-            self.zmp(zmp_lam, zmp_kernel, opt_max_iter, opt_tol)
+            self.zmp(zmp_lam, zmp_functional, zmp_mixing, opt_max_iter, opt_tol)
         elif method.lower() == "mrks":
             pass
         else:
