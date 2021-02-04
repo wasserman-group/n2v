@@ -9,9 +9,6 @@ import numpy as np
 from opt_einsum import contract
 from scipy.optimize import minimize
 from functools import reduce
-import sys
-
-import matplotlib.pyplot as plt
 
 psi4.core.be_quiet()
 eps = np.finfo(float).eps
