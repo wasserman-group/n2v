@@ -268,19 +268,21 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
                     default: 1e-4
                 frac_old: float, opt
                     Linear mixing parameter for current vxc and old vxc.
+                    If 0, no old vxc is mixed in.
                     Should be in [0,1)
-                    default: 0, i.e. no old vxc is mixed in.
+                    default: 0.5.
                 init: string or psi4.core.Wavefunction, opt
                     Initial guess method.
-                    default: "svwn"
-                    1) If "continue" is given, then it will not initialize
+                    default: "SCAN"
+                    1) If None, input wfn info will be used as initial guess.
+                    2) If "continue" is given, then it will not initialize
                     but use the densities and orbitals stored. Meaningly,
                     one can run a quick WY calculation as the initial
-                    guess.
-                    2) If it's not continue, it would be expecting a
+                    guess. This can also be used to user speficified
+                    initial guess by setting Da, Coca, eigvec_a.
+                    3) If it's not continue, it would be expecting a
                     method name string that works for psi4. A separate psi4 calculation
                     would be performed.
-                    3) A user pre-defined psi4.core.Wavefuntion can also be given.
             returns:
                 all are np.ndarray of shape (num_grid_points)
                 vxc, vxchole, ebarKS, ebarWF, taup_rho_WF, taup_rho_KS
