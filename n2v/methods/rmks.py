@@ -42,14 +42,13 @@ class MRKS():
     """
     vxc_hole_WF = None
 
-    def _vxc_hole_quadrature(self, grid_info=None, atol = 1e-4):
+    def _vxc_hole_quadrature(self, grid_info=None, atol=1e-6):
         """
         Calculating v_XC^hole in [1] (15) using quadrature
         integral on the default DFT spherical grid.
         """
         if self.vxc_hole_WF is not None and grid_info is None:
             return self.vxc_hole_WF
-
 
         if self.wfn.name() == "CIWavefunction":
             Tau_ijkl = self.wfn.get_tpdm("SUM", True).np
@@ -65,16 +64,16 @@ class MRKS():
         if grid_info is None:
             vxchole = np.zeros(self.npoints_DFT)
             nblocks = self.Vpot.nblocks()
-    
-            points_func = self.Vpot.properties()[0]
-            points_func.set_deriv(0)
-    
+            points_func_outer = self.Vpot.properties()[0]
             blocks = None
         else:
-            blocks, npoints, points_func = grid_info
+            blocks, npoints, points_func_outer = grid_info
             vxchole = np.zeros(npoints)
             nblocks = len(blocks)
-            points_func.set_deriv(0)
+            points_func_outer.set_deriv(0)
+
+        points_func = self.Vpot.properties()[0]
+        points_func.set_deriv(0)
 
         # First loop over the outer set of blocks
         num_block_ten_percent = int(nblocks / 10)
@@ -91,16 +90,16 @@ class MRKS():
                 l_grid = self.Vpot.get_block(l_block)
             else:
                 l_grid = blocks[l_block]
-    
+
             l_x = np.array(l_grid.x())
             l_y = np.array(l_grid.y())
             l_z = np.array(l_grid.z())
             l_npoints = l_x.shape[0]
-    
-            points_func.compute_points(l_grid)
-    
+
+            points_func_outer.compute_points(l_grid)
+
             l_lpos = np.array(l_grid.functions_local_to_global())
-            l_phi = np.array(points_func.basis_values()["PHI"])[:l_npoints, :l_lpos.shape[0]]
+            l_phi = np.array(points_func_outer.basis_values()["PHI"])[:l_npoints, :l_lpos.shape[0]]
     
             # if restricted:
             lD1 = D2[(l_lpos[:, None], l_lpos)]
@@ -217,7 +216,7 @@ class MRKS():
         assert iw == e_bar.shape[0], "Somehow the whole space is not fully integrated."
         return e_bar
 
-    def _pauli_kinetic_energy_density(self, D, C, occ=None, Db=None, Cb=None, occb=None, grid_info=None):
+    def _pauli_kinetic_energy_density(self, D, C, occ=None, grid_info=None):
         """
         (16)(18) in mRKS. But notice this does not return taup but taup/n
         :return:
@@ -281,61 +280,8 @@ class MRKS():
         assert iw == taup_rho.shape[0], "Somehow the whole space is not fully integrated."
         return taup_rho
 
-    def _modified_pauli_kinetic_energy_density(self, D, C, occ=None, grid_info=None):
-        """
-        (16)(18) in mRKS. But notice this does not return taup but taup/n
-        :return:
-        """
-
-        if occ is None:
-            occ = np.ones(C.shape[1])
-
-        if grid_info is None:
-            taup_rho = np.zeros(self.npoints_DFT)
-            nblocks = self.Vpot.nblocks()
-
-            points_func = self.Vpot.properties()[0]
-            points_func.set_deriv(1)
-            blocks = None
-        else:
-            blocks, npoints, points_func = grid_info
-            taup_rho = np.zeros(npoints)
-            nblocks = len(blocks)
-
-            points_func.set_deriv(1)
-
-        iw = 0
-        for l_block in range(nblocks):
-            # Obtain general grid information
-            if blocks is None:
-                l_grid = self.Vpot.get_block(l_block)
-            else:
-                l_grid = blocks[l_block]
-            l_npoints = l_grid.npoints()
-            points_func.compute_points(l_grid)
-            l_lpos = np.array(l_grid.functions_local_to_global())
-            l_phi = np.array(points_func.basis_values()["PHI"])[:l_npoints, :l_lpos.shape[0]]
-            l_phi_x = np.array(points_func.basis_values()["PHI_X"])[:l_npoints, :l_lpos.shape[0]]
-            l_phi_y = np.array(points_func.basis_values()["PHI_Y"])[:l_npoints, :l_lpos.shape[0]]
-            l_phi_z = np.array(points_func.basis_values()["PHI_Z"])[:l_npoints, :l_lpos.shape[0]]
-            lD = D[(l_lpos[:, None], l_lpos)]
-            rho = contract('pm,mn,pn->p', l_phi, lD, l_phi)
-            lC = C[l_lpos, :]
-            # Matrix Methods
-            part_x = contract('pm,mi,nj,pn->ijp', l_phi_x, lC, lC, l_phi_x)
-            part_y = contract('pm,mi,nj,pn->ijp', l_phi_y, lC, lC, l_phi_y)
-            part_z = contract('pm,mi,nj,pn->ijp', l_phi_z, lC, lC, l_phi_z)
-            phi_iphi_j = contract('pm,mi,nj,pn->ijp', l_phi, lC, lC, l_phi) * (part_x + part_y + part_z)
-
-            occ_matrix = np.expand_dims(occ, axis=1) @ np.expand_dims(occ, axis=0)
-            taup = -np.sum(phi_iphi_j.T * occ_matrix, axis=(1, 2))
-            taup_rho[iw:iw + l_npoints] = taup / rho ** 2
-            iw += l_npoints
-        assert iw == taup_rho.shape[0], "Somehow the whole space is not fully integrated."
-        return taup_rho
-
     def mRKS(self, maxiter, vxc_grid=None, v_tol=1e-4, D_tol=1e-7,
-             eig_tol=1e-4, frac_old=0.0, init="svwn"):
+             eig_tol=1e-4, frac_old=0.5, init="scan"):
         """
         the modified Ryabinkin-Kohut-Staroverov method.
         parameters:
@@ -355,19 +301,21 @@ class MRKS():
                 default: 1e-4
             frac_old: float, opt
                 Linear mixing parameter for current vxc and old vxc.
+                If 0, no old vxc is mixed in.
                 Should be in [0,1)
-                default: 0, i.e. no old vxc is mixed in.
-            init: string or psi4.core.Wavefunction, opt
+                default: 0.5.
+            init: string, opt
                 Initial guess method.
-                default: "svwn"
-                1) If "continue" is given, then it will not initialize
+                default: "SCAN"
+                1) If None, input wfn info will be used as initial guess.
+                2) If "continue" is given, then it will not initialize
                 but use the densities and orbitals stored. Meaningly,
                 one can run a quick WY calculation as the initial
-                guess.
-                2) If it's not continue, it would be expecting a
+                guess. This can also be used to user speficified
+                initial guess by setting Da, Coca, eigvec_a.
+                3) If it's not continue, it would be expecting a
                 method name string that works for psi4. A separate psi4 calculation
                 would be performed.
-                3) A user pre-defined psi4.core.Wavefuntion can also be used.
 
 
         returns:
@@ -474,10 +422,10 @@ class MRKS():
         emax = np.max(ebarWF)
 
         # Initialization.
-        if type(init) is not str:
-            self.Da = np.array(init.Da())
-            self.Coca = np.array(init.Ca())[:, :Nalpha]
-            self.eigvecs_a = np.array(init.epsilon_a())
+        if init is None:
+            self.Da = np.copy(self.nt[0])
+            self.Coca = np.copy(self.ct[0])
+            self.eigvecs_a = self.wfn.epsilon_a().np[:Nalpha]
         elif init.lower()=="continue":
             pass
         else:
@@ -494,7 +442,6 @@ class MRKS():
             # ebarKS = self._average_local_orbital_energy(self.molecule.Da.np, self.molecule.Ca.np[:,:Nalpha], self.molecule.eig_a.np[:Nalpha] + self.vout_constant)
             ebarKS = self._average_local_orbital_energy(self.Da, self.Coca, self.eigvecs_a[:Nalpha])
             taup_rho_KS = self._pauli_kinetic_energy_density(self.Da, self.Coca)
-
             # self.vout_constant = emax - self.molecule.eig_a.np[self.molecule.nalpha - 1]
             potential_shift = emax - np.max(ebarKS)
             self.shift = potential_shift
@@ -507,10 +454,10 @@ class MRKS():
             if verror < v_tol:
                 print("vxc stops updating.")
                 break
+
             Derror = np.linalg.norm(self.Da - Da_old) / self.nbf ** 2
             eerror = (np.linalg.norm(self.eigvecs_a[:Nalpha] - eig_old) / Nalpha)
-            if (Derror < D_tol) and \
-                    (eerror < eig_tol):
+            if (Derror < D_tol) and (eerror < eig_tol):
                 print("KSDFT stops updating.")
                 break
 
@@ -528,12 +475,14 @@ class MRKS():
             self._diagonalize_with_potential_mRKS(v=vxc_Fock)
 
             print("Iter: %i, Density Change: %2.2e, Eigenvalue Change: %2.2e, "
-                  "Potential Change: %2.2e." % (mRKS_step,Derror, eerror, verror))
+                  "Potential Change: %2.2e." % (mRKS_step, Derror, eerror, verror))
 
         if vxc_grid is not None:
             grid_info = self.grid_to_blocks(vxc_grid)
             grid_info[-1].set_pointers(self.wfn.Da())
-            vxchole = self._vxc_hole_quadrature(grid_info=grid_info)
+
+            # A larger atol seems to be necessary for user-defined grid
+            vxchole = self._vxc_hole_quadrature(grid_info=grid_info, atol=5e-4)
             if self.wfn.name() == "CIWavefunction":
                 ebarWF = self._average_local_orbital_energy(self.nt[0],
                                                             C_a_GFM, eigs_a_GFM, grid_info=grid_info)
