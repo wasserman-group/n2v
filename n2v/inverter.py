@@ -10,8 +10,6 @@ from dataclasses import dataclass
 from scipy.optimize import minimize
 from opt_einsum import contract
 
-import sys
-
 import psi4
 psi4.core.be_quiet()
 psi4.core.clean()

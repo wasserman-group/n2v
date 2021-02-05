@@ -128,7 +128,6 @@ class ZMP():
             Cocca = self.ct[0]
             Coccb = self.ct[1]
             D_old = self.nt[0]
-            dd_old = 0.0
 
             # Trial & Residual Vector Lists
             state_vectors_a, state_vectors_b = [], []
@@ -168,7 +167,6 @@ class ZMP():
                         state_vectors_a.append(Fa.copy())
                         error_vectors_a.append(grad_a.copy())
                     else:
-                        pos = 0
                         del state_vectors_a[0]
                         del state_vectors_b[0]
 
@@ -242,13 +240,14 @@ class ZMP():
                 D_old = Da
                 derror = np.max(np.abs(ddm))
 
-                if False and np.mod(SCF_ITER,5) == 0.0:
-                    print(f"Iteration: {SCF_ITER:3d} | Self Convergence Error: {derror:10.5e} | DIIS Error: {diis_error:10.5e}")
+                #Uncomment to debug internal SCF
+                #if False and np.mod(SCF_ITER,5) == 0.0:
+                #    print(f"Iteration: {SCF_ITER:3d} | Self Convergence Error: {derror:10.5e} | DIIS Error: {diis_error:10.5e}")
+                
                 if abs(derror) < D_conv and abs(diis_error) < D_conv:
                     break
                 if SCF_ITER == maxiter - 1:
                     raise ValueError("Maximum Number of SCF cycles reached. Try different settings.")
-
 
             density_current = self.on_grid_density(grid=None, Da=Da, Db=Db, vpot=self.vpot)
             grid_diff = np.max(np.abs(D0 - density_current))
