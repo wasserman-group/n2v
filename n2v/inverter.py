@@ -211,7 +211,7 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
                      opt_tol      = 1e-7,
                      reg=None,
                      zmp_lam=50,
-                     zmp_mixing=0.001, 
+                     zmp_mixing=1.0, 
                      zmp_functional='hartree'):
         """
         Handler to all available inversion methods

@@ -58,7 +58,7 @@ class ZMP():
         self.diis_space = 200
         self.mixing = mixing
 
-        print("Running SCF ZMP:")
+        print("\nRunning ZMP:")
         self.zmp_scf(lambda_list, zmp_functional, opt_max_iter, D_conv=opt_tol)
 
     def zmp_scf(self, 
@@ -114,17 +114,21 @@ class ZMP():
             self.Sb0 = self.dft_grid_to_fock(Sb0, Vpot=self.vpot)
 
         vc_global = np.zeros((self.nbf, self.nbf))
+        self.Da = self.nt[0]
+        self.Db = self.nt[1]
+
+        grid_diff_old = 100.0
 
 #------------->  Iterating over lambdas:
         for lam_i in lambda_list:
             self.shift = 0.1 * lam_i
             Da = self.nt[0]
             Db = self.nt[1]
+
             Cocca = self.ct[0]
             Coccb = self.ct[1]
             D_old = self.nt[0]
             dd_old = 0.0
-            grid_diff_old = 100.0
 
             # Trial & Residual Vector Lists
             state_vectors_a, state_vectors_b = [], []
@@ -249,8 +253,9 @@ class ZMP():
             density_current = self.on_grid_density(grid=None, Da=Da, Db=Db, vpot=self.vpot)
             grid_diff = np.max(np.abs(D0 - density_current))
             if np.abs(grid_diff_old) < np.abs(grid_diff):
-                print("\nZMP halted. Density Difference is unable to improve anymore")
+                print("\nZMP halted. Density Difference is unable to be reduced")
                 break
+
             grid_diff_old = grid_diff
             print(f"SCF Converged for lambda:{int(lam_i):5d}. Max density difference: {grid_diff}")
 
@@ -260,21 +265,16 @@ class ZMP():
             #VXC is hartree-like Potential. We remove Fermi_Amaldi Guess. 
             self.proto_density_a = lam_i * (self.Da) - (lam_i + 1/(self.nalpha + self.nbeta)) * (self.nt[0])
             self.proto_density_b = lam_i * (self.Db) - (lam_i + 1/(self.nbeta + self.nalpha)) * (self.nt[1])
-            vc_global += self.mixing * vc
-
-            if lam_i > 100:
-                self.mixing = self.mixing / 2
-            elif lam_i >500:
-                self.mixing = self.mixing / 2
+            vc_global = self.mixing * vc
 
 
-    def generate_s_fucntional(self, lam, zmp_functional):
+    def generate_s_fucntional(self, lam, zmp_functional, Da, Db):
         """
         Generates S_n Functional as described in:
         https://doi.org/10.1002/qua.26400
         """
 
-        D = self.on_grid_density(vpot=self.vpot)
+        D = self.on_grid_density(vpot=self.vpot, Da=Da, Db=Db)
 
         if self.ref == 1:
             Da, Db = D[:,0], D[:,0]
