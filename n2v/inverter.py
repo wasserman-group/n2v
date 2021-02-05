@@ -240,7 +240,8 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
             List of lamda parameters for ZMP method. 
             Default: 50. May become unstable if lam is too big. 
         zmp_mixing: float
-            Amount of potential added to next iteration of lambda
+            mixing \in [0,1]. How much of the new potential is added in 
+            a given scf step. Values close to 1 may prevent SCF to convergence. 
         zmp_functional: str
             Specifies what functional to use to drive the SCF procedure.
             Options: {'hartree', 'log', 'exp'}

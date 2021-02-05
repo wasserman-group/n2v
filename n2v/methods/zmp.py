@@ -48,7 +48,8 @@ class ZMP():
             Specifies what functional to use to drive the SCF procedure.
             Options: {'hartree', 'log', 'exp', 'grad'}
         mixing: float
-            Amount of potential added to next iteration of lambda
+            mixing \in [0,1]. How much of the new potential is added in 
+            a given scf step. Values close to 1 may prevent SCF to convergence. 
         opt_max_iter: float
             Maximum number of iterations for scf cycle
         opt_tol: float
@@ -128,6 +129,7 @@ class ZMP():
             Cocca = self.ct[0]
             Coccb = self.ct[1]
             D_old = self.nt[0]
+            vc_old = np.zeros_like(Da)
 
             # Trial & Residual Vector Lists
             state_vectors_a, state_vectors_b = [], []
@@ -148,6 +150,9 @@ class ZMP():
                     #Equations 37, 38, 39, 40 of Reference (3)
                     vc = self.generate_s_fucntional(lam_i, zmp_functional)
 
+                #Potential mixing
+                vc = (1-self.mixing) * vc + (self.mixing) * vc_old
+
                 #Equation 10 of Reference (1)
                 Fa += self.T + self.V + self.va + vc + vc_global
                 Fb += self.T + self.V + self.vb + vc + vc_global
@@ -163,12 +168,12 @@ class ZMP():
                     grad_a = self.A.dot(Fa.dot(Da).dot(self.S2) - self.S2.dot(Da).dot(Fa)).dot(self.A)
                     grad_a[np.abs(grad_a) < eps] = 0.0
 
-                    if SCF_ITER -1 < self.diis_space:
+                    if SCF_ITER < self.diis_space:
                         state_vectors_a.append(Fa.copy())
                         error_vectors_a.append(grad_a.copy())
                     else:
                         del state_vectors_a[0]
-                        del state_vectors_b[0]
+                        del error_vectors_a[0]
 
                     #Build inner product of error vectors
                     Bdim = len(state_vectors_a)
@@ -204,12 +209,12 @@ class ZMP():
                         grad_b = self.A.dot(Fb.dot(Db).dot(self.S2) - self.S2.dot(Db).dot(Fb)).dot(self.A)
                         grad_b[np.abs(grad_b) < eps] = 0.0
                         
-                        if SCF_ITER -1 < self.diis_space:
+                        if SCF_ITER < self.diis_space:
                             state_vectors_b.append(Fb.copy())
                             error_vectors_b.append(grad_b.copy())
                         else:
-                            state_vectors_b.append(Fb.copy())
-                            error_vectors_b.append(grad_b.copy())
+                            del state_vectors_b[0]
+                            del error_vectors_b[0]
 
                         for i in range(len(state_vectors_b)):
                             for j in range(len(state_vectors_b)):
@@ -239,9 +244,10 @@ class ZMP():
                 ddm = D_old - Da
                 D_old = Da
                 derror = np.max(np.abs(ddm))
+                vc_old = vc
 
                 #Uncomment to debug internal SCF
-                #if False and np.mod(SCF_ITER,5) == 0.0:
+                # if len(lambda_list==1) and np.mod(SCF_ITER,5) == 0.0:
                 #    print(f"Iteration: {SCF_ITER:3d} | Self Convergence Error: {derror:10.5e} | DIIS Error: {diis_error:10.5e}")
                 
                 if abs(derror) < D_conv and abs(diis_error) < D_conv:
@@ -264,7 +270,7 @@ class ZMP():
             #VXC is hartree-like Potential. We remove Fermi_Amaldi Guess. 
             self.proto_density_a = lam_i * (self.Da) - (lam_i + 1/(self.nalpha + self.nbeta)) * (self.nt[0])
             self.proto_density_b = lam_i * (self.Db) - (lam_i + 1/(self.nbeta + self.nalpha)) * (self.nt[1])
-            vc_global = self.mixing * vc
+            vc_global = vc
 
 
     def generate_s_fucntional(self, lam, zmp_functional, Da, Db):
