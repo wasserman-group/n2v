@@ -60,6 +60,7 @@ class Grider(Cubeprop):
         nblocks = int(np.floor(npoints/max_points))
         blocks = []
 
+        max_functions = 0
         #Run through full blocks
         idx = 0
         for nb in range(nblocks):
@@ -73,6 +74,8 @@ class Grider(Cubeprop):
 
             blocks.append(psi4.core.BlockOPoints(x, y, z, w, extens))
             idx += max_points
+            max_functions = max_functions if max_functions > len(blocks[-1].functions_local_to_global()) \
+                                          else len(blocks[-1].functions_local_to_global())
 
         #Run through remaining points
         if idx < npoints:
@@ -85,8 +88,8 @@ class Grider(Cubeprop):
                 w = psi4.core.Vector.from_array(np.zeros_like(grid[2][idx:]))  # When w is not necessary and not given
             blocks.append(psi4.core.BlockOPoints(x, y, z, w, extens))
 
-        max_functions = 0 if 0 > len(blocks[-1].functions_local_to_global()) \
-                                      else len(blocks[-1].functions_local_to_global())
+            max_functions = max_functions if max_functions > len(blocks[-1].functions_local_to_global()) \
+                                          else len(blocks[-1].functions_local_to_global())
 
         if self.ref == 1:
             point_func = psi4.core.RKSFunctions(basis, max_points, max_functions)
@@ -200,8 +203,10 @@ class Grider(Cubeprop):
         else:
             raise ValueError("A grid or a V_potential (DFT grid) must be given.")
 
+        if coeff.ndim == 1:
+            coeff = coeff[:, np.newaxis]
         if self.ref == 1:
-            psi4_coeff = psi4.core.Matrix.from_array(coeff[:,None])
+            psi4_coeff = psi4.core.Matrix.from_array(coeff)
             points_function.set_pointers(psi4_coeff)
         elif self.ref == 2:
             coeff_0 = coeff[:,None] if coeff.ndim == 1 else coeff.copy()
