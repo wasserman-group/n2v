@@ -19,7 +19,7 @@ class MRKS():
     instead of on the potential basis set.
     Whereas, the guide potential is still used and
     plays the role of v_hartree.
-    And because of this, the gird for vxc for output
+    And because of this, the grid for vxc for output
     has to be specified beforehand.
     
     For CIWavefunction as input, make sure to turn on
@@ -42,10 +42,26 @@ class MRKS():
     """
     vxc_hole_WF = None
 
-    def _vxc_hole_quadrature(self, grid_info=None, atol=1e-6):
+    def _vxc_hole_quadrature(self, grid_info=None, atol=1e-5, atol1=1e-4):
         """
         Calculating v_XC^hole in [1] (15) using quadrature
         integral on the default DFT spherical grid.
+
+        Side note: the calculation is actually quite sensitive to atol/atol1
+        i.e. the way to handle singularities. Play with it if you
+        have a chance.
+        The current model is:
+        R2 = |r1 - r2|^2
+        R2[R2 <= atol] = infinity (so that 1/R = 0)
+        R2[atol < R2 < atol1] = atol1
+
+        When self.wfn.name() == CIWavefunction, opdm and tpdm are used
+        for calculation;
+        when self.wfn.name() == RHF, actually a simplified version (i.e.
+        directly using exact HF exchange densities) is implemented. In other
+        words, this part can be much quicker and simplifier for RHF by
+        obtaining the exchange hole directly as K Matrix without doing
+        double integral by quadrature.
         """
         if self.vxc_hole_WF is not None and grid_info is None:
             return self.vxc_hole_WF
@@ -148,9 +164,11 @@ class MRKS():
                 R2 += (l_y[:, None] - r_y) ** 2
                 R2 += (l_z[:, None] - r_z) ** 2
                 # R2 += 1e-34
-                if np.any(np.isclose(R2, 0.0, atol=atol)):
-                    # R2[np.isclose(R2, 0.0)] = np.min(R2[~np.isclose(R2, 0.0)])
-                    R2[np.isclose(R2, 0.0, atol=atol)] = np.inf
+                mask1 = R2 <= atol
+                mask2 = (R2 > atol) * (R2 < atol1)
+                if np.any(mask1 + mask2):
+                    R2[mask1] = np.inf
+                    R2[mask2] = atol1
                 Rinv = 1 / np.sqrt(R2)
     
                 # if restricted:
@@ -284,6 +302,15 @@ class MRKS():
              eig_tol=1e-4, frac_old=0.5, init="scan"):
         """
         the modified Ryabinkin-Kohut-Staroverov method.
+
+        Currently it supports two different kind of input wavefunction:
+            1) Psi4.CIWavefunction
+            2) Psi4.RHF
+        and it only supports spin-restricted wavefunction.
+        Side note: spin-unrestricted HF wavefunction (psi4.UHF) can easily
+        be supported but unrestricted CI or restricted/unrestricted CCSD
+        can not, because of the absence of tpdm in both methods.
+
         parameters:
         ----------------------
             maxiter: int
@@ -352,6 +379,8 @@ class MRKS():
 
         # Preparing for WF properties
         if self.wfn.name() == "CIWavefunction":
+            if not (psi4.core.get_global_option("opdm") and psi4.core.get_global_option("tpdm")):
+                raise ValueError("For CIWavefunction as input, make sure to turn on opdm and tpdm.")
             # TPDM & ERI Memory check
             nbf = self.nbf
             I_size = (nbf ** 4) * 8.e-9 * 2
@@ -371,11 +400,10 @@ class MRKS():
             Ca = self.wfn.Ca().np
 
             mints = psi4.core.MintsHelper(self.basis)
-            I = mints.ao_eri()
-            del mints
-            # Transfer the AO ERI into MO ERI
-            I = contract("ijkl,ip,jq,kr,ls", I, Ca, Ca, Ca, Ca)
-            I = 0.5 * I + 0.25 * np.transpose(I, [0, 1, 3, 2]) + 0.25 * np.transpose(I, [1, 0, 2, 3])
+
+            Ca_psi4 = psi4.core.Matrix.from_array(Ca)
+            I = mints.mo_eri(Ca_psi4, Ca_psi4, Ca_psi4, Ca_psi4).np
+            # I = 0.5 * I + 0.25 * np.transpose(I, [0, 1, 3, 2]) + 0.25 * np.transpose(I, [1, 0, 2, 3])
             # Transfer the AO h into MO h
             h = Ca.T @ (self.T + self.V) @ Ca
 
@@ -384,7 +412,7 @@ class MRKS():
             F_GFM = opdm @ h + contract("rsnq,rsmq->mn", I, tpdm)
             F_GFM = 0.5 * (F_GFM + F_GFM.T)
 
-            del I
+            del mints, I
 
             C_a_GFM = psi4.core.Matrix(nbf, nbf)
             eigs_a_GFM = psi4.core.Vector(nbf)
@@ -408,7 +436,7 @@ class MRKS():
             # prepare properties on the grid
             ebarWF = self._average_local_orbital_energy(self.nt[0], C_a_GFM, eigs_a_GFM)
             taup_rho_WF = self._pauli_kinetic_energy_density(self.nt[0], C_a_NO, eigs_a_NO)
-        elif self.wfn.name() == "RHF":
+        elif self.wfn.name() == "RHF":  # Since HF is a special case, no need for GFM and NO as in CI.
             epsilon_a = self.wfn.epsilon_a_subset("AO", "OCC").np
             ebarWF = self._average_local_orbital_energy(self.nt[0], self.ct[0][:,:Nalpha], epsilon_a)
             taup_rho_WF = self._pauli_kinetic_energy_density(self.nt[0], self.ct[0])
@@ -482,12 +510,14 @@ class MRKS():
             grid_info[-1].set_pointers(self.wfn.Da())
 
             # A larger atol seems to be necessary for user-defined grid
-            vxchole = self._vxc_hole_quadrature(grid_info=grid_info, atol=5e-4)
+            vxchole = self._vxc_hole_quadrature(grid_info=grid_info)
             if self.wfn.name() == "CIWavefunction":
                 ebarWF = self._average_local_orbital_energy(self.nt[0],
-                                                            C_a_GFM, eigs_a_GFM, grid_info=grid_info)
+                                                            C_a_GFM, eigs_a_GFM,
+                                                            grid_info=grid_info)
                 taup_rho_WF = self._pauli_kinetic_energy_density(self.nt[0],
-                                                                 C_a_NO, eigs_a_NO, grid_info=grid_info)
+                                                                 C_a_NO, eigs_a_NO,
+                                                                 grid_info=grid_info)
             elif self.wfn.name() == "RHF":
                 ebarWF = self._average_local_orbital_energy(self.nt[0],
                                                             self.ct[0],
@@ -505,8 +535,8 @@ class MRKS():
             self.shift = potential_shift
 
             vxc = vxchole + ebarKS - ebarWF + taup_rho_WF - taup_rho_KS + potential_shift
-
-        return vxc, vxchole, ebarKS, ebarWF, taup_rho_WF, taup_rho_KS
+        self.grid.vxc = vxc
+        return
 
     def _diagonalize_with_potential_mRKS(self, v=None):
         """
