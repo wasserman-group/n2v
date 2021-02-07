@@ -291,18 +291,19 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
         """
 
         self.lam = lam
-        self.generate_components(guide_potential_components)
+        if method.lower()=='mrks':
+            if guide_potential_components[0] != 'hartree' or len(guide_potential_components) != 1:
+                print("The guide potential is changed to v_hartree.")
+            self.generate_components(["hartree"])
+        else:
+            self.generate_components(guide_potential_components)
 
         if method.lower() == "wuyang":
             self.wuyang(opt_max_iter, **opt)
         elif method.lower() == "zmp":
             self.zmp_with_scf(lam, opt_max_iter)
         elif method.lower() == "mrks":
-            if guide_potential_components[0] != "hartree":
-                print("The guide potential is changed to v_hartree.")
-                self.generate_components(["hartree"])
             return self.mRKS(opt_max_iter, **opt)
-
         else:
             raise ValueError(f"Inversion method not available. Try: {['wuyang', 'zmp', 'mrks']}")
 
