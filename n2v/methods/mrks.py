@@ -40,8 +40,7 @@ class MRKS():
         vxc_hole_WF on spherical grid. This is stored
         because the calculation of this takes most time.
     """
-    def __init__(self):
-        self.grid.vxc_hole_WF = None
+    vxc_hole_WF = None
 
     def _vxc_hole_quadrature(self, grid_info=None, atol=1e-5, atol1=1e-4):
         """
@@ -64,8 +63,8 @@ class MRKS():
         obtaining the exchange hole directly as K Matrix without doing
         double integral by quadrature.
         """
-        if self.grid.vxc_hole_WF is not None and grid_info is None:
-            return self.grid.vxc_hole_WF
+        if self.vxc_hole_WF is not None and grid_info is None:
+            return self.vxc_hole_WF
 
         if self.wfn.name() == "CIWavefunction":
             Tau_ijkl = self.wfn.get_tpdm("SUM", True).np
@@ -185,8 +184,8 @@ class MRKS():
         assert w1_old == vxchole.shape[0], "Somehow the whole space is not fully integrated."
         if blocks is None:
             # if restricted:
-            self.grid.vxc_hole_WF = vxchole
-            return self.grid.vxc_hole_WF
+            self.vxc_hole_WF = vxchole
+            return self.vxc_hole_WF
         else:
             # if restricted:
             return vxchole
