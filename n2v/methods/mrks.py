@@ -40,7 +40,8 @@ class MRKS():
         vxc_hole_WF on spherical grid. This is stored
         because the calculation of this takes most time.
     """
-    grid.vxc_hole_WF = None
+    def __init__(self):
+        self.grid.vxc_hole_WF = None
 
     def _vxc_hole_quadrature(self, grid_info=None, atol=1e-5, atol1=1e-4):
         """
