@@ -78,7 +78,7 @@ class MRKS():
             D2 = D2a + D2b
 
         if grid_info is None:
-            vxchole = np.zeros(self.npoints_DFT)
+            vxchole = np.zeros(self.Vpot.grid().npoints())
             nblocks = self.Vpot.nblocks()
             points_func_outer = self.Vpot.properties()[0]
             blocks = None
@@ -94,7 +94,7 @@ class MRKS():
         # First loop over the outer set of blocks
         num_block_ten_percent = int(nblocks / 10)
         w1_old = 0
-        print("vxchole quadrature double integral starts (%i points): " % (self.npoints_DFT), end="")
+        print("vxchole quadrature double integral starts (%i points): " % (self.Vpot.grid().npoints()), end="")
         start_time = time.time()
         for l_block in range(nblocks):
             # Print out progress
@@ -199,7 +199,7 @@ class MRKS():
         # Nbeta = self.molecule.nbeta
 
         if grid_info is None:
-            e_bar = np.zeros(self.npoints_DFT)
+            e_bar = np.zeros(self.Vpot.grid().npoints())
             nblocks = self.Vpot.nblocks()
 
             points_func = self.Vpot.properties()[0]
@@ -244,7 +244,7 @@ class MRKS():
             occ = np.ones(C.shape[1])
 
         if grid_info is None:
-            taup_rho = np.zeros(self.npoints_DFT)
+            taup_rho = np.zeros(self.Vpot.grid().npoints())
             nblocks = self.Vpot.nblocks()
 
             points_func = self.Vpot.properties()[0]
@@ -353,10 +353,7 @@ class MRKS():
 
         returns:
         ----------------------
-            all are np.ndarray of shape (num_grid_points)
-            vxc, vxchole, ebarKS, ebarWF, taup_rho_WF, taup_rho_KS
-            in eqn vxc = vxchole + ebarKS - ebarWF + taup_rho_WF - taup_rho_KS.
-            Check the original paper for the definition of each component.
+            The result will be save as self.grid.vxc
     """
         if not self.wfn.name() in ["CIWavefunction", "RHF"]:
             raise ValueError("Currently only supports Psi4 CI wavefunction"
@@ -377,9 +374,6 @@ class MRKS():
         functional = psi4.driver.dft.build_superfunctional("SVWN", restricted=True)[0]
         self.Vpot = psi4.core.VBase.build(self.basis, functional, "RV")
         self.Vpot.initialize()
-        self.npoints_DFT = 0
-        for blk in range(self.Vpot.nblocks()):
-            self.npoints_DFT += self.Vpot.get_block(blk).x().shape[0]
         self.Vpot.properties()[0].set_pointers(self.wfn.Da())
 
 
@@ -506,7 +500,7 @@ class MRKS():
 
             vxc_Fock = self.dft_grid_to_fock(vxc, self.Vpot)
 
-            self._diagonalize_with_potential_mRKS(v=vxc_Fock)
+            self._diagonalize_with_potential_vFock(v=vxc_Fock)
 
             print("Iter: %i, Density Change: %2.2e, Eigenvalue Change: %2.2e, "
                   "Potential Change: %2.2e." % (mRKS_step, Derror, eerror, verror))
@@ -545,7 +539,7 @@ class MRKS():
         self.grid.vxc = vxc
         return
 
-    def _diagonalize_with_potential_mRKS(self, v=None):
+    def _diagonalize_with_potential_vFock(self, v=None):
         """
         Diagonalize Fock matrix with additional external potential
         """
