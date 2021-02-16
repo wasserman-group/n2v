@@ -253,7 +253,7 @@ class Grider(Cubeprop):
 
         Returns
         -------
-        density: np.ndarray Shape: (npoints, )
+        density: np.ndarray Shape: (ref, npoints)
             Density on the given grid. 
         """
 
@@ -297,9 +297,9 @@ class Grider(Cubeprop):
             points_function.compute_points(i_block)
             b_points = i_block.npoints()
             offset += b_points
-            density[offset - b_points : offset, 0] = 0.5 * rho_a.np[ :b_points]
+            density[offset - b_points : offset, 0] = rho_a.np[ :b_points]
             if self.ref == 2:
-                density[offset - b_points : offset, 1] = 0.5 * rho_b.np[ :b_points]
+                density[offset - b_points : offset, 1] = rho_b.np[ :b_points]
 
         return density
 
