@@ -78,10 +78,10 @@ class OC():
             laplace_rho_temp *= 0.25 * 2
 
             # Calculate the third term |nabla rho|^2 / 8
-            tauW_temp = 4 * contract('pm, mn, pn->p', l_phi, lD, l_phi_x) ** 2
-            tauW_temp += 4 * contract('pm, mn, pn->p', l_phi, lD, l_phi_y) ** 2
-            tauW_temp += 4 * contract('pm, mn, pn->p', l_phi, lD, l_phi_z) ** 2
-            tauW_temp *= rho_inv * 0.125
+            tauW_temp = contract('pm, mn, pn->p', l_phi, lD, l_phi_x) ** 2
+            tauW_temp += contract('pm, mn, pn->p', l_phi, lD, l_phi_y) ** 2
+            tauW_temp += contract('pm, mn, pn->p', l_phi, lD, l_phi_z) ** 2
+            tauW_temp *= rho_inv * 0.125 * 4
 
             tauLmP_rho[iw: iw + l_npoints] = (-laplace_rho_temp + tauW_temp) * rho_inv
             iw += l_npoints
@@ -133,7 +133,7 @@ class OC():
             vH_Fock = J[0] + J[1]
 
             vext_opt = vext_opt_no_H_Fock - vH_Fock
-            return vext_opt
+            return vext_opt * self.S2
 
         else:
             vH = self.on_grid_esp(grid=grid_info, wfn=wfn_LDA)[1]
@@ -188,6 +188,7 @@ class OC():
         
         
         vext_opt_Fock = self._get_optimized_external_potential()
+        # vext_opt_Fock = self.V
         assert self.Vpot is not None
         
         vH0_Fock = self.va
@@ -209,16 +210,32 @@ class OC():
             self.eigvecs_a = np.array(wfn_temp.epsilon_a())
             del wfn_temp
 
+        nerror = self.on_grid_density(Da=self.nt[0]-self.Da, Db=self.nt[1]-self.Da, vpot=self.Vpot)
+        w = self.Vpot.get_np_xyzw()[-1]
+        nerror = np.sum(np.abs(nerror.T) * w)
+        print("nerror", nerror)
+
         vxc_old = 0.0
         Da_old = 0.0
         eig_old = 0.0
+        shift = 0
+        tauLmP_rho = self._get_l_kinetic_energy_density_directly(self.nt[0])
         for OC_step in range(1, maxiter+1):
-            tauLmP_rho = self._get_l_kinetic_energy_density_directly(self.nt[0])
             tauP_rho = self._pauli_kinetic_energy_density(self.Da, self.Coca)
+
+            # shift = self.eigvecs_a[Nalpha - 1] - self.wfn.epsilon_a().np[Nalpha - 1]
+            # self.eigvecs_a[:Nalpha] -= shift
+
             e_bar = self._average_local_orbital_energy(self.Da, self.Coca, self.eigvecs_a[:Nalpha])
 
+            # shift = self.eigvecs_a[Nalpha - 1] - self.wfn.epsilon_a().np[Nalpha - 1]
+            if OC_step != 1:
+                shift = (self.eigvecs_a[Nalpha - 1] - self.wfn.epsilon_a().np[Nalpha - 1]) * (1 - frac_old) + \
+                    frac_old * shift
+            # shift = e_bar.max()
+
             # vxc + vext_opt + vH0
-            vxc_extH = e_bar - tauLmP_rho - tauP_rho
+            vxc_extH = e_bar - tauLmP_rho - tauP_rho - shift
 
             Derror = np.linalg.norm(self.Da - Da_old) / self.nbf ** 2
             eerror = (np.linalg.norm(self.eigvecs_a[:Nalpha] - eig_old) / Nalpha)
@@ -243,6 +260,9 @@ class OC():
 
             print("Iter: %i, Density Change: %2.2e, Eigenvalue Change: %2.2e."
                   % (OC_step, Derror, eerror))
+            # nerror = self.on_grid_density(Da=self.nt[0] - self.Da, Db=self.nt[1] - self.Da, vpot=self.Vpot)
+            # nerror = np.sum(np.abs(nerror.T) * w)
+            # print("nerror", nerror)
 
         # Calculate vxc on grid
         grid_info = self.grid_to_blocks(vxc_grid)
@@ -252,7 +272,11 @@ class OC():
         vH0 = self.on_grid_esp(grid=grid_info)[1]
         tauLmP_rho = self._get_l_kinetic_energy_density_directly(self.nt[0], grid_info=grid_info)
         tauP_rho = self._pauli_kinetic_energy_density(self.Da, self.Coca, grid_info=grid_info)
+
+        # shift = self.eigvecs_a[Nalpha - 1] - self.wfn.epsilon_a().np[Nalpha - 1]
+        # self.eigvecs_a[:Nalpha] -= shift
+
         e_bar = self._average_local_orbital_energy(self.Da, self.Coca, self.eigvecs_a[:Nalpha], grid_info=grid_info)
 
-        self.grid.vxc = e_bar - tauLmP_rho - tauP_rho - vext_opt - vH0
-        return self.grid.vxc, e_bar, tauLmP_rho, tauP_rho, vext_opt, vH0
+        self.grid.vxc = e_bar - tauLmP_rho - tauP_rho - vext_opt - vH0 - shift
+        return self.grid.vxc, e_bar, tauLmP_rho, tauP_rho, vext_opt, vH0, shift
