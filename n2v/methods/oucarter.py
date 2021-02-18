@@ -15,7 +15,7 @@ class OC():
     [1] [J. Chem. Theory Comput. 2018, 14, 5680−5689]
     """
 
-    def _get_l_kinetic_energy_density_directly(self, D, grid_info=None):
+    def _get_l_kinetic_energy_density_directly(self, D, C, grid_info=None):
         """
         Calculate $\frac{\tau_L^{KS}}{\rho^{KS}}-\frac{\tau_P^{KS}}{\rho^{KS}}$,
         (i.e. the 2dn and 3rd term in eqn. (17) in [1]):
@@ -55,6 +55,7 @@ class OC():
             l_phi_zz = np.array(points_func.basis_values()["PHI_ZZ"])[:l_npoints, :l_lpos.shape[0]]
 
             lD = D[(l_lpos[:, None], l_lpos)]
+            lC = C[l_lpos, :]
 
             rho = contract('pm,mn,pn->p', l_phi, lD, l_phi)
             rho_inv = 1/rho
@@ -72,9 +73,12 @@ class OC():
 
             # Calculate the second term 0.25*\nabla^2\rho
             laplace_rho_temp = contract('ab,pa,pb->p', lD, l_phi, l_phi_xx + l_phi_yy + l_phi_zz)
-            laplace_rho_temp += contract('pm, mn, pn->p', l_phi_x,lD, l_phi_x)
-            laplace_rho_temp += contract('pm, mn, pn->p', l_phi_y,lD, l_phi_y)
-            laplace_rho_temp += contract('pm, mn, pn->p', l_phi_z,lD, l_phi_z)
+            # laplace_rho_temp += contract('pm, mn, pn->p', l_phi_x,lD, l_phi_x)
+            # laplace_rho_temp += contract('pm, mn, pn->p', l_phi_y,lD, l_phi_y)
+            # laplace_rho_temp += contract('pm, mn, pn->p', l_phi_z,lD, l_phi_z)
+            laplace_rho_temp += np.sum((l_phi_x @ lC) ** 2, axis=1)
+            laplace_rho_temp += np.sum((l_phi_y @ lC) ** 2, axis=1)
+            laplace_rho_temp += np.sum((l_phi_z @ lC) ** 2, axis=1)
             laplace_rho_temp *= 0.25 * 2
 
             # Calculate the third term |nabla rho|^2 / 8
@@ -119,7 +123,7 @@ class OC():
 
         e_bar = self._average_local_orbital_energy(Da_LDA, Ca_LDA[:,:Nalpha],
                                                    epsilon_a_LDA[:Nalpha], grid_info=grid_info)
-        tauLmP_rho = self._get_l_kinetic_energy_density_directly(Da_LDA, grid_info=grid_info)
+        tauLmP_rho = self._get_l_kinetic_energy_density_directly(Da_LDA, Ca_LDA[:,:Nalpha], grid_info=grid_info)
         tauP_rho = self._pauli_kinetic_energy_density(Da_LDA, Ca_LDA[:,:Nalpha], grid_info=grid_info)
         tauL_rho = tauLmP_rho + tauP_rho
         vext_opt_no_H = e_bar - tauL_rho - vxc_LDA
@@ -133,7 +137,7 @@ class OC():
             vH_Fock = J[0] + J[1]
 
             vext_opt = vext_opt_no_H_Fock - vH_Fock
-            return vext_opt * self.S2
+            return vext_opt
 
         else:
             vH = self.on_grid_esp(grid=grid_info, wfn=wfn_LDA)[1]
@@ -188,7 +192,6 @@ class OC():
         
         
         vext_opt_Fock = self._get_optimized_external_potential()
-        # vext_opt_Fock = self.V
         assert self.Vpot is not None
         
         vH0_Fock = self.va
@@ -218,20 +221,16 @@ class OC():
         vxc_old = 0.0
         Da_old = 0.0
         eig_old = 0.0
-        shift = 0
-        tauLmP_rho = self._get_l_kinetic_energy_density_directly(self.nt[0])
+        tauLmP_rho = self._get_l_kinetic_energy_density_directly(self.nt[0], self.ct[0][:, :Nalpha])
         for OC_step in range(1, maxiter+1):
             tauP_rho = self._pauli_kinetic_energy_density(self.Da, self.Coca)
-
-            # shift = self.eigvecs_a[Nalpha - 1] - self.wfn.epsilon_a().np[Nalpha - 1]
-            # self.eigvecs_a[:Nalpha] -= shift
-
             e_bar = self._average_local_orbital_energy(self.Da, self.Coca, self.eigvecs_a[:Nalpha])
 
             # shift = self.eigvecs_a[Nalpha - 1] - self.wfn.epsilon_a().np[Nalpha - 1]
-            if OC_step != 1:
-                shift = (self.eigvecs_a[Nalpha - 1] - self.wfn.epsilon_a().np[Nalpha - 1]) * (1 - frac_old) + \
-                    frac_old * shift
+            shift = self.eigvecs_a[Nalpha - 1] - self.wfn.epsilon_a().np[Nalpha - 1]
+            # if OC_step != 1:
+            #     shift = (self.eigvecs_a[Nalpha - 1] - self.wfn.epsilon_a().np[Nalpha - 1]) * (1 - frac_old) + \
+            #         frac_old * shift
             # shift = e_bar.max()
 
             # vxc + vext_opt + vH0
@@ -260,9 +259,9 @@ class OC():
 
             print("Iter: %i, Density Change: %2.2e, Eigenvalue Change: %2.2e."
                   % (OC_step, Derror, eerror))
-            # nerror = self.on_grid_density(Da=self.nt[0] - self.Da, Db=self.nt[1] - self.Da, vpot=self.Vpot)
-            # nerror = np.sum(np.abs(nerror.T) * w)
-            # print("nerror", nerror)
+            nerror = self.on_grid_density(Da=self.nt[0] - self.Da, Db=self.nt[1] - self.Da, vpot=self.Vpot)
+            nerror = np.sum(np.abs(nerror.T) * w)
+            print("nerror", nerror)
 
         # Calculate vxc on grid
         grid_info = self.grid_to_blocks(vxc_grid)
@@ -270,10 +269,10 @@ class OC():
 
         vext_opt = self._get_optimized_external_potential(grid_info=grid_info)
         vH0 = self.on_grid_esp(grid=grid_info)[1]
-        tauLmP_rho = self._get_l_kinetic_energy_density_directly(self.nt[0], grid_info=grid_info)
+        tauLmP_rho = self._get_l_kinetic_energy_density_directly(self.nt[0], self.ct[0][:, :Nalpha], grid_info=grid_info)
         tauP_rho = self._pauli_kinetic_energy_density(self.Da, self.Coca, grid_info=grid_info)
 
-        # shift = self.eigvecs_a[Nalpha - 1] - self.wfn.epsilon_a().np[Nalpha - 1]
+        shift = self.eigvecs_a[Nalpha - 1] - self.wfn.epsilon_a().np[Nalpha - 1]
         # self.eigvecs_a[:Nalpha] -= shift
 
         e_bar = self._average_local_orbital_energy(self.Da, self.Coca, self.eigvecs_a[:Nalpha], grid_info=grid_info)
