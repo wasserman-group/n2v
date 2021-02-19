@@ -223,6 +223,8 @@ class Grider(Cubeprop):
             b_points = i_block.npoints()
             offset += b_points
             lpos = np.array(i_block.functions_local_to_global())
+            if len(lpos)==0:
+                continue
             phi = np.array(points_function.basis_values()["PHI"])[:b_points, :lpos.shape[0]]
 
             if coeff.ndim == 1:
@@ -368,6 +370,8 @@ class Grider(Cubeprop):
             b_points = i_block.npoints()
             offset += b_points
             lpos = np.array(i_block.functions_local_to_global())
+            if len(lpos)==0:
+                continue
             phi = np.array(points_function.basis_values()["PHI"])[:b_points, :lpos.shape[0]]
 
             for i_orb in range(self.nbf):
@@ -594,7 +598,9 @@ class Grider(Cubeprop):
             points_func.compute_points(block)
             npoints = block.npoints()
             lpos = np.array(block.functions_local_to_global())
-
+            if len(lpos) == 0:
+                i += npoints
+                continue
             # Obtain the grid weight
             w = np.array(block.w())
 
@@ -609,10 +615,3 @@ class Grider(Cubeprop):
             i += npoints
         assert i == value.shape[0], "Did not run through all the points. %i %i" %(i, value.shape[0])
         return VFock
-
-
-
-
-
-
-
