@@ -342,8 +342,10 @@ class OC():
 
         if self.ref == 1:
             self.grid.vxc = e_bar - tauLmP_rho - tauP_rho - vext_opt - vH0 - shift
+            return self.grid.vxc, e_bar, tauLmP_rho, tauP_rho, vext_opt, vH0, shift
         else:
             self.grid.vxc = np.array((e_bar - tauLmP_rho - tauP_rho - vext_opt - vH0 - shift,
                                       e_bar_beta - tauLmP_rho_beta - tauP_rho_beta - vext_opt_beta - vH0 - shift_beta
                                       ))
-        return self.grid.vxc, e_bar, tauLmP_rho, tauP_rho, vext_opt, vH0, shift
+            return self.grid.vxc, (e_bar, e_bar_beta), (tauLmP_rho, tauLmP_rho_beta), \
+                   (tauP_rho,tauP_rho_beta), (vext_opt, vext_opt_beta), vH0, (shift, shift_beta)
