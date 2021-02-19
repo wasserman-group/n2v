@@ -224,6 +224,9 @@ class MRKS():
 
             points_func.compute_points(l_grid)
             l_lpos = np.array(l_grid.functions_local_to_global())
+            if len(l_lpos) == 0:
+                iw += l_npoints
+                continue
             l_phi = np.array(points_func.basis_values()["PHI"])[:l_npoints, :l_lpos.shape[0]]
             lD = D[(l_lpos[:, None], l_lpos)]
             lC = C[l_lpos, :]
@@ -269,6 +272,9 @@ class MRKS():
 
             points_func.compute_points(l_grid)
             l_lpos = np.array(l_grid.functions_local_to_global())
+            if len(l_lpos) == 0:
+                iw += l_npoints
+                continue
             l_phi = np.array(points_func.basis_values()["PHI"])[:l_npoints, :l_lpos.shape[0]]
             l_phi_x = np.array(points_func.basis_values()["PHI_X"])[:l_npoints, :l_lpos.shape[0]]
             l_phi_y = np.array(points_func.basis_values()["PHI_Y"])[:l_npoints, :l_lpos.shape[0]]
@@ -543,15 +549,21 @@ class MRKS():
         """
         Diagonalize Fock matrix with additional external potential
         """
+
         if v is None:
             fock_a = self.V + self.T + self.va
-
         else:
-            fock_a = self.V + self.T + self.va + v
+            if self.ref == 1:
+                fock_a = self.V + self.T + self.va + v
+            else:
+                valpha, vbeta = v
+                fock_a = self.V + self.T + self.va + valpha
+                fock_b = self.V + self.T + self.vb + vbeta
+
 
         self.Ca, self.Coca, self.Da, self.eigvecs_a = self.diagonalize( fock_a, self.nalpha )
 
         if self.ref == 1:
-            self.Cb, self.Coca, self.Db, self.eigvecs_b = self.Ca.copy(), self.Coca.copy(), self.Da.copy(), self.eigvecs_a.copy()
+            self.Cb, self.Cocb, self.Db, self.eigvecs_b = self.Ca.copy(), self.Coca.copy(), self.Da.copy(), self.eigvecs_a.copy()
         else:
-            raise ValueError("Currently only spin-restricted in implemented.")
+            self.Cb, self.Cocb, self.Db, self.eigvecs_b = self.diagonalize( fock_b, self.nbeta )
