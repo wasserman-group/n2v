@@ -18,7 +18,7 @@ psi4.core.clean()
 
 from .methods.wuyang import WuYang
 from .methods.zmp import ZMP
-from .methods.rmks import MRKS
+from .methods.mrks import MRKS
 from .grid.grider import Grider
 
 
@@ -283,6 +283,11 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
                     3) If it's not continue, it would be expecting a
                     method name string that works for psi4. A separate psi4 calculation
                     would be performed.
+                sing: tuple of float of length 4, opt.
+                    Singularity parameter for _vxc_hole_quadrature()
+                    default: (1e-5, 1e-4, 1e-5, 1e-4)
+                    [0]: atol, [1]: atol1 for dft_spherical grid calculation.
+                    [2]: atol, [3]: atol1 for vxc_grid calculation.
             returns:
                 all are np.ndarray of shape (num_grid_points)
                 vxc, vxchole, ebarKS, ebarWF, taup_rho_WF, taup_rho_KS

@@ -299,7 +299,8 @@ class MRKS():
         return taup_rho
 
     def mRKS(self, maxiter, vxc_grid=None, v_tol=1e-4, D_tol=1e-7,
-             eig_tol=1e-4, frac_old=0.5, init="scan"):
+             eig_tol=1e-4, frac_old=0.5, init="scan",
+             sing=(1e-5, 1e-4, 1e-5, 1e-4)):
         """
         the modified Ryabinkin-Kohut-Staroverov method.
 
@@ -343,6 +344,11 @@ class MRKS():
                 3) If it's not continue, it would be expecting a
                 method name string that works for psi4. A separate psi4 calculation
                 would be performed.
+            sing: tuple of float of length 4, opt.
+                Singularity parameter for _vxc_hole_quadrature()
+                default: (1e-5, 1e-4, 1e-5, 1e-4)
+                [0]: atol, [1]: atol1 for dft_spherical grid calculation.
+                [2]: atol, [3]: atol1 for vxc_grid calculation.
 
 
         returns:
@@ -445,7 +451,7 @@ class MRKS():
                              "calculations since Spin-Unrestricted CI "
                              "is not supported by Psi4.")
 
-        vxchole = self._vxc_hole_quadrature()
+        vxchole = self._vxc_hole_quadrature(atol=sing[0], atol1=sing[1])
 
         emax = np.max(ebarWF)
 
@@ -510,7 +516,8 @@ class MRKS():
             grid_info[-1].set_pointers(self.wfn.Da())
 
             # A larger atol seems to be necessary for user-defined grid
-            vxchole = self._vxc_hole_quadrature(grid_info=grid_info)
+            vxchole = self._vxc_hole_quadrature(grid_info=grid_info,
+                                                atol=sing[2], atol1=sing[3])
             if self.wfn.name() == "CIWavefunction":
                 ebarWF = self._average_local_orbital_energy(self.nt[0],
                                                             C_a_GFM, eigs_a_GFM,
