@@ -55,30 +55,20 @@ class OC():
             l_phi_zz = np.array(points_func.basis_values()["PHI_ZZ"])[:l_npoints, :l_lpos.shape[0]]
 
             lD = D[(l_lpos[:, None], l_lpos)]
-            lC = C[l_lpos, :]
+            # lC = C[l_lpos, :]
 
             rho = contract('pm,mn,pn->p', l_phi, lD, l_phi)
             rho_inv = 1/rho
-            # rho_KS = contract('pm,mn,pn->p', l_phi, lD_KS, l_phi)
-            #
-            # # Calculate slice of \frac{\tau_p^KS}{\rho^KS}
-            # part_x = contract('pm,mi,nj,pn->ijp', l_phi, lC_KS, lC_KS, l_phi_x)
-            # part_y = contract('pm,mi,nj,pn->ijp', l_phi, lC_KS, lC_KS, l_phi_y)
-            # part_z = contract('pm,mi,nj,pn->ijp', l_phi, lC_KS, lC_KS, l_phi_z)
-            # part1_x = (part_x - np.transpose(part_x, (1, 0, 2))) ** 2
-            # part1_y = (part_y - np.transpose(part_y, (1, 0, 2))) ** 2
-            # part1_z = (part_z - np.transpose(part_z, (1, 0, 2))) ** 2
-            # taup_rho_temp = np.sum((part1_x + part1_y + part1_z).T, axis=(1,2)) / rho ** 2 * (0.5 * 0.5)
-
 
             # Calculate the second term 0.25*\nabla^2\rho
             laplace_rho_temp = contract('ab,pa,pb->p', lD, l_phi, l_phi_xx + l_phi_yy + l_phi_zz)
             # laplace_rho_temp += contract('pm, mn, pn->p', l_phi_x,lD, l_phi_x)
             # laplace_rho_temp += contract('pm, mn, pn->p', l_phi_y,lD, l_phi_y)
             # laplace_rho_temp += contract('pm, mn, pn->p', l_phi_z,lD, l_phi_z)
-            laplace_rho_temp += np.sum((l_phi_x @ lC) ** 2, axis=1)
-            laplace_rho_temp += np.sum((l_phi_y @ lC) ** 2, axis=1)
-            laplace_rho_temp += np.sum((l_phi_z @ lC) ** 2, axis=1)
+            laplace_rho_temp += np.sum((l_phi_x @ lD) * l_phi_x, axis=1)
+            laplace_rho_temp += np.sum((l_phi_y @ lD) * l_phi_y, axis=1)
+            laplace_rho_temp += np.sum((l_phi_z @ lD) * l_phi_z, axis=1)
+
             laplace_rho_temp *= 0.25 * 2
 
             # Calculate the third term |nabla rho|^2 / 8
@@ -90,17 +80,12 @@ class OC():
             tauLmP_rho[iw: iw + l_npoints] = (-laplace_rho_temp + tauW_temp) * rho_inv
             iw += l_npoints
         assert iw == tauLmP_rho.shape[0], "Somehow the whole space is not fully integrated."
+
         return tauLmP_rho
 
-    def _get_optimized_external_potential(self, grid_info=None):
+    def _get_optimized_external_potential(self, grid_info):
         """
         (22) in [1].
-
-        return:
-            if grid_info is None:
-                returns vxc Fock matrix: np.ndarray of shape (nbf, nbf)
-            else:
-                return vxc on the given grid: np.ndarray of shape (num_grid_points,)
         """
 
         Nalpha = self.nalpha
@@ -116,32 +101,41 @@ class OC():
         epsilon_b_LDA = wfn_LDA.epsilon_b().np
         self.Vpot = wfn_LDA.V_potential()
 
-        if grid_info is None:
-            vxc_LDA = self.on_grid_vxc(Da=Da_LDA, Db=Db_LDA, vpot=self.Vpot)
-        else:
-            vxc_LDA = self.on_grid_vxc(Da=Da_LDA, Db=Db_LDA, grid=grid_info)
+        vxc_LDA_DFT = self.on_grid_vxc(Da=Da_LDA, Db=Db_LDA, vpot=self.Vpot)
+        vxc_LDA = self.on_grid_vxc(Da=Da_LDA, Db=Db_LDA, grid=grid_info)
 
-        e_bar = self._average_local_orbital_energy(Da_LDA, Ca_LDA[:,:Nalpha],
-                                                   epsilon_a_LDA[:Nalpha], grid_info=grid_info)
+        e_bar_DFT = self._average_local_orbital_energy(Da_LDA, Ca_LDA[:,:Nalpha], epsilon_a_LDA[:Nalpha])
+        e_bar = self._average_local_orbital_energy(Da_LDA, Ca_LDA[:, :Nalpha], epsilon_a_LDA[:Nalpha], grid_info=grid_info)
+
+
+        tauLmP_rho_DFT = self._get_l_kinetic_energy_density_directly(Da_LDA, Ca_LDA[:,:Nalpha])
         tauLmP_rho = self._get_l_kinetic_energy_density_directly(Da_LDA, Ca_LDA[:,:Nalpha], grid_info=grid_info)
+
+        tauP_rho_DFT = self._pauli_kinetic_energy_density(Da_LDA, Ca_LDA[:,:Nalpha])
         tauP_rho = self._pauli_kinetic_energy_density(Da_LDA, Ca_LDA[:,:Nalpha], grid_info=grid_info)
+
+        tauL_rho_DFT = tauLmP_rho_DFT + tauP_rho_DFT
         tauL_rho = tauLmP_rho + tauP_rho
+
+        vext_opt_no_H_DFT = e_bar_DFT - tauL_rho_DFT - vxc_LDA_DFT
         vext_opt_no_H = e_bar - tauL_rho - vxc_LDA
 
-        if grid_info is None:
-            vext_opt_no_H_Fock = self.dft_grid_to_fock(vext_opt_no_H, self.Vpot)
+        J = self.form_jk(Ca_LDA[:,:Nalpha],  Cb_LDA[:,:Nbeta])[0]
+        vext_opt_no_H_DFT_Fock = self.dft_grid_to_fock(vext_opt_no_H_DFT, self.Vpot)
+        vext_opt_DFT_Fock = vext_opt_no_H_DFT_Fock - J[0] - J[1]
 
-            J, _ = self.form_jk(psi4.core.Matrix.from_array(Ca_LDA[:,:Nalpha]),
-                                psi4.core.Matrix.from_array(Cb_LDA[:,:Nbeta]))
+        # # Does vext_opt need a shift?
+        # Fock_LDA = self.T + vext_opt_DFT_Fock + J[0] + J[1] + self.dft_grid_to_fock(vxc_LDA_DFT, self.Vpot)
+        # eigvecs_a = self.diagonalize(Fock_LDA, self.nalpha)[-1]
+        # shift = eigvecs_a[Nalpha-1] - epsilon_a_LDA[Nalpha-1]
+        # vext_opt_DFT_Fock -= shift * self.S2
+        # print("LDA shift:", shift, eigvecs_a[Nalpha-1], epsilon_a_LDA[Nalpha-1])
 
-            vH_Fock = J[0] + J[1]
+        vH = self.on_grid_esp(grid=grid_info, wfn=wfn_LDA)[1]
+        vext_opt = vext_opt_no_H - vH
+        # vext_opt -= shift
 
-            vext_opt = vext_opt_no_H_Fock - vH_Fock
-            return vext_opt
-
-        else:
-            vH = self.on_grid_esp(grid=grid_info, wfn=wfn_LDA)[1]
-            return vext_opt_no_H - vH
+        return vext_opt_DFT_Fock, vext_opt
     
     def oucarter(self, maxiter, vxc_grid, D_tol=1e-7,
              eig_tol=1e-4, frac_old=0.5, init="scan"):
@@ -190,8 +184,10 @@ class OC():
         if self.guide_potential_components[0] != "hartree":
             raise ValueError("Hartree potential is necessary as the guide potential.")
         
-        
-        vext_opt_Fock = self._get_optimized_external_potential()
+        grid_info = self.grid_to_blocks(vxc_grid)
+        grid_info[-1].set_pointers(self.wfn.Da())
+
+        vext_opt_Fock, vext_opt = self._get_optimized_external_potential(grid_info)
         assert self.Vpot is not None
         
         vH0_Fock = self.va
@@ -213,10 +209,10 @@ class OC():
             self.eigvecs_a = np.array(wfn_temp.epsilon_a())
             del wfn_temp
 
-        nerror = self.on_grid_density(Da=self.nt[0]-self.Da, Db=self.nt[1]-self.Da, vpot=self.Vpot)
-        w = self.Vpot.get_np_xyzw()[-1]
-        nerror = np.sum(np.abs(nerror.T) * w)
-        print("nerror", nerror)
+        # nerror = self.on_grid_density(Da=self.nt[0]-self.Da, Db=self.nt[1]-self.Da, vpot=self.Vpot)
+        # w = self.Vpot.get_np_xyzw()[-1]
+        # nerror = np.sum(np.abs(nerror.T) * w)
+        # print("nerror", nerror)
 
         vxc_old = 0.0
         Da_old = 0.0
@@ -226,7 +222,6 @@ class OC():
             tauP_rho = self._pauli_kinetic_energy_density(self.Da, self.Coca)
             e_bar = self._average_local_orbital_energy(self.Da, self.Coca, self.eigvecs_a[:Nalpha])
 
-            # shift = self.eigvecs_a[Nalpha - 1] - self.wfn.epsilon_a().np[Nalpha - 1]
             shift = self.eigvecs_a[Nalpha - 1] - self.wfn.epsilon_a().np[Nalpha - 1]
             # if OC_step != 1:
             #     shift = (self.eigvecs_a[Nalpha - 1] - self.wfn.epsilon_a().np[Nalpha - 1]) * (1 - frac_old) + \
@@ -259,15 +254,12 @@ class OC():
 
             print("Iter: %i, Density Change: %2.2e, Eigenvalue Change: %2.2e."
                   % (OC_step, Derror, eerror))
-            nerror = self.on_grid_density(Da=self.nt[0] - self.Da, Db=self.nt[1] - self.Da, vpot=self.Vpot)
-            nerror = np.sum(np.abs(nerror.T) * w)
-            print("nerror", nerror)
+            # nerror = self.on_grid_density(Da=self.nt[0] - self.Da, Db=self.nt[1] - self.Da, vpot=self.Vpot)
+            # nerror = np.sum(np.abs(nerror.T) * w)
+            # print("nerror", nerror)
 
         # Calculate vxc on grid
-        grid_info = self.grid_to_blocks(vxc_grid)
-        grid_info[-1].set_pointers(self.wfn.Da())
 
-        vext_opt = self._get_optimized_external_potential(grid_info=grid_info)
         vH0 = self.on_grid_esp(grid=grid_info)[1]
         tauLmP_rho = self._get_l_kinetic_energy_density_directly(self.nt[0], self.ct[0][:, :Nalpha], grid_info=grid_info)
         tauP_rho = self._pauli_kinetic_energy_density(self.Da, self.Coca, grid_info=grid_info)
