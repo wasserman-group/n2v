@@ -291,6 +291,39 @@ class Inverter(WuYang, ZMP, MRKS, OC, Grider):
                     [2]: atol, [3]: atol1 for vxc_grid calculation.
             return:
                 The result will be save as self.grid.vxc
+
+        Ou-Carter method
+        [J. Chem. Theory Comput. 2018, 14, 5680−5689]
+                parameters:
+            ----------------------
+                maxiter: int
+                    same as opt_max_iter
+                vxc_grid: np.ndarray of shape (3, num_grid_points)
+                    The final result will be represented on this grid
+                    default: 1e-4
+                D_tol: float, opt
+                    convergence criteria for density matrices.
+                    default: 1e-7
+                eig_tol: float, opt
+                    convergence criteria for occupied eigenvalue spectrum.
+                    default: 1e-4
+                frac_old: float, opt
+                    Linear mixing parameter for current vxc and old vxc.
+                    If 0, no old vxc is mixed in.
+                    Should be in [0,1)
+                    default: 0.5.
+                init: string, opt
+                    Initial guess method.
+                    default: "SCAN"
+                    1) If None, input wfn info will be used as initial guess.
+                    2) If "continue" is given, then it will not initialize
+                    but use the densities and orbitals stored. Meaningly,
+                    one can run a quick WY calculation as the initial
+                    guess. This can also be used to user speficified
+                    initial guess by setting Da, Coca, eigvec_a.
+                    3) If it's not continue, it would be expecting a
+                    method name string that works for psi4. A separate psi4 calculation
+                    would be performed.
         """
 
         self.lam = lam

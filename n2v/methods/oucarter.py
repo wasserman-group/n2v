@@ -17,8 +17,12 @@ class OC():
 
     def _get_l_kinetic_energy_density_directly(self, D, C, grid_info=None):
         """
-        Calculate $\frac{\tau_L^{KS}}{\rho^{KS}}-\frac{\tau_P^{KS}}{\rho^{KS}}$,
-        (i.e. the 2dn and 3rd term in eqn. (17) in [1]):
+        Calculate $\frac{\tau_L^{KS}}{\rho^{KS}}-\frac{\tau_P^{KS}}{\rho^{KS}}$:
+        laplace_rho_temp: $\frac{\nabla^2 \rho}{4}$;
+        tauW_temp: $\frac{|\napla \rho|^2}{8|\rho|}$;
+        tauLmP_rho: $\frac{|\napla \rho|^2}{8|\rho|^2} - \frac{\nabla^2 \rho}{4\rho}$.
+
+        (i.e. the 2dn and 3rd term in eqn. (17) in [1] over $\rho$.):
         """
 
         if grid_info is None:
@@ -63,7 +67,7 @@ class OC():
             rho = contract('pm,mn,pn->p', l_phi, lD, l_phi)
             rho_inv = 1/rho
 
-            # Calculate the second term 0.25*\nabla^2\rho
+            # Calculate the second term
             laplace_rho_temp = contract('ab,pa,pb->p', lD, l_phi, l_phi_xx + l_phi_yy + l_phi_zz)
             # laplace_rho_temp += contract('pm, mn, pn->p', l_phi_x,lD, l_phi_x)
             # laplace_rho_temp += contract('pm, mn, pn->p', l_phi_y,lD, l_phi_y)
@@ -74,7 +78,7 @@ class OC():
 
             laplace_rho_temp *= 0.25 * 2
 
-            # Calculate the third term |nabla rho|^2 / 8
+            # Calculate the third term
             tauW_temp = contract('pm, mn, pn->p', l_phi, lD, l_phi_x) ** 2
             tauW_temp += contract('pm, mn, pn->p', l_phi, lD, l_phi_y) ** 2
             tauW_temp += contract('pm, mn, pn->p', l_phi, lD, l_phi_z) ** 2
@@ -88,6 +92,11 @@ class OC():
 
     def _get_optimized_external_potential(self, grid_info, average_alpha_beta=False):
         """
+        $
+        v^{~}{ext}(r) = \epsilon^{-LDA}(r)
+        - \frac{\tau^{LDA}{L}}{n^{LDA}(r)}
+        - v_{H}^{LDA}(r) - v_{xc}^{LDA}(r)
+        $
         (22) in [1].
         """
 
@@ -113,6 +122,7 @@ class OC():
             vxc_LDA_DFT_beta = vxc_LDA_DFT[:, 1]
             vxc_LDA_DFT = vxc_LDA_DFT[:, 0]
 
+        # _average_local_orbital_energy() taken from mrks.py.
         e_bar_DFT = self._average_local_orbital_energy(Da_LDA, Ca_LDA[:,:Nalpha], epsilon_a_LDA[:Nalpha])
         e_bar = self._average_local_orbital_energy(Da_LDA, Ca_LDA[:, :Nalpha], epsilon_a_LDA[:Nalpha], grid_info=grid_info)
 
@@ -178,7 +188,7 @@ class OC():
         (23) in [1].
         [1] [J. Chem. Theory Comput. 2018, 14, 5680−5689]
 
-                parameters:
+        parameters:
         ----------------------
             maxiter: int
                 same as opt_max_iter
@@ -208,6 +218,7 @@ class OC():
                 3) If it's not continue, it would be expecting a
                 method name string that works for psi4. A separate psi4 calculation
                 would be performed.
+
         """
         
         # if self.ref != 1:
@@ -274,6 +285,7 @@ class OC():
 
         for OC_step in range(1, maxiter+1):
             tauP_rho = self._pauli_kinetic_energy_density(self.Da, self.Coca)
+            # _average_local_orbital_energy() taken from mrks.py.
             e_bar = self._average_local_orbital_energy(self.Da, self.Coca, self.eigvecs_a[:Nalpha])
             shift = self.eigvecs_a[Nalpha - 1] - self.wfn.epsilon_a().np[Nalpha - 1]
             # vxc + vext_opt + vH0
@@ -320,8 +332,7 @@ class OC():
                 self._diagonalize_with_potential_vFock(v=(Vxc_Fock, Vxc_Fock_beta))
 
 
-            print("Iter: %i, Density Change: %2.2e, Eigenvalue Change: %2.2e."
-                  % (OC_step, Derror, eerror))
+            print(f"Iter: {OC_step}, Density Change: {Derror:2.2e}, Eigenvalue Change: {eerror:2.2e}.")
             # nerror = self.on_grid_density(Da=self.nt[0] - self.Da, Db=self.nt[1] - self.Da, vpot=self.Vpot)
             # nerror = np.sum(np.abs(nerror.T) * w)
             # print("nerror", nerror)

@@ -94,7 +94,7 @@ class MRKS():
         # First loop over the outer set of blocks
         num_block_ten_percent = int(nblocks / 10)
         w1_old = 0
-        print("vxchole quadrature double integral starts (%i points): " % (self.Vpot.grid().npoints()), end="")
+        print(f"vxchole quadrature double integral starts ({(self.Vpot.grid().npoints()):d} points): ", end="")
         start_time = time.time()
         for l_block in range(nblocks):
             # Print out progress
@@ -179,8 +179,8 @@ class MRKS():
             w1_old += l_npoints
     
         print("\n")
-        print("Totally %i grid points takes %.2fs with max %i points in a block."
-              % (vxchole.shape[0], time.time() - start_time, psi4.core.get_global_option("DFT_BLOCK_MAX_POINTS")))
+        print(f"Totally {vxchole.shape[0]} grid points takes {(time.time() - start_time):.2f}s "
+              f"with max {psi4.core.get_global_option('DFT_BLOCK_MAX_POINTS')} points in a block.")
         assert w1_old == vxchole.shape[0], "Somehow the whole space is not fully integrated."
         if blocks is None:
             # if restricted:
@@ -508,8 +508,8 @@ class MRKS():
 
             self._diagonalize_with_potential_vFock(v=vxc_Fock)
 
-            print("Iter: %i, Density Change: %2.2e, Eigenvalue Change: %2.2e, "
-                  "Potential Change: %2.2e." % (mRKS_step, Derror, eerror, verror))
+            print(f"Iter: {mRKS_step}, Density Change: {Derror:2.2e}, Eigenvalue Change: {eerror:2.2e}, "
+                  "Potential Change: {verror:2.2e}.")
 
         if vxc_grid is not None:
             grid_info = self.grid_to_blocks(vxc_grid)
