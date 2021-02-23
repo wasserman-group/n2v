@@ -2,10 +2,11 @@ n(r) to v(r)
 ==============================
 "Density-to-potential" inversion Suite. 
 
-
 [//]: # (Badges)
-[![GitHub Actions Build Status](https://github.com/wasserman_group/n2v/workflows/CI/badge.svg)](https://github.com/wasserman_group/n2v/actions?query=workflow%3ACI)
-[![codecov](https://codecov.io/gh/wasserman_group/n2v/branch/main/graph/badge.svg)](https://codecov.io/gh/wasserman_group/n2v/branch/main)
+[![GitHub Actions Build Status](https://github.com/wasserman-group/n2v/actions/workflows/CI.yaml/badge.svg)](https://github.com/wasserman-group/n2v/actions)
+[![LGTM Grade](https://img.shields.io/lgtm/grade/python/github/wasserman-group/n2v)](https://lgtm.com/projects/g/wasserman-group/n2v/?mode=list)
+[![codecov](https://codecov.io/gh/VHchavez/n2v/branch/main/graph/badge.svg?token=4B8r0cQ2Wk)](https://codecov.io/gh/VHchavez/n2v)
+[![licence](https://img.shields.io/github/license/wasserman-group/n2v?color=blue)](https://github.com/wasserman-group/n2v/blob/main/LICENSE)
 
 
 ### Getting started: 
@@ -22,11 +23,11 @@ pip install .
 ```
 conda install -c conda-forge libxc
 ```
-- To communicate libxc with your python site-packages folder:
+- To communicate libxc with your python site-packages folder (using bash):
 ```
 wget http://www.tddft.org/programs/libxc/down.php?file=5.0.0/libxc-5.0.0.tar.gz
-cd libxc-5.0.0
 tar -xf libxc-5.0.0.tar.gz
+cd libxc-5.0.0
 python setup.py install
 ```
 
@@ -37,7 +38,7 @@ Learn how to use n2v with these [examples](https://github.com/wasserman-group/n2
 Or try it [without installing](https://jupyter.org/binder)
   
 ### Copyright
-Copyright (c) 2020, Wasserman Group  
+Copyright (c) 2021, Wasserman Group  
 
 #### Acknowledgements
 *Victor H. Chavez* was supported by a fellowship from The Molecular Sciences Software Institute under NSF grant OAC-1547580.  
