@@ -15,11 +15,11 @@ eps = np.finfo(float).eps
 
 class ZMP():
     def zmp(self, 
-            lambda_list,
-            zmp_functional,
-            mixing, 
-            opt_max_iter, 
-            opt_tol, 
+            opt_max_iter=100, 
+            opt_tol= psi4.core.get_option("SCF", "D_CONVERGENCE"), 
+            lambda_list=[70],
+            zmp_functional='hartree',
+            zmp_mixing = 0.1, 
             ):
 
         """
@@ -55,18 +55,17 @@ class ZMP():
         opt_tol: float
             Convergence criteria set for Density Difference and DIIS error. 
         """
-
-        self.diis_space = 200
-        self.mixing = mixing
+        self.diis_space = 100
+        self.mixing = zmp_mixing
 
         print("\nRunning ZMP:")
         self.zmp_scf(lambda_list, zmp_functional, opt_max_iter, D_conv=opt_tol)
 
     def zmp_scf(self, 
-            lambda_list = [1],
-            zmp_functional = 'hartree',
-            maxiter = 100, 
-            D_conv = psi4.core.get_option("SCF", "D_CONVERGENCE")):
+            lambda_list,
+            zmp_functional,
+            maxiter, 
+            D_conv):
         """
         Performs scf cycle
         Parameters
@@ -97,13 +96,13 @@ class ZMP():
         # Obtain target density on dft_grid 
         D0 = self.on_grid_density(grid=None, Da=self.nt[0], Db=self.nt[1],  vpot=self.vpot)
 
+        #Calculate kernels
         if zmp_functional.lower() != 'hartree':
             if self.ref == 1:
                 Da0, Db0 = D0[:,0], D0[:,0]
             else:
                 Da0, Db0 = D0[:,0], D0[:,1]
 
-            #Calculate kernels
             if zmp_functional == 'log':
                 Sa0 = np.log(Da0) + 1  
                 Sb0 = np.log(Db0) + 1
@@ -114,7 +113,7 @@ class ZMP():
             self.Sa0 = self.dft_grid_to_fock(Sa0, Vpot=self.vpot)
             self.Sb0 = self.dft_grid_to_fock(Sb0, Vpot=self.vpot)
 
-        vc_global = np.zeros((self.nbf, self.nbf))
+        vc_previous = np.zeros((self.nbf, self.nbf))
         self.Da = self.nt[0]
         self.Db = self.nt[1]
 
@@ -135,27 +134,23 @@ class ZMP():
             state_vectors_a, state_vectors_b = [], []
             error_vectors_a, error_vectors_b = [], []
 
-            # print(f"-------------SCF TIME ----------------------Current Lamda: {lam_i}")
             for SCF_ITER in range(1,maxiter):
 
 #------------->  Generate Fock Matrix:
                 Fa = np.zeros((self.nbf, self.nbf))
                 Fb = np.zeros((self.nbf, self.nbf))
-                J, _ = self.form_jk(Cocca, Coccb)
 
-                if zmp_functional.lower() == 'hartree':
-                    #Equation 7 of Reference (1)
-                    vc = lam_i * ( (J[0] + J[1]) - (self.J0[0] + self.J0[1]) )
-                else:
-                    #Equations 37, 38, 39, 40 of Reference (3)
-                    vc = self.generate_s_fucntional(lam_i, zmp_functional)
+                vc = self.generate_s_functional(lam_i,  
+                                                zmp_functional,
+                                                Cocca, Coccb, 
+                                                Da, Db)
 
                 #Potential mixing
                 vc = (1-self.mixing) * vc + (self.mixing) * vc_old
 
                 #Equation 10 of Reference (1)
-                Fa += self.T + self.V + self.va + vc + vc_global
-                Fb += self.T + self.V + self.vb + vc + vc_global
+                Fa += self.T + self.V + self.va + vc + vc_previous
+                Fb += self.T + self.V + self.vb + vc + vc_previous
 
                 #Level Shift
                 Fa += (self.S2 - reduce(np.dot, (self.S2, Da, self.S2)) * self.shift)
@@ -270,34 +265,43 @@ class ZMP():
             #VXC is hartree-like Potential. We remove Fermi_Amaldi Guess. 
             self.proto_density_a = lam_i * (self.Da) - (lam_i + 1/(self.nalpha + self.nbeta)) * (self.nt[0])
             self.proto_density_b = lam_i * (self.Db) - (lam_i + 1/(self.nbeta + self.nalpha)) * (self.nt[1])
-            vc_global = vc
+            vc_previous = vc
 
-
-    def generate_s_fucntional(self, lam, zmp_functional, Da, Db):
+    def generate_s_functional(self, lam, zmp_functional, Cocca, Coccb, Da, Db):
         """
         Generates S_n Functional as described in:
         https://doi.org/10.1002/qua.26400
         """
 
-        D = self.on_grid_density(vpot=self.vpot, Da=Da, Db=Db)
+        if zmp_functional.lower() == 'hartree':
+            J, _ = self.form_jk(Cocca, Coccb)
 
-        if self.ref == 1:
-            Da, Db = D[:,0], D[:,0]
+            #Equation 7 of Reference (1)
+            vc = lam * ( (J[0] + J[1]) - (self.J0[0] + self.J0[1]) )
+            return vc
+
         else:
-            Da, Db = D[:, 0], D[:, 1]
-            
-        #Calculate kernels
-        if zmp_functional == 'log':
-            Sa = np.log(Da) + 1
-            Sb = np.log(Db) + 1 
-        if zmp_functional == 'exp':
-            Sa = Da ** 0.05
-            Sb = Db ** 0.05
 
-        #Generate AO matrix from functions. 
-        Sa = self.dft_grid_to_fock(Sa, Vpot=self.vpot)
-        Sb = self.dft_grid_to_fock(Sb, Vpot=self.vpot)
-        v_c = (Sa + Sb) - (self.Sa0 + self.Sb0)
+            D = self.on_grid_density(vpot=self.vpot, Da=Da, Db=Db)
 
-        return v_c
+            if self.ref == 1:
+                Da, Db = D[:,0], D[:,0]
+            else:
+                Da, Db = D[:,0], D[:,1]
+                
+            #Calculate kernels
+            #Equations 37, 38, 39, 40 of Reference (3)
+            if zmp_functional.lower() == 'log':
+                Sa = np.log(Da) + 1
+                Sb = np.log(Db) + 1 
+            if zmp_functional.lower() == 'exp':
+                Sa = Da ** 0.05
+                Sb = Db ** 0.05
+
+            #Generate AO matrix from functions. 
+            Sa = self.dft_grid_to_fock(Sa, Vpot=self.vpot)
+            Sb = self.dft_grid_to_fock(Sb, Vpot=self.vpot)
+            vc = (Sa + Sb) - (self.Sa0 + self.Sb0)
+
+        return vc
         
