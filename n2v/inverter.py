@@ -19,6 +19,7 @@ psi4.core.clean()
 from .methods.wuyang import WuYang
 from .methods.zmp import ZMP
 from .methods.mrks import MRKS
+from .methods.oucarter import OC
 from .grid.grider import Grider
 
 
@@ -30,7 +31,7 @@ class data_bucket:
     pass
 
 
-class Inverter(WuYang, ZMP, MRKS, Grider):
+class Inverter(WuYang, ZMP, MRKS, OC, Grider):
     """
     Attributes:
     ----------
@@ -207,7 +208,7 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
     def invert(self, method,
                      guide_potential_components = ["fermi_amaldi"],
                      opt_max_iter = 50,
-                     lam=50, **opt):
+                     lam=50, **keywords):
         """
         Handler to all available inversion methods
 
@@ -288,15 +289,45 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
                     default: (1e-5, 1e-4, 1e-5, 1e-4)
                     [0]: atol, [1]: atol1 for dft_spherical grid calculation.
                     [2]: atol, [3]: atol1 for vxc_grid calculation.
-            returns:
-                all are np.ndarray of shape (num_grid_points)
-                vxc, vxchole, ebarKS, ebarWF, taup_rho_WF, taup_rho_KS
-                in eqn vxc = vxchole + ebarKS - ebarWF + taup_rho_WF - taup_rho_KS.
-                Check the original paper for each component.
+            return:
+                The result will be save as self.grid.vxc
+
+        Ou-Carter method
+        [J. Chem. Theory Comput. 2018, 14, 5680−5689]
+                parameters:
+            ----------------------
+                maxiter: int
+                    same as opt_max_iter
+                vxc_grid: np.ndarray of shape (3, num_grid_points)
+                    The final result will be represented on this grid
+                    default: 1e-4
+                D_tol: float, opt
+                    convergence criteria for density matrices.
+                    default: 1e-7
+                eig_tol: float, opt
+                    convergence criteria for occupied eigenvalue spectrum.
+                    default: 1e-4
+                frac_old: float, opt
+                    Linear mixing parameter for current vxc and old vxc.
+                    If 0, no old vxc is mixed in.
+                    Should be in [0,1)
+                    default: 0.5.
+                init: string, opt
+                    Initial guess method.
+                    default: "SCAN"
+                    1) If None, input wfn info will be used as initial guess.
+                    2) If "continue" is given, then it will not initialize
+                    but use the densities and orbitals stored. Meaningly,
+                    one can run a quick WY calculation as the initial
+                    guess. This can also be used to user speficified
+                    initial guess by setting Da, Coca, eigvec_a.
+                    3) If it's not continue, it would be expecting a
+                    method name string that works for psi4. A separate psi4 calculation
+                    would be performed.
         """
 
         self.lam = lam
-        if method.lower()=='mrks':
+        if method.lower()=='mrks' or method.lower()=='oc':
             if guide_potential_components[0] != 'hartree' or len(guide_potential_components) != 1:
                 print("The guide potential is changed to v_hartree.")
             self.generate_components(["hartree"])
@@ -304,11 +335,13 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
             self.generate_components(guide_potential_components)
 
         if method.lower() == "wuyang":
-            self.wuyang(opt_max_iter, **opt)
+            self.wuyang(opt_max_iter, **keywords)
         elif method.lower() == "zmp":
             self.zmp_with_scf(lam, opt_max_iter)
         elif method.lower() == "mrks":
-            return self.mRKS(opt_max_iter, **opt)
+            return self.mRKS(opt_max_iter, **keywords)
+        elif method.lower() == 'oc':
+            return self.oucarter(opt_max_iter, **keywords)
         else:
             raise ValueError(f"Inversion method not available. Try: {['wuyang', 'zmp', 'mrks']}")
 
