@@ -20,11 +20,11 @@ class WuYang():
     regul_norm = None  # Regularization norm: ||v||^2
     lambda_reg = None  # Regularization constant
 
-    def wuyang(self, opt_method, opt_max_iter, opt_tol):
+    def wuyang(self, opt_max_iter, reg=None, opt_tol = 1e-7, opt_method='trust-krylov'):
         """
         Calls scipy minimizer to minimize lagrangian. 
         """
-
+        self.lambda_reg = reg
         if opt_method.lower() == 'bfgs' or opt_method.lower() == 'l-bfgs-b':
             opt_results = minimize( fun = self.lagrangian,
                                     x0  = self.v0, 
@@ -61,7 +61,7 @@ class WuYang():
         # if debug=True:
         #     self.density_accuracy()
 
-    def diagonalize_with_guess(self, v):
+    def _diagonalize_with_potential_WY(self, v):
         """
         Diagonalize Fock matrix with additional external potential
         """
@@ -70,7 +70,7 @@ class WuYang():
         self.Ca, self.Coca, self.Da, self.eigvecs_a = self.diagonalize( fock_a, self.nalpha )
 
         if self.ref == 1:
-            self.Cb, self.Coca, self.Db, self.eigvecs_b = self.Ca.copy(), self.Coca.copy(), self.Da.copy(), self.eigvecs_a.copy()
+            self.Cb, self.Cocb, self.Db, self.eigvecs_b = self.Ca.copy(), self.Coca.copy(), self.Da.copy(), self.eigvecs_a.copy()
         else:
             vks_b = contract("ijk,k->ij", self.S3, v[self.npbs:]) + self.vb
             fock_b = self.V + self.T + vks_b        
@@ -82,7 +82,7 @@ class WuYang():
         Equation (5) of main reference
         """
 
-        self.diagonalize_with_guess(v)
+        self._diagonalize_with_potential_WY(v)
         self.grad_a = contract('ij,ijt->t', (self.Da - self.nt[0]), self.S3)  
         self.grad_b = contract('ij,ijt->t', (self.Db - self.nt[1]), self.S3)
 
@@ -120,7 +120,7 @@ class WuYang():
         Calculates gradient wrt target density
         Equation (11) of main reference
         """
-        self.diagonalize_with_guess(v)
+        self._diagonalize_with_potential_WY(v)
         self.grad_a = contract('ij,ijt->t', (self.Da - self.nt[0]), self.S3)
         self.grad_b = contract('ij,ijt->t', (self.Db - self.nt[1]), self.S3) 
 
@@ -146,7 +146,7 @@ class WuYang():
         Equation (13) of main reference
         """
 
-        self.diagonalize_with_guess(v)
+        self._diagonalize_with_potential_WY(v)
 
         na, nb = self.nalpha, self.nbeta
 

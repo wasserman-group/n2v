@@ -16,7 +16,8 @@ psi4.core.clean()
 
 from .methods.wuyang import WuYang
 from .methods.zmp import ZMP
-from .methods.rmks import MRKS
+from .methods.mrks import MRKS
+from .methods.oucarter import OC
 from .grid.grider import Grider
 
 
@@ -28,7 +29,7 @@ class data_bucket:
     pass
 
 
-class Inverter(WuYang, ZMP, MRKS, Grider):
+class Inverter(WuYang, ZMP, MRKS, OC, Grider):
     """
     Attributes:
     ----------
@@ -192,7 +193,7 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
             Eigenvalues
         """
 
-        A = np.array(self.A).copy()
+        A = self.A
         Fp = A.dot(matrix).dot(A)
         eigvecs, Cp = np.linalg.eigh(Fp)
         C = A.dot(Cp)
@@ -203,14 +204,9 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
     #------------->  Inversion:
 
     def invert(self, method,
-                     opt_method='trust-krylov', 
-                     guide_potential_components = ["fermi_amaldi"], 
+                     guide_potential_components = ["fermi_amaldi"],
                      opt_max_iter = 50,
-                     opt_tol      = 1e-7,
-                     reg=None,
-                     zmp_lam=50,
-                     zmp_mixing=1.0, 
-                     zmp_functional='hartree'):
+                    **keywords):
         """
         Handler to all available inversion methods
 
@@ -220,11 +216,6 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
         method: str
             Method used to invert density. 
             Can be chosen from {wuyang, zmp, mrks}
-        opt_method: string, opt
-            Method for scipy optimizer
-            Currently only used by wuyang method. 
-            Defaul: 'trust-krylov'
-            https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html
         guide_potential_components: list, opt
             Components added as to guide inversion. 
             Can be chosen from {"fermi_amandi", "svwn"}
@@ -232,31 +223,141 @@ class Inverter(WuYang, ZMP, MRKS, Grider):
         opt_max_iter: int, opt
             Maximum number of iterations inside the chosen inversion.
             Default: 50
-        reg = float, opt
-            Regularization constant for Wuyant Inversion. 
-            Default: None -> No regularization is added. 
-            Becomes attribute of inverter -> inverter.lambda_reg
-        zmp_lam = list, opt
-            List of lamda parameters for ZMP method. 
-            Default: 50. May become unstable if lam is too big. 
-        zmp_mixing: float
-            mixing \in [0,1]. How much of the new potential is added in 
-            a given scf step. Values close to 1 may prevent SCF to convergence. 
-        zmp_functional: str
-            Specifies what functional to use to drive the SCF procedure.
-            Options: {'hartree', 'log', 'exp'}
-            See: https://doi.org/10.1002/qua.26400
+
+        wuyang
+        the Wu-Yang method:
+        -------------------
+            parameters:
+                opt_max_iter: int
+                    opt_max_iter
+                opt_method: string, opt
+                    Method for scipy optimizer
+                    Currently only used by wuyang method.
+                    Defaul: 'trust-krylov'
+                    https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html
+                reg : float, opt
+                    Regularization constant for Wuyant Inversion.
+                    Default: None -> No regularization is added.
+                    Becomes attribute of inverter -> inverter.lambda_reg
+                opt_tol: float
+                    tol for scipy.optimize.minimize
+            return:
+                the result are stored in self.v_opt
+            
+        ZMP
+        The Zhao, Morrison Parr Method:
+        ----------------------
+        Parameters:
+        -----------
+            lambda_list: list
+                List of Lamda parameters used as a coefficient for Hartree 
+                difference in SCF cycle. 
+            zmp_functional: str
+                Specifies what functional to use to drive the SCF procedure.
+                Options: {'hartree', 'log', 'exp', 'grad'}
+            mixing: float
+                mixing \in [0,1]. How much of the new potential is added in 
+                a given scf step. Values close to 1 may prevent SCF to convergence. 
+            opt_max_iter: float
+                Maximum number of iterations for scf cycle
+            opt_tol: float
+                Convergence criteria set for Density Difference and DIIS error. 
+            return:
+                The result will be stored in self.grid.vxc
+
+        mRKS
+        the modified Ryabinkin-Kohut-Staroverov method:
+        ----------------------
+            parameters:
+                maxiter: int
+                    same as opt_max_iter
+                vxc_grid: np.ndarray of shape (3, num_grid_points), opt
+                    When this is given, the final result will be represented
+                v_tol: float, opt
+                    convergence criteria for vxc Fock matrices.
+                    default: 1e-4
+                D_tol: float, opt
+                    convergence criteria for density matrices.
+                    default: 1e-7
+                eig_tol: float, opt
+                    convergence criteria for occupied eigenvalue spectrum.
+                    default: 1e-4
+                frac_old: float, opt
+                    Linear mixing parameter for current vxc and old vxc.
+                    If 0, no old vxc is mixed in.
+                    Should be in [0,1)
+                    default: 0.5.
+                init: string or psi4.core.Wavefunction, opt
+                    Initial guess method.
+                    default: "SCAN"
+                    1) If None, input wfn info will be used as initial guess.
+                    2) If "continue" is given, then it will not initialize
+                    but use the densities and orbitals stored. Meaningly,
+                    one can run a quick WY calculation as the initial
+                    guess. This can also be used to user speficified
+                    initial guess by setting Da, Coca, eigvec_a.
+                    3) If it's not continue, it would be expecting a
+                    method name string that works for psi4. A separate psi4 calculation
+                    would be performed.
+                sing: tuple of float of length 4, opt.
+                    Singularity parameter for _vxc_hole_quadrature()
+                    default: (1e-5, 1e-4, 1e-5, 1e-4)
+                    [0]: atol, [1]: atol1 for dft_spherical grid calculation.
+                    [2]: atol, [3]: atol1 for vxc_grid calculation.
+            return:
+                The result will be stored in self.grid.vxc
+
+        Ou-Carter method
+        [J. Chem. Theory Comput. 2018, 14, 5680−5689]
+                parameters:
+            ----------------------
+                maxiter: int
+                    same as opt_max_iter
+                vxc_grid: np.ndarray of shape (3, num_grid_points)
+                    The final result will be represented on this grid
+                    default: 1e-4
+                D_tol: float, opt
+                    convergence criteria for density matrices.
+                    default: 1e-7
+                eig_tol: float, opt
+                    convergence criteria for occupied eigenvalue spectrum.
+                    default: 1e-4
+                frac_old: float, opt
+                    Linear mixing parameter for current vxc and old vxc.
+                    If 0, no old vxc is mixed in.
+                    Should be in [0,1)
+                    default: 0.5.
+                init: string, opt
+                    Initial guess method.
+                    default: "SCAN"
+                    1) If None, input wfn info will be used as initial guess.
+                    2) If "continue" is given, then it will not initialize
+                    but use the densities and orbitals stored. Meaningly,
+                    one can run a quick WY calculation as the initial
+                    guess. This can also be used to user speficified
+                    initial guess by setting Da, Coca, eigvec_a.
+                    3) If it's not continue, it would be expecting a
+                    method name string that works for psi4. A separate psi4 calculation
+                    would be performed.
         """
 
-        self.lambda_reg = reg
-        self.generate_components(guide_potential_components)
+        self.lam = lam
+        if method.lower()=='mrks' or method.lower()=='oc':
+            if guide_potential_components[0] != 'hartree' or len(guide_potential_components) != 1:
+                print("The guide potential is changed to v_hartree.")
+            self.generate_components(["hartree"])
+        else:
+            self.generate_components(guide_potential_components)
 
         if method.lower() == "wuyang":
-            self.wuyang(opt_method, opt_max_iter, opt_tol)
+            self.wuyang(opt_max_iter, **keywords)
         elif method.lower() == "zmp":
+            # self.zmp(zmp_lam, zmp_functional, zmp_mixing, opt_max_iter, opt_tol)
             self.zmp(zmp_lam, zmp_functional, zmp_mixing, opt_max_iter, opt_tol)
         elif method.lower() == "mrks":
-            pass
+            return self.mRKS(opt_max_iter, **keywords)
+        elif method.lower() == 'oc':
+            return self.oucarter(opt_max_iter, **keywords)
         else:
             raise ValueError(f"Inversion method not available. Try: {['wuyang', 'zmp', 'mrks']}")
 
