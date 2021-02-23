@@ -206,7 +206,7 @@ class Inverter(WuYang, ZMP, MRKS, OC, Grider):
     def invert(self, method,
                      guide_potential_components = ["fermi_amaldi"],
                      opt_max_iter = 50,
-                    **keywords):
+                     **keywords):
         """
         Handler to all available inversion methods
 
@@ -341,7 +341,7 @@ class Inverter(WuYang, ZMP, MRKS, OC, Grider):
                     would be performed.
         """
 
-        self.lam = lam
+
         if method.lower()=='mrks' or method.lower()=='oc':
             if guide_potential_components[0] != 'hartree' or len(guide_potential_components) != 1:
                 print("The guide potential is changed to v_hartree.")
@@ -352,14 +352,13 @@ class Inverter(WuYang, ZMP, MRKS, OC, Grider):
         if method.lower() == "wuyang":
             self.wuyang(opt_max_iter, **keywords)
         elif method.lower() == "zmp":
-            # self.zmp(zmp_lam, zmp_functional, zmp_mixing, opt_max_iter, opt_tol)
-            self.zmp(zmp_lam, zmp_functional, zmp_mixing, opt_max_iter, opt_tol)
+            self.zmp(opt_max_iter, **keywords)
         elif method.lower() == "mrks":
             return self.mRKS(opt_max_iter, **keywords)
         elif method.lower() == 'oc':
             return self.oucarter(opt_max_iter, **keywords)
         else:
-            raise ValueError(f"Inversion method not available. Try: {['wuyang', 'zmp', 'mrks']}")
+            raise ValueError(f"Inversion method not available. Methods available: {['wuyang', 'zmp', 'mrks', 'oc']}")
 
     def generate_components(self, guide_potential_components):
         """
