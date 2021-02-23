@@ -215,7 +215,8 @@ class Inverter(WuYang, ZMP, MRKS, OC, Grider):
 
         method: str
             Method used to invert density. 
-            Can be chosen from {wuyang, zmp, mrks}
+            Can be chosen from {wuyang, zmp, mrks, oc}. 
+            See documentation below for each method. 
         guide_potential_components: list, opt
             Components added as to guide inversion. 
             Can be chosen from {"fermi_amandi", "svwn"}
@@ -225,9 +226,11 @@ class Inverter(WuYang, ZMP, MRKS, OC, Grider):
             Default: 50
 
         wuyang
+        ------
         the Wu-Yang method:
-        -------------------
-            parameters:
+        The Journal of chemical physics 118.6 (2003): 2498-2509.
+            Parameters:
+            ----------
                 opt_max_iter: int
                     opt_max_iter
                 opt_method: string, opt
@@ -244,18 +247,19 @@ class Inverter(WuYang, ZMP, MRKS, OC, Grider):
             return:
                 the result are stored in self.v_opt
             
-        ZMP
-        The Zhao, Morrison Parr Method:
-        ----------------------
+        zmp
+        ---
+        The Zhao-Morrison-Parr Method:
+        Phys. Rev. A 50, 2138 
         Parameters:
-        -----------
+        ----------
             lambda_list: list
                 List of Lamda parameters used as a coefficient for Hartree 
                 difference in SCF cycle. 
             zmp_functional: str
                 Specifies what functional to use to drive the SCF procedure.
                 Options: {'hartree', 'log', 'exp', 'grad'}
-            mixing: float
+            zmp_mixing: float
                 mixing \in [0,1]. How much of the new potential is added in 
                 a given scf step. Values close to 1 may prevent SCF to convergence. 
             opt_max_iter: float
@@ -266,9 +270,12 @@ class Inverter(WuYang, ZMP, MRKS, OC, Grider):
                 The result will be stored in self.grid.vxc
 
         mRKS
+        ----
         the modified Ryabinkin-Kohut-Staroverov method:
-        ----------------------
-            parameters:
+        Phys. Rev. Lett. 115, 083001 
+        J. Chem. Phys. 146, 084103p
+            Parameters:
+            -----------
                 maxiter: int
                     same as opt_max_iter
                 vxc_grid: np.ndarray of shape (3, num_grid_points), opt
@@ -307,10 +314,12 @@ class Inverter(WuYang, ZMP, MRKS, OC, Grider):
             return:
                 The result will be stored in self.grid.vxc
 
+        oc
+        --
         Ou-Carter method
-        [J. Chem. Theory Comput. 2018, 14, 5680−5689]
-                parameters:
-            ----------------------
+        J. Chem. Theory Comput. 2018, 14, 5680−5689
+            Parameters:
+            -----------
                 maxiter: int
                     same as opt_max_iter
                 vxc_grid: np.ndarray of shape (3, num_grid_points)
