@@ -7,7 +7,6 @@ Handles the primary functions
 
 import numpy as np
 from dataclasses import dataclass
-from scipy.optimize import minimize
 from opt_einsum import contract
 
 import psi4
@@ -437,7 +436,6 @@ class Inverter(WuYang, ZMP, MRKS, OC, Grider):
         energy_hartree_b  = 0.5 * contract('ij,ji', self.J0[0] + self.J0[1], self.Db)
 
         print("WARNING: XC Energy is not yet properly calculated")
-        energy_ks = 0.0
         energies = {"One-Electron Energy" : energy_kinetic + energy_external,
                     "Two-Electron Energy" : energy_hartree_a + energy_hartree_b,
                     # "XC"                  : energy_ks,

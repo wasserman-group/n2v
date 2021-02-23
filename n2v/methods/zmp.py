@@ -6,8 +6,6 @@ Functions associated with zmp inversion
 
 import psi4
 import numpy as np
-from opt_einsum import contract
-from scipy.optimize import minimize
 from functools import reduce
 
 psi4.core.be_quiet()

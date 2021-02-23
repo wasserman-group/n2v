@@ -7,7 +7,6 @@ Functions associated with Ou-Carter inversion
 import numpy as np
 from opt_einsum import contract
 import psi4
-import time
 
 class OC():
     """
