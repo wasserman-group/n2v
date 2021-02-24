@@ -130,3 +130,7 @@ dmypy.json
 
 # IDEA file
 .idea/
+
+#Psi4
+psi.*.clean
+timer.dat

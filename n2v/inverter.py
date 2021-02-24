@@ -7,10 +7,7 @@ Handles the primary functions
 
 import numpy as np
 from dataclasses import dataclass
-from scipy.optimize import minimize
 from opt_einsum import contract
-
-import sys
 
 import psi4
 psi4.core.be_quiet()
@@ -208,7 +205,7 @@ class Inverter(WuYang, ZMP, MRKS, OC, Grider):
     def invert(self, method,
                      guide_potential_components = ["fermi_amaldi"],
                      opt_max_iter = 50,
-                     lam=50, **keywords):
+                     **keywords):
         """
         Handler to all available inversion methods
 
@@ -217,7 +214,8 @@ class Inverter(WuYang, ZMP, MRKS, OC, Grider):
 
         method: str
             Method used to invert density. 
-            Can be chosen from {wuyang, zmp, mrks}
+            Can be chosen from {wuyang, zmp, mrks, oc}. 
+            See documentation below for each method. 
         guide_potential_components: list, opt
             Components added as to guide inversion. 
             Can be chosen from {"fermi_amandi", "svwn"}
@@ -225,15 +223,13 @@ class Inverter(WuYang, ZMP, MRKS, OC, Grider):
         opt_max_iter: int, opt
             Maximum number of iterations inside the chosen inversion.
             Default: 50
-        lam = int, opt
-            Lamda parameter for ZMP method. 
-            Default: 50. May become unstable if lam is too big. 
-            Becomes attirube of inverter -> inverter.lambda
 
         wuyang
+        ------
         the Wu-Yang method:
-        -------------------
-            parameters:
+        The Journal of chemical physics 118.6 (2003): 2498-2509.
+            Parameters:
+            ----------
                 opt_max_iter: int
                     opt_max_iter
                 opt_method: string, opt
@@ -249,11 +245,36 @@ class Inverter(WuYang, ZMP, MRKS, OC, Grider):
                     tol for scipy.optimize.minimize
             return:
                 the result are stored in self.v_opt
+            
+        zmp
+        ---
+        The Zhao-Morrison-Parr Method:
+        Phys. Rev. A 50, 2138 
+        Parameters:
+        ----------
+            lambda_list: list
+                List of Lamda parameters used as a coefficient for Hartree 
+                difference in SCF cycle. 
+            zmp_functional: str
+                Specifies what functional to use to drive the SCF procedure.
+                Options: {'hartree', 'log', 'exp', 'grad'}
+            zmp_mixing: float
+                mixing \in [0,1]. How much of the new potential is added in 
+                a given scf step. Values close to 1 may prevent SCF to convergence. 
+            opt_max_iter: float
+                Maximum number of iterations for scf cycle
+            opt_tol: float
+                Convergence criteria set for Density Difference and DIIS error. 
+            return:
+                The result will be stored in self.grid.vxc
 
         mRKS
+        ----
         the modified Ryabinkin-Kohut-Staroverov method:
-        ----------------------
-            parameters:
+        Phys. Rev. Lett. 115, 083001 
+        J. Chem. Phys. 146, 084103p
+            Parameters:
+            -----------
                 maxiter: int
                     same as opt_max_iter
                 vxc_grid: np.ndarray of shape (3, num_grid_points), opt
@@ -290,12 +311,14 @@ class Inverter(WuYang, ZMP, MRKS, OC, Grider):
                     [0]: atol, [1]: atol1 for dft_spherical grid calculation.
                     [2]: atol, [3]: atol1 for vxc_grid calculation.
             return:
-                The result will be save as self.grid.vxc
+                The result will be stored in self.grid.vxc
 
+        oc
+        --
         Ou-Carter method
-        [J. Chem. Theory Comput. 2018, 14, 5680−5689]
-                parameters:
-            ----------------------
+        J. Chem. Theory Comput. 2018, 14, 5680−5689
+            Parameters:
+            -----------
                 maxiter: int
                     same as opt_max_iter
                 vxc_grid: np.ndarray of shape (3, num_grid_points)
@@ -326,7 +349,7 @@ class Inverter(WuYang, ZMP, MRKS, OC, Grider):
                     would be performed.
         """
 
-        self.lam = lam
+
         if method.lower()=='mrks' or method.lower()=='oc':
             if guide_potential_components[0] != 'hartree' or len(guide_potential_components) != 1:
                 print("The guide potential is changed to v_hartree.")
@@ -337,13 +360,13 @@ class Inverter(WuYang, ZMP, MRKS, OC, Grider):
         if method.lower() == "wuyang":
             self.wuyang(opt_max_iter, **keywords)
         elif method.lower() == "zmp":
-            self.zmp_with_scf(lam, opt_max_iter)
+            self.zmp(opt_max_iter, **keywords)
         elif method.lower() == "mrks":
             return self.mRKS(opt_max_iter, **keywords)
         elif method.lower() == 'oc':
             return self.oucarter(opt_max_iter, **keywords)
         else:
-            raise ValueError(f"Inversion method not available. Try: {['wuyang', 'zmp', 'mrks']}")
+            raise ValueError(f"Inversion method not available. Methods available: {['wuyang', 'zmp', 'mrks', 'oc']}")
 
     def generate_components(self, guide_potential_components):
         """
@@ -413,7 +436,6 @@ class Inverter(WuYang, ZMP, MRKS, OC, Grider):
         energy_hartree_b  = 0.5 * contract('ij,ji', self.J0[0] + self.J0[1], self.Db)
 
         print("WARNING: XC Energy is not yet properly calculated")
-        energy_ks = 0.0
         energies = {"One-Electron Energy" : energy_kinetic + energy_external,
                     "Two-Electron Energy" : energy_hartree_a + energy_hartree_b,
                     # "XC"                  : energy_ks,

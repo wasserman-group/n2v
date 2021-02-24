@@ -11,11 +11,6 @@ import psi4
 psi4.core.be_quiet()
 
 try:
-    from rich import print
-except:
-    pass
-
-try:
     from pylibxc import LibXCFunctional as Functional
 except:
     pass
