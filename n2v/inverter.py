@@ -384,7 +384,16 @@ class Inverter(WuYang, ZMP, MRKS, OC, Grider):
         self.vb = np.zeros_like(self.T)
 
         N = self.nalpha + self.nbeta
-        self.J0, _ = self.form_jk(self.ct[0], self.ct[1])
+
+
+        # TODO: This should be optimized because eri is huge.
+        mints = psi4.core.MintsHelper(self.basis)
+        I = mints.ao_eri()
+        Ja = np.einsum('pqrs,rs->pq', I, self.nt[0], optimize=True)
+        Jb = np.einsum('pqrs,rs->pq', I, self.nt[1], optimize=True)
+        del I, mints
+        self.J0 = (Ja, Jb)
+        # self.J0, _ = self.form_jk(self.ct[0], self.ct[1])
 
         if "fermi_amaldi" in guide_potential_components:
             v_fa = (1-1/N) * (self.J0[0] + self.J0[1])

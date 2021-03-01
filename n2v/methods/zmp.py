@@ -117,6 +117,9 @@ class ZMP():
 
         grid_diff_old = 100.0
 
+        self.proto_density_a =  - (1 / (self.nalpha + self.nbeta)) * (self.nt[0])
+        self.proto_density_b =  - (1 / (self.nbeta + self.nalpha)) * (self.nt[1])
+
 #------------->  Iterating over lambdas:
         for lam_i in lambda_list:
             self.shift = 0.1 * lam_i
@@ -138,7 +141,7 @@ class ZMP():
                 Fa = np.zeros((self.nbf, self.nbf))
                 Fb = np.zeros((self.nbf, self.nbf))
 
-                vc = self.generate_s_functional(lam_i,  
+                vc = self.generate_s_functional(lam_i,
                                                 zmp_functional,
                                                 Cocca, Coccb, 
                                                 Da, Db)
@@ -151,8 +154,8 @@ class ZMP():
                 Fb += self.T + self.V + self.vb + vc + vc_previous
 
                 #Level Shift
-                Fa += (self.S2 - reduce(np.dot, (self.S2, Da, self.S2)) * self.shift)
-                Fb += (self.S2 - reduce(np.dot, (self.S2, Db, self.S2)) * self.shift)
+                Fa += (self.S2 - reduce(np.dot, (self.S2, Da, self.S2))) * self.shift
+                Fb += (self.S2 - reduce(np.dot, (self.S2, Db, self.S2))) * self.shift
 
     #------------->  DIIS:
                 if SCF_ITER > 1:
@@ -250,9 +253,9 @@ class ZMP():
 
             density_current = self.on_grid_density(grid=None, Da=Da, Db=Db, vpot=self.vpot)
             grid_diff = np.max(np.abs(D0 - density_current))
-            if np.abs(grid_diff_old) < np.abs(grid_diff):
-                print("\nZMP halted. Density Difference is unable to be reduced")
-                break
+            # if np.abs(grid_diff_old) < np.abs(grid_diff):
+            #     print("\nZMP halted. Density Difference is unable to be reduced")
+            #     break
 
             grid_diff_old = grid_diff
             print(f"SCF Converged for lambda:{int(lam_i):5d}. Max density difference: {grid_diff}")
@@ -261,9 +264,12 @@ class ZMP():
             self.Db = Db
 
             #VXC is hartree-like Potential. We remove Fermi_Amaldi Guess. 
-            self.proto_density_a = lam_i * (self.Da) - (lam_i + 1/(self.nalpha + self.nbeta)) * (self.nt[0])
-            self.proto_density_b = lam_i * (self.Db) - (lam_i + 1/(self.nbeta + self.nalpha)) * (self.nt[1])
-            vc_previous = vc
+            # self.proto_density_a = lam_i * (self.Da) - (lam_i + 1/(self.nalpha + self.nbeta)) * (self.nt[0])
+            # self.proto_density_b = lam_i * (self.Db) - (lam_i + 1/(self.nbeta + self.nalpha)) * (self.nt[1])
+            # vc_previous = vc
+            self.proto_density_a += lam_i * (self.Da - self.nt[0])
+            self.proto_density_b += lam_i * (self.Db - self.nt[1])
+            vc_previous += vc
 
     def generate_s_functional(self, lam, zmp_functional, Cocca, Coccb, Da, Db):
         """
