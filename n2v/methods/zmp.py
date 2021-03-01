@@ -17,7 +17,7 @@ class ZMP():
             opt_tol= psi4.core.get_option("SCF", "D_CONVERGENCE"), 
             lambda_list=[70],
             zmp_functional='hartree',
-            zmp_mixing = 0.1, 
+            zmp_mixing = 1,
             ):
 
         """
@@ -117,19 +117,21 @@ class ZMP():
 
         grid_diff_old = 100.0
 
-        self.proto_density_a =  - (1 / (self.nalpha + self.nbeta)) * (self.nt[0])
-        self.proto_density_b =  - (1 / (self.nbeta + self.nalpha)) * (self.nt[1])
+        self.proto_density_a =  0.0
+        self.proto_density_b =  0.0
 
+
+        Da = self.nt[0]
+        Db = self.nt[1]
+        Cocca = self.ct[0]
+        Coccb = self.ct[1]
+        vc = 0.0
 #------------->  Iterating over lambdas:
         for lam_i in lambda_list:
             self.shift = 0.1 * lam_i
-            Da = self.nt[0]
-            Db = self.nt[1]
 
-            Cocca = self.ct[0]
-            Coccb = self.ct[1]
             D_old = self.nt[0]
-            vc_old = np.zeros_like(Da)
+            # vc_old = np.zeros_like(Da)
 
             # Trial & Residual Vector Lists
             state_vectors_a, state_vectors_b = [], []
@@ -146,8 +148,8 @@ class ZMP():
                                                 Cocca, Coccb, 
                                                 Da, Db)
 
-                #Potential mixing
-                vc = (1-self.mixing) * vc + (self.mixing) * vc_old
+                # #Potential mixing
+                # vc = (1-self.mixing) * vc + (self.mixing) * vc_old
 
                 #Equation 10 of Reference (1)
                 Fa += self.T + self.V + self.va + vc + vc_previous
@@ -240,7 +242,6 @@ class ZMP():
                 ddm = D_old - Da
                 D_old = Da
                 derror = np.max(np.abs(ddm))
-                vc_old = vc
 
                 #Uncomment to debug internal SCF
                 # if len(lambda_list==1) and np.mod(SCF_ITER,5) == 0.0:
@@ -251,25 +252,34 @@ class ZMP():
                 if SCF_ITER == maxiter - 1:
                     raise ValueError("Maximum Number of SCF cycles reached. Try different settings.")
 
-            density_current = self.on_grid_density(grid=None, Da=Da, Db=Db, vpot=self.vpot)
-            grid_diff = np.max(np.abs(D0 - density_current))
+            # Why do we need this? Basis set -> grid is expensive.
+            # density_current = self.on_grid_density(grid=None, Da=Da, Db=Db, vpot=self.vpot)
+            # grid_diff = np.max(np.abs(D0 - density_current))
             # if np.abs(grid_diff_old) < np.abs(grid_diff):
             #     print("\nZMP halted. Density Difference is unable to be reduced")
             #     break
+            #
+            # grid_diff_old = grid_diff
+            print(f"SCF Converged for lambda:{int(lam_i):5d}. Max density difference: {np.linalg.norm(Da - self.nt[0])}")
 
-            grid_diff_old = grid_diff
-            print(f"SCF Converged for lambda:{int(lam_i):5d}. Max density difference: {grid_diff}")
+            #VXC is hartree-like Potential. We remove Fermi_Amaldi Guess.
+            self.proto_density_a += lam_i * (Da - self.nt[0]) * self.mixing
+            self.proto_density_b += lam_i * (Db - self.nt[1]) * self.mixing
+            vc_previous += vc * self.mixing
 
-            self.Da = Da
-            self.Db = Db
+        self.proto_density_a -= lam_i * (Da - self.nt[0]) * self.mixing
+        self.proto_density_b -= lam_i * (Db - self.nt[1]) * self.mixing
+        self.proto_density_a += lam_i * (Da - self.nt[0])
+        self.proto_density_b += lam_i * (Db - self.nt[1])
+        self.proto_density_a -= (1 / (self.nalpha + self.nbeta)) * (self.nt[0])
+        self.proto_density_b -= (1 / (self.nbeta + self.nalpha)) * (self.nt[1])
+        self.Da = Da
+        self.Db = Db
+        self.Ca = Ca
+        self.Cb = Cb
+        self.Coca = Cocca
+        self.Cocb = Coccb
 
-            #VXC is hartree-like Potential. We remove Fermi_Amaldi Guess. 
-            # self.proto_density_a = lam_i * (self.Da) - (lam_i + 1/(self.nalpha + self.nbeta)) * (self.nt[0])
-            # self.proto_density_b = lam_i * (self.Db) - (lam_i + 1/(self.nbeta + self.nalpha)) * (self.nt[1])
-            # vc_previous = vc
-            self.proto_density_a += lam_i * (self.Da - self.nt[0])
-            self.proto_density_b += lam_i * (self.Db - self.nt[1])
-            vc_previous += vc
 
     def generate_s_functional(self, lam, zmp_functional, Cocca, Coccb, Da, Db):
         """

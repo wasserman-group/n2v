@@ -147,7 +147,8 @@ class Inverter(WuYang, ZMP, MRKS, OC, Grider):
         jk.set_memory(int(memory)) 
         jk.set_do_K(gen_K)
         jk.initialize()
-        
+        jk.initialize()
+
         return jk
 
     def form_jk(self, Cocc_a, Cocc_b):
@@ -387,13 +388,29 @@ class Inverter(WuYang, ZMP, MRKS, OC, Grider):
 
 
         # TODO: This should be optimized because eri is huge.
-        mints = psi4.core.MintsHelper(self.basis)
-        I = mints.ao_eri()
-        Ja = np.einsum('pqrs,rs->pq', I, self.nt[0], optimize=True)
-        Jb = np.einsum('pqrs,rs->pq', I, self.nt[1], optimize=True)
-        del I, mints
-        self.J0 = (Ja, Jb)
-        # self.J0, _ = self.form_jk(self.ct[0], self.ct[1])
+        # mints = psi4.core.MintsHelper(self.basis)
+        # I = mints.ao_eri()
+        # Ja = np.einsum('pqrs,rs->pq', I, self.nt[0], optimize=True)
+        # Jb = np.einsum('pqrs,rs->pq', I, self.nt[1], optimize=True)
+        # del I, mints
+        # self.J0 = (Ja, Jb)
+        if self.wfn.name() != "RHF" or self.wfn.name() != "UHF":
+            nbf = self.nbf
+            C_NO = psi4.core.Matrix(nbf, nbf)
+            eigs_NO = psi4.core.Vector(nbf)
+            self.wfn.Da().diagonalize(C_NO, eigs_NO, psi4.core.DiagonalizeOrder.Descending)
+            occu = np.sqrt(eigs_NO.np)
+            New_Orb_a = occu * C_NO.np
+            assert np.allclose(New_Orb_a @ New_Orb_a.T, self.nt[0])
+            if self.ref == 1:
+                New_Orb_b = New_Orb_a
+            else:
+                self.wfn.Db().diagonalize(C_NO, eigs_NO, psi4.core.DiagonalizeOrder.Descending)
+                occu = np.sqrt(eigs_NO.np)
+                New_Orb_b = occu * C_NO.np
+            self.J0 = self.form_jk(New_Orb_a, New_Orb_b)[0]
+        else:
+            self.J0, _ = self.form_jk(self.ct[0], self.ct[1])
 
         if "fermi_amaldi" in guide_potential_components:
             v_fa = (1-1/N) * (self.J0[0] + self.J0[1])
