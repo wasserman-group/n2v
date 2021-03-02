@@ -125,7 +125,6 @@ class ZMP():
         Db = self.nt[1]
         Cocca = self.ct[0]
         Coccb = self.ct[1]
-        vc = 0.0
 #------------->  Iterating over lambdas:
         for lam_i in lambda_list:
             self.shift = 0.1 * lam_i
@@ -154,6 +153,9 @@ class ZMP():
                 #Equation 10 of Reference (1)
                 Fa += self.T + self.V + self.va + vc + vc_previous
                 Fb += self.T + self.V + self.vb + vc + vc_previous
+                # REAL Linear Mixing
+                # Fa += self.T + self.V + self.va + vc
+                # Fb += self.T + self.V + self.vb + vc
 
                 #Level Shift
                 Fa += (self.S2 - reduce(np.dot, (self.S2, Da, self.S2))) * self.shift
@@ -268,7 +270,15 @@ class ZMP():
             self.proto_density_a += lam_i * (Da - self.nt[0]) * self.mixing
             self.proto_density_b += lam_i * (Db - self.nt[1]) * self.mixing
             vc_previous += vc * self.mixing
-
+            # REAL LINEAR MIXING
+            # if not np.isclose(np.linalg.norm(vc_previous), 0): # dont mix for first lambda
+            #     self.proto_density_a = lam_i * (Da - self.nt[0]) * (1-self.mixing) + self.proto_density_a * self.mixing
+            #     self.proto_density_b = lam_i * (Db - self.nt[1]) * (1-self.mixing) + self.proto_density_b * self.mixing
+            #     vc_previous = vc * (1-self.mixing) + vc_previous * self.mixing
+            # else:
+            #     vc_previous = vc
+            #     self.proto_density_a = lam_i * (Da - self.nt[0])
+            #     self.proto_density_b = lam_i * (Db - self.nt[1])
 
         self.proto_density_a -= lam_i * (Da - self.nt[0]) * self.mixing
         self.proto_density_b -= lam_i * (Db - self.nt[1]) * self.mixing
