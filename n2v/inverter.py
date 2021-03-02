@@ -140,15 +140,15 @@ class Inverter(WuYang, ZMP, MRKS, OC, Grider):
         self.V = np.array(mints.ao_potential()).copy()
         self.T_pbs = np.array(mints.ao_kinetic(self.pbs, self.pbs)).copy()
 
-    def generate_jk(self, gen_K=False, memory=2.50e9):
+    def generate_jk(self, gen_K=False):
         """
         Creates jk object for generation of Coulomb and Exchange matrices
         1.0e9 B -> 1.0 GB
         """
         jk = psi4.core.JK.build(self.basis)
+        memory = int(jk.memory_estimate() * 1.1)
         jk.set_memory(int(memory)) 
         jk.set_do_K(gen_K)
-        jk.initialize()
         jk.initialize()
 
         return jk

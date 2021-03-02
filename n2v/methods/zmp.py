@@ -252,20 +252,23 @@ class ZMP():
                 if SCF_ITER == maxiter - 1:
                     raise ValueError("Maximum Number of SCF cycles reached. Try different settings.")
 
-            # Why do we need this? Basis set -> grid is expensive.
-            # density_current = self.on_grid_density(grid=None, Da=Da, Db=Db, vpot=self.vpot)
-            # grid_diff = np.max(np.abs(D0 - density_current))
-            # if np.abs(grid_diff_old) < np.abs(grid_diff):
-            #     print("\nZMP halted. Density Difference is unable to be reduced")
-            #     break
-            #
-            # grid_diff_old = grid_diff
-            print(f"SCF Converged for lambda:{int(lam_i):5d}. Max density difference: {np.linalg.norm(Da - self.nt[0])}")
+            density_current = self.on_grid_density(grid=None, Da=Da, Db=Db, vpot=self.vpot)
+            grid_diff = np.max(np.abs(D0 - density_current))
+            if np.abs(grid_diff_old) < np.abs(grid_diff):
+                print(f"\nZMP halted. Density Error Stops Updating: old: {grid_diff_old}, current: {grid_diff}.")
+                # VXC is hartree-like Potential. We remove Fermi_Amaldi Guess.
+                self.proto_density_a += lam_i * (Da - self.nt[0]) * self.mixing
+                self.proto_density_b += lam_i * (Db - self.nt[1]) * self.mixing
+                vc_previous += vc * self.mixing
+                break
 
+            grid_diff_old = grid_diff
+            print(f"SCF Converged for lambda:{int(lam_i):5d}. Max density difference: {grid_diff}")
             #VXC is hartree-like Potential. We remove Fermi_Amaldi Guess.
             self.proto_density_a += lam_i * (Da - self.nt[0]) * self.mixing
             self.proto_density_b += lam_i * (Db - self.nt[1]) * self.mixing
             vc_previous += vc * self.mixing
+
 
         self.proto_density_a -= lam_i * (Da - self.nt[0]) * self.mixing
         self.proto_density_b -= lam_i * (Db - self.nt[1]) * self.mixing

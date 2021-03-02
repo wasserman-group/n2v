@@ -467,10 +467,8 @@ class Grider(Cubeprop):
 
         if Da is not None:
             self.wfn.Da().np[:] = Da_temp
-            print(np.linalg.norm(Da_temp))
         if Db is not None:
             self.wfn.Db().np[:] = Db_temp
-            print(np.linalg.norm(Db_temp))
         psi4.set_num_threads(nthreads)
 
         return vext, hartree, v_fa, esp
