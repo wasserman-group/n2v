@@ -377,25 +377,35 @@ class Grider(Cubeprop):
 
         return orbitals_r
 
-    def on_grid_esp(self, grid=None, vpot=None, wfn=None):
+    def on_grid_esp(self, Da=None, Db=None, grid=None, vpot=None, wfn=None):
 
         """
         Generates EXTERNAL/ESP/HARTREE and Fermi Amaldi Potential on given grid
 
         Parameters
         ----------
+        Da,Db: np.ndarray, opt, shape (nbf, nbf)
+            The electron density in the denominator of Hartee potential. If None, the original density matrix
+            will be used.
         grid: np.ndarray Shape: (3, npoints) or (4, npoints) or tuple for block_handler (return of grid_to_blocks)
             grid where density will be computed.
         vpot: psi4.core.VBase
             Vpotential object with info about grid.
             Provides DFT spherical grid. Only comes to play if no grid is given. 
-
+        
         Returns
         -------
         vext, hartree, esp, v_fa: np.ndarray
             External, Hartree, ESP, and Fermi Amaldi potential on the given grid
             Shape: (npoints, )
         """
+        if Da is not None or Db is not None:
+            Da_temp = np.copy(self.wfn.Da().np)
+            Db_temp = np.copy(self.wfn.Db().np)
+            if Da is not None:
+                self.wfn.Da().np[:] = Da
+            if Db is not None:
+                self.wfn.Db().np[:] = Db
 
         nthreads = psi4.get_num_threads()
         psi4.set_num_threads(1)
@@ -455,6 +465,10 @@ class Grider(Cubeprop):
         hartree = - 1.0 * (vext + esp)
         v_fa = (1 - 1.0 / (self.nalpha + self.nbeta)) * hartree
 
+        if Da is not None:
+            self.wfn.Da().np[:] = Da_temp
+        if Db is not None:
+            self.wfn.Db().np[:] = Db_temp
         psi4.set_num_threads(nthreads)
 
         return vext, hartree, v_fa, esp
