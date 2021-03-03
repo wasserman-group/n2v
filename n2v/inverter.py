@@ -58,8 +58,14 @@ class Inverter(WuYang, ZMP, MRKS, OC, Grider):
         name of pbs
     pbs : psi4.core.BasisSet
         Potential basis set.
-    v0  : np.ndarray
-        Initial zero guess for optimizer
+    v_pbs : np.ndarray
+        potential vector on the Potential Baiss Set.
+        If the potential is not represented on the basis set, this should
+        remain 0. It will be initialized to a 0 array. One can set this
+        value for initial guesses before Wu-Yang method (WY) or PDE-Constrained
+        Optimization method (PDE-CO). For example, if PDE-CO is ran after
+        a WY calculation, the initial for PDE-CO will be the result of WY
+        if v_pbs is not zeroed.
     S2  : np.ndarray
         The ao overlap matrix (i.e. S matrix)
     S3  : np.ndarray
@@ -110,7 +116,7 @@ class Inverter(WuYang, ZMP, MRKS, OC, Grider):
         self.pbs       = self.basis if pbs == "same" \
                                     else psi4.core.BasisSet.build( self.mol, key='BASIS', target=self.pbs_str)
         self.npbs      = self.pbs.nbf()
-        self.v0        = np.zeros( (self.npbs) ) if self.ref == 1 \
+        self.v_pbs        = np.zeros( (self.npbs) ) if self.ref == 1 \
                                                  else np.zeros( 2 * self.npbs )
         self.generate_mints_matrices()
 
@@ -249,7 +255,7 @@ class Inverter(WuYang, ZMP, MRKS, OC, Grider):
                 opt: dict
                     options for scipy.optimize.minimize
             return:
-                the result are stored in self.v_opt
+                the result are stored in self.v_pbs
 
             
         zmp

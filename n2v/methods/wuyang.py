@@ -31,7 +31,7 @@ class WuYang():
 
         if opt_method.lower() == 'bfgs' or opt_method.lower() == 'l-bfgs-b':
             opt_results = minimize( fun = self.lagrangian_wy,
-                                    x0  = self.v0, 
+                                    x0  = self.v_pbs,
                                     jac = self.gradient_wy,
                                     method  = opt_method,
                                     tol     = tol,
@@ -40,7 +40,7 @@ class WuYang():
 
         else:
             opt_results = minimize( fun = self.lagrangian_wy,
-                                    x0  = self.v0, 
+                                    x0  = self.v_pbs,
                                     jac = self.gradient_wy,
                                     hess = self.hessian_wy,
                                     method = opt_method,
@@ -55,18 +55,18 @@ class WuYang():
         else:
             print("Optimization Successful within %i iterations! "
                   "|grad|=%.2e" % (opt_results.nit, np.linalg.norm(opt_results.jac)))
-            self.v_opt = opt_results.x
+            self.v_pbs = opt_results.x
             self.opt_info = opt_results
 
-        self.finalize_energy()
-
-        # if debug=True:
-        #     self.density_accuracy()
-
-    def _diagonalize_with_potential_WY(self, v):
+    def _diagonalize_with_potential_pbs(self, v):
         """
         Diagonalize Fock matrix with additional external potential
         """
+
+        # If v is not updated, will not re-calculate.
+        if np.allclose(v, self.v_pbs):
+            return
+
         vks_a = contract("ijk,k->ij", self.S3, v[:self.npbs]) + self.va
         fock_a = self.V + self.T + vks_a 
         self.Ca, self.Coca, self.Da, self.eigvecs_a = self.diagonalize( fock_a, self.nalpha )
@@ -77,6 +77,7 @@ class WuYang():
             vks_b = contract("ijk,k->ij", self.S3, v[self.npbs:]) + self.vb
             fock_b = self.V + self.T + vks_b        
             self.Cb, self.Cocb, self.Db, self.eigvecs_b = self.diagonalize( fock_b, self.nbeta )
+        return
 
     def lagrangian_wy(self, v):
         """
@@ -84,7 +85,7 @@ class WuYang():
         Equation (5) of main reference
         """
 
-        self._diagonalize_with_potential_WY(v)
+        self._diagonalize_with_potential_pbs(v)
         self.grad_a = contract('ij,ijt->t', (self.Da - self.nt[0]), self.S3)  
         self.grad_b = contract('ij,ijt->t', (self.Db - self.nt[1]), self.S3)
 
@@ -122,7 +123,7 @@ class WuYang():
         Calculates gradient wrt target density
         Equation (11) of main reference
         """
-        self._diagonalize_with_potential_WY(v)
+        self._diagonalize_with_potential_pbs(v)
         self.grad_a = contract('ij,ijt->t', (self.Da - self.nt[0]), self.S3)
         self.grad_b = contract('ij,ijt->t', (self.Db - self.nt[1]), self.S3) 
 
@@ -148,7 +149,7 @@ class WuYang():
         Equation (13) of main reference
         """
 
-        self._diagonalize_with_potential_WY(v)
+        self._diagonalize_with_potential_pbs(v)
 
         na, nb = self.nalpha, self.nbeta
 
@@ -240,7 +241,7 @@ class WuYang():
         # Initial calculation with no regularization
         if opt_method.lower() == 'bfgs' or opt_method.lower() == 'l-bfgs-b':
             initial_result = minimize(fun=self.lagrangian_wy,
-                                   x0=self.v0,
+                                   x0=self.v_pbs,
                                    jac=self.gradient_wy,
                                    method=opt_method,
                                    tol=tol,
@@ -248,7 +249,7 @@ class WuYang():
                                    )
         else:
             initial_result = minimize(fun=self.lagrangian_wy,
-                                   x0=self.v0,
+                                   x0=self.v_pbs,
                                    jac=self.gradient_wy,
                                    hess=self.hessian_wy,
                                    method=opt_method,
