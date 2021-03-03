@@ -20,32 +20,30 @@ class WuYang():
     regul_norm = None  # Regularization norm: ||v||^2
     lambda_reg = None  # Regularization constant
 
-    def wuyang(self, opt_max_iter, reg=None, tol = 1e-7, opt_method='trust-krylov', opt=None):
+    def wuyang(self, opt_max_iter, reg=None, opt_tol = 1e-7, opt_method='trust-krylov'):
         """
         Calls scipy minimizer to minimize lagrangian. 
         """
         self.lambda_reg = reg
-        if opt is None:
-            opt = {"disp"    : False}
-        opt['maxiter'] = opt_max_iter
-
         if opt_method.lower() == 'bfgs' or opt_method.lower() == 'l-bfgs-b':
-            opt_results = minimize( fun = self.lagrangian_wy,
+            opt_results = minimize( fun = self.lagrangian,
                                     x0  = self.v0, 
-                                    jac = self.gradient_wy,
+                                    jac = self.gradient,
                                     method  = opt_method,
-                                    tol     = tol,
-                                    options = opt
+                                    tol     = opt_tol,
+                                    options = {"maxiter" : opt_max_iter,
+                                                "disp"    : False,}
                                     )
 
         else:
-            opt_results = minimize( fun = self.lagrangian_wy,
+            opt_results = minimize( fun = self.lagrangian,
                                     x0  = self.v0, 
-                                    jac = self.gradient_wy,
-                                    hess = self.hessian_wy,
+                                    jac = self.gradient,
+                                    hess = self.hessian,
                                     method = opt_method,
-                                    tol    = tol,
-                                    options = opt
+                                    tol    = opt_tol,
+                                    options = {"maxiter"  : opt_max_iter,
+                                                "disp"    : False, }
                                     )
 
         if opt_results.success == False:
@@ -78,7 +76,7 @@ class WuYang():
             fock_b = self.V + self.T + vks_b        
             self.Cb, self.Cocb, self.Db, self.eigvecs_b = self.diagonalize( fock_b, self.nbeta )
 
-    def lagrangian_wy(self, v):
+    def lagrangian(self, v):
         """
         Lagrangian to be minimized wrt external potential
         Equation (5) of main reference
@@ -117,7 +115,7 @@ class WuYang():
 
         return - L
 
-    def gradient_wy(self, v):
+    def gradient(self, v):
         """
         Calculates gradient wrt target density
         Equation (11) of main reference
@@ -142,7 +140,7 @@ class WuYang():
 
         return -self.grad
 
-    def hessian_wy(self, v):
+    def hessian(self, v):
         """
         Calculates gradient wrt target density
         Equation (13) of main reference
@@ -176,7 +174,7 @@ class WuYang():
 
         return - Hs
 
-    def find_regularization_constant_wy(self, guide_potential_components, opt_method="trust-krylov",
+    def find_regularization_constant(self, guide_potential_components, opt_method="trust-krylov",
                                      tol=None, opt=None, lambda_list=None):
         """
         Finding regularization constant lambda.
@@ -239,18 +237,18 @@ class WuYang():
         self.lambda_reg = None
         # Initial calculation with no regularization
         if opt_method.lower() == 'bfgs' or opt_method.lower() == 'l-bfgs-b':
-            initial_result = minimize(fun=self.lagrangian_wy,
+            initial_result = minimize(fun=self.lagrangian,
                                    x0=self.v0,
-                                   jac=self.gradient_wy,
+                                   jac=self.gradient,
                                    method=opt_method,
                                    tol=tol,
                                    options=opt
                                    )
         else:
-            initial_result = minimize(fun=self.lagrangian_wy,
+            initial_result = minimize(fun=self.lagrangian,
                                    x0=self.v0,
-                                   jac=self.gradient_wy,
-                                   hess=self.hessian_wy,
+                                   jac=self.gradient,
+                                   hess=self.hessian,
                                    method=opt_method,
                                    tol=tol,
                                    options=opt
@@ -267,19 +265,19 @@ class WuYang():
             self.lambda_reg = reg
 
             if opt_method.lower() == 'bfgs' or opt_method.lower() == 'l-bfgs-b':
-                opt_results = minimize(fun=self.lagrangian_wy,
+                opt_results = minimize(fun=self.lagrangian,
                                        x0=initial_v0,
-                                       jac=self.gradient_wy,
+                                       jac=self.gradient,
                                        method=opt_method,
                                        tol=tol,
                                        options=opt
                                        )
 
             else:
-                opt_results = minimize(fun=self.lagrangian_wy,
+                opt_results = minimize(fun=self.lagrangian,
                                        x0=initial_v0,
-                                       jac=self.gradient_wy,
-                                       hess=self.hessian_wy,
+                                       jac=self.gradient,
+                                       hess=self.hessian,
                                        method=opt_method,
                                        tol=tol,
                                        options=opt

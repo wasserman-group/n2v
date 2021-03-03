@@ -244,10 +244,13 @@ class Inverter(WuYang, ZMP, MRKS, OC, Grider):
                     Regularization constant for Wuyant Inversion.
                     Default: None -> No regularization is added.
                     Becomes attribute of inverter -> inverter.lambda_reg
-                opt_tol: float
+                tol: float
                     tol for scipy.optimize.minimize
+                opt: dict
+                    options for scipy.optimize.minimize
             return:
                 the result are stored in self.v_opt
+
             
         zmp
         ---

@@ -86,10 +86,13 @@ class Grider(Cubeprop):
             max_functions = max_functions if max_functions > len(blocks[-1].functions_local_to_global()) \
                                           else len(blocks[-1].functions_local_to_global())
 
+        zero_matrix = psi4.core.Matrix(basis.nbf(), basis.nbf())
         if self.ref == 1:
             point_func = psi4.core.RKSFunctions(basis, max_points, max_functions)
+            point_func.set_pointers(zero_matrix)
         else:
             point_func = psi4.core.UKSFunctions(basis, max_points, max_functions)
+            point_func.set_pointers(zero_matrix, zero_matrix)
 
         return blocks, npoints, point_func
 
@@ -190,7 +193,7 @@ class Grider(Cubeprop):
                 if grid.shape[0] != 3 and grid.shape[0] != 4:
                     raise ValueError("The shape of grid should be (3, npoints) "
                                      "or (4, npoints) but got (%i, %i)" % (grid.shape[0], grid.shape[1]))
-                blocks, npoints, points_function = self.grid_to_blocks(grid)
+                blocks, npoints, points_function = self.grid_to_blocks(grid, basis=basis)
             else:
                 blocks, npoints, points_function = grid
         elif grid is None and vpot is not None:
@@ -201,16 +204,7 @@ class Grider(Cubeprop):
         else:
             raise ValueError("A grid or a V_potential (DFT grid) must be given.")
 
-        if coeff.ndim == 1:
-            coeff = coeff[:, np.newaxis]
-        if self.ref == 1:
-            psi4_coeff = psi4.core.Matrix.from_array(coeff)
-            points_function.set_pointers(psi4_coeff)
-        elif self.ref == 2:
-            coeff_0 = coeff[:,None] if coeff.ndim == 1 else coeff.copy()
-            psi4_coeff = psi4.core.Matrix.from_array(coeff_0)
-            points_function.set_pointers(psi4_coeff, psi4_coeff)
-        coeff_r = np.empty((npoints)) 
+        coeff_r = np.empty((npoints))
 
         offset = 0
         for i_block in blocks:
@@ -225,7 +219,7 @@ class Grider(Cubeprop):
             if coeff.ndim == 1:
                 l_mat = coeff[(lpos[:])]
                 coeff_r[offset - b_points : offset] = contract('pm,m->p', phi, l_mat)
-            elif coeff.ndim == 2: 
+            elif coeff.ndim == 2:
                 l_mat = coeff[(lpos[:, None], lpos)]
                 coeff_r[offset - b_points : offset] = contract('pm,mn,pn->p', phi, l_mat, phi)
 
