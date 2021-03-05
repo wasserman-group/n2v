@@ -240,7 +240,7 @@ class Inverter(WuYang, ZMP, MRKS, OC, Grider):
             Parameters:
             ----------
                 opt_max_iter: int
-                    opt_max_iter
+                    maximum iteration
                 opt_method: string, opt
                     Method for scipy optimizer
                     Currently only used by wuyang method.
@@ -252,8 +252,12 @@ class Inverter(WuYang, ZMP, MRKS, OC, Grider):
                     Becomes attribute of inverter -> inverter.lambda_reg
                 tol: float
                     tol for scipy.optimize.minimize
+                gtol: float
+                    gtol for scipy.optimize.minimize: the gradient norm for
+                    convergence
                 opt: dict
                     options for scipy.optimize.minimize
+                                Notice that opt has lower priorities than opt_max_iter and gtol.
             return:
                 the result are stored in self.v_pbs
 
