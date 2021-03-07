@@ -53,9 +53,11 @@ class WuYang():
                                     )
 
         if opt_results.success == False:
+            self.v_pbs = opt_results.x
+            self.opt_info = opt_results
             raise ValueError("Optimization was unsucessful (|grad|=%.2e) within %i iterations, "
-                             "try a different intitial guess."% (np.linalg.norm(opt_results.jac), opt_results.nit)
-                             + opt_results.message)
+                             "try a different initial guess. %s"% (np.linalg.norm(opt_results.jac), opt_results.nit, opt_results.message)
+                             )
         else:
             print("Optimization Successful within %i iterations! "
                   "|grad|=%.2e" % (opt_results.nit, np.linalg.norm(opt_results.jac)))
@@ -66,18 +68,19 @@ class WuYang():
         """
         Diagonalize Fock matrix with additional external potential
         """
-
+        self.v_pbs = np.copy(v)
         vks_a = contract("ijk,k->ij", self.S3, v[:self.npbs]) + self.va
         fock_a = self.V + self.T + vks_a 
         self.Ca, self.Coca, self.Da, self.eigvecs_a = self.diagonalize( fock_a, self.nalpha )
 
         if self.ref == 1:
             self.Cb, self.Cocb, self.Db, self.eigvecs_b = self.Ca.copy(), self.Coca.copy(), self.Da.copy(), self.eigvecs_a.copy()
+            self.Fock =  fock_a
         else:
             vks_b = contract("ijk,k->ij", self.S3, v[self.npbs:]) + self.vb
             fock_b = self.V + self.T + vks_b        
             self.Cb, self.Cocb, self.Db, self.eigvecs_b = self.diagonalize( fock_b, self.nbeta )
-        return
+            self.Fock =  (fock_a, fock_b)
 
     def lagrangian_wy(self, v):
         """

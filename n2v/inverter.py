@@ -17,6 +17,7 @@ from .methods.wuyang import WuYang
 from .methods.zmp import ZMP
 from .methods.mrks import MRKS
 from .methods.oucarter import OC
+from .methods.pdeco import PDECO
 from .grid.grider import Grider
 
 
@@ -28,7 +29,7 @@ class data_bucket:
     pass
 
 
-class Inverter(WuYang, ZMP, MRKS, OC, Grider):
+class Inverter(WuYang, ZMP, MRKS, OC, PDECO, Grider):
     """
     Attributes:
     ----------
@@ -70,6 +71,8 @@ class Inverter(WuYang, ZMP, MRKS, OC, Grider):
         The ao overlap matrix (i.e. S matrix)
     S3  : np.ndarray
         The three ao overlap matrix (ao, ao, pbs)
+    S4  : np.ndarray
+        The four ao overlap matrix, the size should be (ao, ao, ao, ao)
     jk  : psi4.core.JK
         Psi4 jk object. Built if wfn has no jk, otherwise use wfn.jk
 
@@ -124,6 +127,8 @@ class Inverter(WuYang, ZMP, MRKS, OC, Grider):
         self.cubic_grid = data_bucket
 
         self.J0 = None
+
+        self.S4 = None  # Entry to save the 4 overlap matrix.
 
     #------------->  Basics:
 
@@ -243,7 +248,7 @@ class Inverter(WuYang, ZMP, MRKS, OC, Grider):
                     maximum iteration
                 opt_method: string, opt
                     Method for scipy optimizer
-                    Currently only used by wuyang method.
+                    Currently only used by wuyang and pdeco method.
                     Defaul: 'trust-krylov'
                     https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html
                 reg : float, opt
@@ -363,6 +368,35 @@ class Inverter(WuYang, ZMP, MRKS, OC, Grider):
                     3) If it's not continue, it would be expecting a
                     method name string that works for psi4. A separate psi4 calculation
                     would be performed.
+                    wuyang
+
+        pdeco
+        -----
+        the PDE-Constrained Optimization method:
+        Int J Quantum Chem. 2018;118:e25425;
+        Nat Commun 10, 4497 (2019). https://doi.org/10.1038;
+            Parameters:
+            ----------
+                opt_max_iter: int
+                    maximum iteration
+                opt_method: string, opt
+                    Method for scipy optimizer
+                    Currently only used by wuyang and pdeco method.
+                    Defaul: 'L-BFGS-B'
+                    Options: ['L-BFGS-B', 'BFGS']
+                    https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html
+                reg : float, opt
+                    Regularization constant for Wuyant Inversion.
+                    Default: None -> No regularization is added.
+                    Becomes attribute of inverter -> inverter.lambda_reg
+                gtol: float
+                    gtol for scipy.optimize.minimize: the gradient norm for
+                    convergence
+                opt: dict
+                    options for scipy.optimize.minimize
+                    Notice that opt has lower priorities than opt_max_iter and gtol.
+            return:
+                the result are stored in self.v_pbs
         """
 
 
@@ -381,8 +415,10 @@ class Inverter(WuYang, ZMP, MRKS, OC, Grider):
             return self.mRKS(opt_max_iter, **keywords)
         elif method.lower() == 'oc':
             return self.oucarter(opt_max_iter, **keywords)
+        elif method.lower() == 'pdeco':
+            return self.pdeco(opt_max_iter, **keywords)
         else:
-            raise ValueError(f"Inversion method not available. Methods available: {['wuyang', 'zmp', 'mrks', 'oc']}")
+            raise ValueError(f"Inversion method not available. Methods available: {['wuyang', 'zmp', 'mrks', 'oc', 'pdeco']}")
 
     def generate_components(self, guide_potential_components):
         """
