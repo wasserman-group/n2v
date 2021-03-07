@@ -376,7 +376,7 @@ class Inverter(WuYang, ZMP, MRKS, OC, PDECO, Grider):
         -----
         the PDE-Constrained Optimization method:
         Int J Quantum Chem. 2018;118:e25425;
-        Nat Commun 10, 4497 (2019). https://doi.org/10.1038;
+        Nat Commun 10, 4497 (2019).
             Parameters:
             ----------
                 opt_max_iter: int

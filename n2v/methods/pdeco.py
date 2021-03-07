@@ -181,7 +181,7 @@ class PDECO():
                 self.grad[self.npbs:] += 2 * self.lambda_reg*np.dot(T, v[self.npbs:])
         return self.grad
 
-    def find_regularization_constant(self, guide_potential_components, opt_method="trust-krylov",
+    def find_regularization_constant_pdeco(self, opt_max_iter, opt_method="L-BFGS-B", gtol=1e-3,
                                      opt=None, lambda_list=None):
         """
         Finding regularization constant lambda.
@@ -220,14 +220,13 @@ class PDECO():
             The value defined by [Bulat, Heaton-Burgess, Cohen, Yang 2007] eqn (21).
             Corresponding to lambda in lambda_list.
 
-        Ts_list: np.ndarray
+        error_list: np.ndarray
             The Ts value for each lambda.
 
 
         """
 
-        Ts_list = []
-        L_list = []
+        error_list = []
         v_norm_list = []
 
 
@@ -235,14 +234,14 @@ class PDECO():
             lambda_list = 10 ** np.linspace(-3, -9, 7)
 
         if opt is None:
-            opt = {
-                "maxiter": 100,
-                "disp": False
-            }
+            opt = {"disp"    : False}
+        opt['maxiter'] = opt_max_iter
+        opt['gtol'] = gtol
 
-        self.generate_components(guide_potential_components)
         self.lambda_reg = None
         # Initial calculation with no regularization
+        # Initialization for D and C
+        self._diagonalize_with_potential_pbs(self.v_pbs)
         if opt_method.lower() == 'bfgs' or opt_method.lower() == 'l-bfgs-b':
             initial_result = minimize(fun=self.lagrangian_pbeco,
                                    x0=self.v_pbs,
@@ -259,7 +258,7 @@ class PDECO():
                              "try a different intitial guess"% (np.linalg.norm(initial_result.jac), initial_result.nit)
                              + initial_result.message)
         else:
-            L0 = -initial_result.fun
+            error0 = -initial_result.fun
             initial_v_pbs = initial_result.x  # This is used as the initial guess for with regularization calculation.
 
         for reg in lambda_list:
@@ -278,10 +277,9 @@ class PDECO():
                                  F'and L-BFGS is supported.')
 
 
-            Ts_list.append(np.sum(self.T * (self.Da + self.Db)))
             v_norm_list.append(self.regul_norm)
-            L_list.append(opt_results.fun - self.lambda_reg * self.regul_norm)
+            error_list.append(opt_results.fun - self.lambda_reg * self.regul_norm)
 
-        P_list = lambda_list * np.array(v_norm_list) / (L0 - np.array(L_list))
+        P_list = lambda_list * np.array(v_norm_list) / (np.array(error_list) - error0)
 
-        return lambda_list, P_list, np.array(Ts_list)
+        return lambda_list, P_list, np.array(error_list)
