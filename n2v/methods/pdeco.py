@@ -119,7 +119,6 @@ class PDECO():
 
             L += norm * self.lambda_reg
             self.regul_norm = norm
-        print("L:", L)
         return L
 
     def gradient_pbeco(self, v):
@@ -159,7 +158,7 @@ class PDECO():
                 grad_temp_a += p_i[:, np.newaxis] * self.Coca[:,idx]
 
             grad_temp_b = np.zeros((self.nbf, self.nbf))
-            g_b = 4 * contract("ijkl,ij,km->lm", self.S4, (self.Da - self.nt[0]) + (self.Db - self.nt[1]), self.Cocb)  # shape (ao, mo)
+            g_b = 4 * contract("ijkl,ij,km->lm", self.S4, (self.nt[0] - self.Da) + (self.nt[1] - self.Db), self.Cocb)  # shape (ao, mo)
             u_b = 0.5 * contract("lm,lm->m", self.Cocb, g_b)  # shape (mo, )
             g_b -= 2 * contract('m,ij,jm->im', u_b, self.S2, self.Cocb) # shape (ao, mo)
             for idx in range(self.nbeta):
@@ -180,7 +179,6 @@ class PDECO():
             else:
                 self.grad[:self.npbs] += 2 * self.lambda_reg*np.dot(T, v[:self.npbs])
                 self.grad[self.npbs:] += 2 * self.lambda_reg*np.dot(T, v[self.npbs:])
-        print("|grad|:", np.linalg.norm(self.grad))
         return self.grad
 
     def find_regularization_constant(self, guide_potential_components, opt_method="trust-krylov",

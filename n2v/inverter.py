@@ -56,10 +56,12 @@ class Inverter(WuYang, ZMP, MRKS, OC, PDECO, Grider):
     ct : List
         List of psi4.core.Matrix for occupied orbitals
     pbs_str: string
-        name of pbs
+        name of Potential basis set
     pbs : psi4.core.BasisSet
         Potential basis set.
-    v_pbs : np.ndarray
+    npbs : int
+        the length of pbs
+    v_pbs : np.ndarray shape (npbs, ) for ref==1 and (2*npbs, ) for ref==2.
         potential vector on the Potential Baiss Set.
         If the potential is not represented on the basis set, this should
         remain 0. It will be initialized to a 0 array. One can set this
