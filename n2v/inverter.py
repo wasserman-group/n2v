@@ -17,6 +17,7 @@ from .methods.wuyang import WuYang
 from .methods.zmp import ZMP
 from .methods.mrks import MRKS
 from .methods.oucarter import OC
+from .methods.pdeco import PDECO
 from .grid.grider import Grider
 
 
@@ -28,7 +29,7 @@ class data_bucket:
     pass
 
 
-class Inverter(WuYang, ZMP, MRKS, OC, Grider):
+class Inverter(WuYang, ZMP, MRKS, OC, PDECO, Grider):
     """
     Attributes:
     ----------
@@ -55,15 +56,25 @@ class Inverter(WuYang, ZMP, MRKS, OC, Grider):
     ct : List
         List of psi4.core.Matrix for occupied orbitals
     pbs_str: string
-        name of pbs
+        name of Potential basis set
     pbs : psi4.core.BasisSet
         Potential basis set.
-    v0  : np.ndarray
-        Initial zero guess for optimizer
+    npbs : int
+        the length of pbs
+    v_pbs : np.ndarray shape (npbs, ) for ref==1 and (2*npbs, ) for ref==2.
+        potential vector on the Potential Baiss Set.
+        If the potential is not represented on the basis set, this should
+        remain 0. It will be initialized to a 0 array. One can set this
+        value for initial guesses before Wu-Yang method (WY) or PDE-Constrained
+        Optimization method (PDE-CO). For example, if PDE-CO is ran after
+        a WY calculation, the initial for PDE-CO will be the result of WY
+        if v_pbs is not zeroed.
     S2  : np.ndarray
         The ao overlap matrix (i.e. S matrix)
     S3  : np.ndarray
         The three ao overlap matrix (ao, ao, pbs)
+    S4  : np.ndarray
+        The four ao overlap matrix, the size should be (ao, ao, ao, ao)
     jk  : psi4.core.JK
         Psi4 jk object. Built if wfn has no jk, otherwise use wfn.jk
 
@@ -110,7 +121,7 @@ class Inverter(WuYang, ZMP, MRKS, OC, Grider):
         self.pbs       = self.basis if pbs == "same" \
                                     else psi4.core.BasisSet.build( self.mol, key='BASIS', target=self.pbs_str)
         self.npbs      = self.pbs.nbf()
-        self.v0        = np.zeros( (self.npbs) ) if self.ref == 1 \
+        self.v_pbs        = np.zeros( (self.npbs) ) if self.ref == 1 \
                                                  else np.zeros( 2 * self.npbs )
         self.generate_mints_matrices()
 
@@ -118,6 +129,8 @@ class Inverter(WuYang, ZMP, MRKS, OC, Grider):
         self.cubic_grid = data_bucket
 
         self.J0 = None
+
+        self.S4 = None  # Entry to save the 4 overlap matrix.
 
     #------------->  Basics:
 
@@ -234,20 +247,27 @@ class Inverter(WuYang, ZMP, MRKS, OC, Grider):
             Parameters:
             ----------
                 opt_max_iter: int
-                    opt_max_iter
+                    maximum iteration
                 opt_method: string, opt
                     Method for scipy optimizer
-                    Currently only used by wuyang method.
+                    Currently only used by wuyang and pdeco method.
                     Defaul: 'trust-krylov'
                     https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html
                 reg : float, opt
                     Regularization constant for Wuyant Inversion.
                     Default: None -> No regularization is added.
                     Becomes attribute of inverter -> inverter.lambda_reg
-                opt_tol: float
+                tol: float
                     tol for scipy.optimize.minimize
+                gtol: float
+                    gtol for scipy.optimize.minimize: the gradient norm for
+                    convergence
+                opt: dict
+                    options for scipy.optimize.minimize
+                                Notice that opt has lower priorities than opt_max_iter and gtol.
             return:
-                the result are stored in self.v_opt
+                the result are stored in self.v_pbs
+
             
         zmp
         ---
@@ -350,10 +370,39 @@ class Inverter(WuYang, ZMP, MRKS, OC, Grider):
                     3) If it's not continue, it would be expecting a
                     method name string that works for psi4. A separate psi4 calculation
                     would be performed.
+                    wuyang
+
+        pdeco
+        -----
+        the PDE-Constrained Optimization method:
+        Int J Quantum Chem. 2018;118:e25425;
+        Nat Commun 10, 4497 (2019).
+            Parameters:
+            ----------
+                opt_max_iter: int
+                    maximum iteration
+                opt_method: string, opt
+                    Method for scipy optimizer
+                    Currently only used by wuyang and pdeco method.
+                    Defaul: 'L-BFGS-B'
+                    Options: ['L-BFGS-B', 'BFGS']
+                    https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html
+                reg : float, opt
+                    Regularization constant for Wuyant Inversion.
+                    Default: None -> No regularization is added.
+                    Becomes attribute of inverter -> inverter.lambda_reg
+                gtol: float
+                    gtol for scipy.optimize.minimize: the gradient norm for
+                    convergence
+                opt: dict
+                    options for scipy.optimize.minimize
+                    Notice that opt has lower priorities than opt_max_iter and gtol.
+            return:
+                the result are stored in self.v_pbs
         """
 
 
-        if method.lower()=='mrks' or method.lower()=='oc':
+        if method.lower()=='mrks':
             if guide_potential_components[0] != 'hartree' or len(guide_potential_components) != 1:
                 print("The guide potential is changed to v_hartree.")
             self.generate_components(["hartree"])
@@ -368,8 +417,10 @@ class Inverter(WuYang, ZMP, MRKS, OC, Grider):
             return self.mRKS(opt_max_iter, **keywords)
         elif method.lower() == 'oc':
             return self.oucarter(opt_max_iter, **keywords)
+        elif method.lower() == 'pdeco':
+            return self.pdeco(opt_max_iter, **keywords)
         else:
-            raise ValueError(f"Inversion method not available. Methods available: {['wuyang', 'zmp', 'mrks', 'oc']}")
+            raise ValueError(f"Inversion method not available. Methods available: {['wuyang', 'zmp', 'mrks', 'oc', 'pdeco']}")
 
     def generate_components(self, guide_potential_components):
         """

@@ -20,70 +20,78 @@ class WuYang():
     regul_norm = None  # Regularization norm: ||v||^2
     lambda_reg = None  # Regularization constant
 
-    def wuyang(self, opt_max_iter, reg=None, opt_tol = 1e-7, opt_method='trust-krylov'):
+    def wuyang(self, opt_max_iter, reg=None, tol=1e-7, gtol=1e-3,
+               opt_method='trust-krylov', opt=None):
         """
         Calls scipy minimizer to minimize lagrangian. 
         """
         self.lambda_reg = reg
+        if opt is None:
+            opt = {"disp"    : False}
+        opt['maxiter'] = opt_max_iter
+        opt['gtol'] = gtol
+        # Initialization for D and C
+        self._diagonalize_with_potential_pbs(self.v_pbs)
+
         if opt_method.lower() == 'bfgs' or opt_method.lower() == 'l-bfgs-b':
-            opt_results = minimize( fun = self.lagrangian,
-                                    x0  = self.v0, 
-                                    jac = self.gradient,
+            opt_results = minimize( fun = self.lagrangian_wy,
+                                    x0  = self.v_pbs,
+                                    jac = self.gradient_wy,
                                     method  = opt_method,
-                                    tol     = opt_tol,
-                                    options = {"maxiter" : opt_max_iter,
-                                                "disp"    : False,}
+                                    tol     = tol,
+                                    options = opt
                                     )
 
         else:
-            opt_results = minimize( fun = self.lagrangian,
-                                    x0  = self.v0, 
-                                    jac = self.gradient,
-                                    hess = self.hessian,
+            opt_results = minimize( fun = self.lagrangian_wy,
+                                    x0  = self.v_pbs,
+                                    jac = self.gradient_wy,
+                                    hess = self.hessian_wy,
                                     method = opt_method,
-                                    tol    = opt_tol,
-                                    options = {"maxiter"  : opt_max_iter,
-                                                "disp"    : False, }
+                                    tol    = tol,
+                                    options = opt
                                     )
 
         if opt_results.success == False:
+            self.v_pbs = opt_results.x
+            self.opt_info = opt_results
             raise ValueError("Optimization was unsucessful (|grad|=%.2e) within %i iterations, "
-                             "try a different intitial guess."% (np.linalg.norm(opt_results.jac), opt_results.nit)
-                             + opt_results.message)
+                             "try a different initial guess. %s"% (np.linalg.norm(opt_results.jac), opt_results.nit, opt_results.message)
+                             )
         else:
             print("Optimization Successful within %i iterations! "
                   "|grad|=%.2e" % (opt_results.nit, np.linalg.norm(opt_results.jac)))
-            self.v_opt = opt_results.x
+            self.v_pbs = opt_results.x
             self.opt_info = opt_results
 
-        self.finalize_energy()
-
-        # if debug=True:
-        #     self.density_accuracy()
-
-    def _diagonalize_with_potential_WY(self, v):
+    def _diagonalize_with_potential_pbs(self, v):
         """
         Diagonalize Fock matrix with additional external potential
         """
+        self.v_pbs = np.copy(v)
         vks_a = contract("ijk,k->ij", self.S3, v[:self.npbs]) + self.va
         fock_a = self.V + self.T + vks_a 
         self.Ca, self.Coca, self.Da, self.eigvecs_a = self.diagonalize( fock_a, self.nalpha )
 
         if self.ref == 1:
             self.Cb, self.Cocb, self.Db, self.eigvecs_b = self.Ca.copy(), self.Coca.copy(), self.Da.copy(), self.eigvecs_a.copy()
+            self.Fock =  fock_a
         else:
             vks_b = contract("ijk,k->ij", self.S3, v[self.npbs:]) + self.vb
             fock_b = self.V + self.T + vks_b        
             self.Cb, self.Cocb, self.Db, self.eigvecs_b = self.diagonalize( fock_b, self.nbeta )
+            self.Fock =  (fock_a, fock_b)
 
-    def lagrangian(self, v):
+    def lagrangian_wy(self, v):
         """
         Lagrangian to be minimized wrt external potential
         Equation (5) of main reference
         """
+        # If v is not updated, will not re-calculate.
+        if not np.allclose(v, self.v_pbs):
+            self._diagonalize_with_potential_pbs(v)
 
-        self._diagonalize_with_potential_WY(v)
-        self.grad_a = contract('ij,ijt->t', (self.Da - self.nt[0]), self.S3)  
+        self.grad_a = contract('ij,ijt->t', (self.Da - self.nt[0]), self.S3)
         self.grad_b = contract('ij,ijt->t', (self.Db - self.nt[1]), self.S3)
 
         kinetic     =   np.sum(self.T * (self.Da))
@@ -115,12 +123,13 @@ class WuYang():
 
         return - L
 
-    def gradient(self, v):
+    def gradient_wy(self, v):
         """
         Calculates gradient wrt target density
         Equation (11) of main reference
         """
-        self._diagonalize_with_potential_WY(v)
+        if not np.allclose(v, self.v_pbs):
+            self._diagonalize_with_potential_pbs(v)
         self.grad_a = contract('ij,ijt->t', (self.Da - self.nt[0]), self.S3)
         self.grad_b = contract('ij,ijt->t', (self.Db - self.nt[1]), self.S3) 
 
@@ -140,13 +149,14 @@ class WuYang():
 
         return -self.grad
 
-    def hessian(self, v):
+    def hessian_wy(self, v):
         """
         Calculates gradient wrt target density
         Equation (13) of main reference
         """
 
-        self._diagonalize_with_potential_WY(v)
+        if not np.allclose(v, self.v_pbs):
+            self._diagonalize_with_potential_pbs(v)
 
         na, nb = self.nalpha, self.nbeta
 
@@ -174,7 +184,7 @@ class WuYang():
 
         return - Hs
 
-    def find_regularization_constant(self, guide_potential_components, opt_method="trust-krylov",
+    def find_regularization_constant_wy(self, opt_max_iter, opt_method="trust-krylov", gtol=1e-3,
                                      tol=None, opt=None, lambda_list=None):
         """
         Finding regularization constant lambda.
@@ -187,19 +197,21 @@ class WuYang():
 
         Parameters:
         -----------
-        guide_potential_components: a list of string
-            the components for guide potential v0.
-            see Inverter.generate_components() for details.
+        opt_max_iter: int
+                    maximum iteration
 
         opt_method: string default: "trust-krylov"
             opt_methods available in scipy.optimize.minimize
 
         tol: float
             Tolerance for termination. See scipy.optimize.minimize for details.
-
+        gtol: float
+             gtol for scipy.optimize.minimize: the gradient norm for
+             convergence
         opt: dictionary, optional
             if given:
-                scipy.optimize.minimize(method=opt_method, options=opt)
+                scipy.optimize.minimize(method=opt_method, options=opt).
+            Notice that opt has lower priorities than opt_max_iter and gtol.
 
         lambda_list: np.ndarray, optional
             A array of lambda to search; otherwise, it will be 10 ** np.linspace(-1, -7, 7).
@@ -228,27 +240,28 @@ class WuYang():
             lambda_list = 10 ** np.linspace(-3, -9, 7)
 
         if opt is None:
-            opt = {
-                "maxiter": 100,
-                "disp": False
-            }
+            opt = {"disp"    : False}
+        opt['maxiter'] = opt_max_iter
+        opt['gtol'] = gtol
 
-        self.generate_components(guide_potential_components)
         self.lambda_reg = None
         # Initial calculation with no regularization
+        # Initialization for D and C
+        self._diagonalize_with_potential_pbs(self.v_pbs)
+
         if opt_method.lower() == 'bfgs' or opt_method.lower() == 'l-bfgs-b':
-            initial_result = minimize(fun=self.lagrangian,
-                                   x0=self.v0,
-                                   jac=self.gradient,
+            initial_result = minimize(fun=self.lagrangian_wy,
+                                   x0=self.v_pbs,
+                                   jac=self.gradient_wy,
                                    method=opt_method,
                                    tol=tol,
                                    options=opt
                                    )
         else:
-            initial_result = minimize(fun=self.lagrangian,
-                                   x0=self.v0,
-                                   jac=self.gradient,
-                                   hess=self.hessian,
+            initial_result = minimize(fun=self.lagrangian_wy,
+                                   x0=self.v_pbs,
+                                   jac=self.gradient_wy,
+                                   hess=self.hessian_wy,
                                    method=opt_method,
                                    tol=tol,
                                    options=opt
@@ -265,19 +278,19 @@ class WuYang():
             self.lambda_reg = reg
 
             if opt_method.lower() == 'bfgs' or opt_method.lower() == 'l-bfgs-b':
-                opt_results = minimize(fun=self.lagrangian,
+                opt_results = minimize(fun=self.lagrangian_wy,
                                        x0=initial_v0,
-                                       jac=self.gradient,
+                                       jac=self.gradient_wy,
                                        method=opt_method,
                                        tol=tol,
                                        options=opt
                                        )
 
             else:
-                opt_results = minimize(fun=self.lagrangian,
+                opt_results = minimize(fun=self.lagrangian_wy,
                                        x0=initial_v0,
-                                       jac=self.gradient,
-                                       hess=self.hessian,
+                                       jac=self.gradient_wy,
+                                       hess=self.hessian_wy,
                                        method=opt_method,
                                        tol=tol,
                                        options=opt
