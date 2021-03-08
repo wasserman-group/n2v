@@ -402,7 +402,7 @@ class Inverter(WuYang, ZMP, MRKS, OC, PDECO, Grider):
         """
 
 
-        if method.lower()=='mrks' or method.lower()=='oc':
+        if method.lower()=='mrks':
             if guide_potential_components[0] != 'hartree' or len(guide_potential_components) != 1:
                 print("The guide potential is changed to v_hartree.")
             self.generate_components(["hartree"])
