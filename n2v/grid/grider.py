@@ -16,6 +16,7 @@ except:
     pass
 
 from .cubeprop import Cubeprop
+from .basis_set_artifact_correction import basis_set_correction, invert_kohn_sham_equations
 
 class Grider(Cubeprop):
 
@@ -146,7 +147,7 @@ class Grider(Cubeprop):
         blocks = [vpot.get_block(i) for i in range(nblocks)]
         npoints = vpot.grid().npoints()
 
-        dft_grid = np.empty(4, npoints)
+        dft_grid = np.empty((4, npoints))
 
         offset = 0
         for i_block in blocks:
@@ -274,27 +275,32 @@ class Grider(Cubeprop):
         else:
             raise ValueError("A grid or a V_potential (DFT grid) must be given.")
 
-        density   = np.empty((npoints, self.ref))
+        
         if self.ref == 1:
             points_function.set_pointers(Da)
             rho_a = points_function.point_values()["RHO_A"]
+            density   = np.empty((npoints))
         if self.ref == 2:
             points_function.set_pointers(Da, Db)
             rho_a = points_function.point_values()["RHO_A"]
             rho_b = points_function.point_values()["RHO_B"]
+            density   = np.empty((npoints, self.ref))
 
         offset = 0
         for i_block in blocks:
             points_function.compute_points(i_block)
             b_points = i_block.npoints()
             offset += b_points
-            density[offset - b_points : offset, 0] = rho_a.np[ :b_points]
-            if self.ref == 2:
+
+            if self.ref == 1:
+                density[offset - b_points : offset] = rho_a.np[ :b_points]
+            else:
+                density[offset - b_points : offset, 0] = rho_a.np[ :b_points]
                 density[offset - b_points : offset, 1] = rho_b.np[ :b_points]
 
         return density
 
-    def on_grid_orbitals(self, grid=None, Ca=None, Cb=None, vpot=None):
+    def on_grid_orbitals(self, Ca=None, Cb=None, grid=None, vpot=None):
         """
         Generates orbitals given grid
 
@@ -343,15 +349,15 @@ class Grider(Cubeprop):
         else:
             raise ValueError("A grid or a V_potential (DFT grid) must be given.")
 
-        orbitals_r = [np.empty((npoints, self.ref)) for i_orb in range(self.nbf)]
-
         if self.ref == 1:
+            orbitals_r = [np.empty((npoints)) for i_orb in range(self.nbf)]
             points_function.set_pointers(Ca)
+            Ca_np = Ca.np
         if self.ref == 2:
+            orbitals_r = [np.empty((npoints, 2)) for i_orb in range(self.nbf)]
             points_function.set_pointers(Ca, Cb)
-
-        Ca_np = Ca.np
-        Cb_np = Cb.np
+            Ca_np = Ca.np
+            Cb_np = Cb.np
 
         offset = 0
         for i_block in blocks:
@@ -365,9 +371,15 @@ class Grider(Cubeprop):
 
             for i_orb in range(self.nbf):
                 Ca_local = Ca_np[lpos, i_orb]
-                Cb_local = Cb_np[lpos, i_orb]
-                orbitals_r[i_orb][offset - b_points : offset,0] = contract('m, pm -> p', Ca_local, phi)
-                orbitals_r[i_orb][offset - b_points : offset,1] = contract('m, pm -> p', Cb_local, phi)
+                if self.ref == 1:
+                    orbitals_r[i_orb][offset - b_points : offset] = contract('m, pm -> p', Ca_local, phi)
+                else:
+                    Cb_local = Cb_np[lpos, i_orb]
+                    orbitals_r[i_orb][offset - b_points : offset,0] = contract('m, pm -> p', Ca_local, phi)
+                    orbitals_r[i_orb][offset - b_points : offset,1] = contract('m, pm -> p', Cb_local, phi)
+
+
+
 
         return orbitals_r
 
@@ -511,7 +523,7 @@ class Grider(Cubeprop):
             nblocks = vpot.nblocks()
             blocks = [vpot.get_block(i) for i in range(nblocks)]
             npoints = vpot.grid().npoints()
-            density = self.on_grid_density(Da=Da, Db=Db, vpot=self.Vpot)
+            density = self.on_grid_density(Da=Da, Db=Db, vpot=vpot)
         else:
             raise ValueError("A grid or a V_potential (DFT grid) must be given.")
 
@@ -521,7 +533,10 @@ class Grider(Cubeprop):
         for i_block in blocks:
             b_points = i_block.npoints()
             offset += b_points
-            ingredients["rho"] = density[offset - b_points : offset, :]
+            if self.ref == 1:
+                ingredients["rho"] = density[offset - b_points : offset]
+            else:
+                ingredients["rho"] = density[offset - b_points : offset, :]
 
             if self.ref == 1:
                 functional = Functional(1, 1)
@@ -532,46 +547,174 @@ class Grider(Cubeprop):
 
         return np.squeeze(vxc)
 
-    def on_grid_all(self, grid=None, show_progress=False):
+    def on_grid_lap_phi(self, 
+                       Ca=None, 
+                       Cb=None, 
+                       grid=None,
+                       vpot=None):
         """
-        Calls *all* 'on_grid_x' functions using densities and coefficients stored in Inverter object. 
+        Generates laplacian of molecular orbitals
 
         Parameters
         ----------
+       Ca, Cb: np.ndarray
+            Alpha, Beta Orbital Coefficient Matrix. Shape: (num_ao_basis, num_ao_basis)
         grid: np.ndarray Shape: (3, npoints) or (4, npoints) or tuple for block_handler (return of grid_to_blocks)
             grid where density will be computed.
-        show_progress: bool 
-            If True. Prints confirmation of each component generated. 
+        vpot: psi4.core.VBase
+            Vpotential object with info about grid.
+            Provides DFT spherical grid. Only comes to play if no grid is given. 
 
         Returns
         -------
-        None:
-            *Stores all grid quantities on self.grid. 
-
+        lap_phi: List[np.ndarray]. Where array is of shape (npoints, ref)
+            Laplacian of molecular orbitals on the grid
         """
 
-        if show_progress == True:
-            print("Generating Orbitals") 
-        density = self.on_grid_density(grid=grid)
-        if show_progress == True:
-            print("Generating Orbitals") 
-        orbitals = self.on_grid_orbitals(grid=grid)
-        if show_progress is True:
-            print("Generating Ext/Hartree/ESP") 
-        vext, hartree, esp, v_fa = self.on_grid_esp(wfn=self.wfn, grid=grid)
-        if show_progress is True:
-            print("Generating Vxc") 
-        vxc = self.on_grid_vxc(grid=grid)
+        if Ca is None and Cb is None:
+            Ca = psi4.core.Matrix.from_array(self.Ca)
+            Cb = psi4.core.Matrix.from_array(self.Cb)
+        else:
+            Ca = psi4.core.Matrix.from_array(Ca)
+            Cb = psi4.core.Matrix.from_array(Cb)
 
-        self.grid.density = density
-        self.grid.orbitals = orbitals
-        self.grid.vext = vext
-        self.grid.hartree = hartree
-        self.grid.esp = esp
-        self.grid.v_fa = v_fa
-        self.grid.vxc = vxc
+        if self.ref == 2 and Cb is None:
+            raise ValueError("Db is required for an unrestricted system")
 
-        return
+        if grid is not None:
+            if type(grid) is np.ndarray:
+                if grid.shape[0] != 3 and grid.shape[0] != 4:
+                    raise ValueError("The shape of grid should be (3, npoints) "
+                                     "or (4, npoints) but got (%i, %i)" % (grid.shape[0], grid.shape[1]))
+                blocks, npoints, points_function = self.grid_to_blocks(grid)
+            else:
+                blocks, npoints, points_function = grid
+        elif grid is None and vpot is not None:
+            nblocks = vpot.nblocks()
+            blocks = [vpot.get_block(i) for i in range(nblocks)]
+            npoints = vpot.grid().npoints()
+            points_function = vpot.properties()[0]
+        else:
+            raise ValueError("A grid or a V_potential (DFT grid) must be given.")
+
+        points_function.set_ansatz(2)
+
+        if self.ref == 1:
+            points_function.set_pointers(Ca)
+            lap_phi = [np.zeros((npoints)) for i_orb in range(self.nbf)]
+        else:
+            points_function.set_pointers(Ca, Cb)
+            lap_phi = [np.zeros((npoints, 2)) for i_orb in range(self.nbf)]
+
+        offset = 0
+        for i_block in blocks:
+            points_function.compute_points(i_block)
+            b_points = i_block.npoints()
+            offset += b_points
+            lpos = np.array(i_block.functions_local_to_global())
+            if len(lpos)==0:
+                continue
+            
+            #Obtain subset of phi_@@ matrices
+            lx = np.array(points_function.basis_values()["PHI_XX"])[:b_points, :lpos.shape[0]]
+            ly = np.array(points_function.basis_values()["PHI_YY"])[:b_points, :lpos.shape[0]]
+            lz = np.array(points_function.basis_values()["PHI_ZZ"])[:b_points, :lpos.shape[0]]
+
+            for i_orb in range(self.nbf):
+                Ca_local = Ca.np[lpos, i_orb][:,None]
+                
+                if self.ref ==1:
+                    lap_phi[i_orb][offset - b_points : offset] += ((lx + ly + lz) @ Ca_local)[:,0]
+                else:
+                    Cb_local = Cb.np[lpos, i_orb][:,None]
+                    lap_phi[i_orb][offset - b_points : offset, 0] += ((lx + ly + lz) @ Ca_local)[:,0]
+                    lap_phi[i_orb][offset - b_points : offset, 1] += ((lx + ly + lz) @ Cb_local)[:,0]
+
+        return lap_phi
+
+    def on_grid_grad_phi(self, 
+                       Ca=None, 
+                       Cb=None, 
+                       grid=None,
+                       vpot=None):
+        """
+        Generates laplacian of molecular orbitals
+
+        Parameters
+        ----------
+       Ca, Cb: np.ndarray
+            Alpha, Beta Orbital Coefficient Matrix. Shape: (num_ao_basis, num_ao_basis)
+        grid: np.ndarray Shape: (3, npoints) or (4, npoints) or tuple for block_handler (return of grid_to_blocks)
+            grid where density will be computed.
+        vpot: psi4.core.VBase
+            Vpotential object with info about grid.
+            Provides DFT spherical grid. Only comes to play if no grid is given. 
+
+        Returns
+        -------
+        grad_phi: List[np.ndarray]. Where array is of shape (npoints, ref)
+            Gradient of molecular orbitals on the grid
+        """
+
+        if Ca is None and Cb is None:
+            Ca = psi4.core.Matrix.from_array(self.Ca)
+            Cb = psi4.core.Matrix.from_array(self.Cb)
+        else:
+            Ca = psi4.core.Matrix.from_array(Ca)
+            Cb = psi4.core.Matrix.from_array(Cb)
+
+        if self.ref == 2 and Cb is None:
+            raise ValueError("Db is required for an unrestricted system")
+
+        if grid is not None:
+            if type(grid) is np.ndarray:
+                if grid.shape[0] != 3 and grid.shape[0] != 4:
+                    raise ValueError("The shape of grid should be (3, npoints) "
+                                     "or (4, npoints) but got (%i, %i)" % (grid.shape[0], grid.shape[1]))
+                blocks, npoints, points_function = self.grid_to_blocks(grid)
+            else:
+                blocks, npoints, points_function = grid
+        elif grid is None and vpot is not None:
+            nblocks = vpot.nblocks()
+            blocks = [vpot.get_block(i) for i in range(nblocks)]
+            npoints = vpot.grid().npoints()
+            points_function = vpot.properties()[0]
+        else:
+            raise ValueError("A grid or a V_potential (DFT grid) must be given.")
+
+        points_function.set_ansatz(2)
+
+        if self.ref == 1:
+            points_function.set_pointers(Ca)
+            grad_phi = [np.zeros((npoints)) for i_orb in range(self.nbf)]
+        else:
+            points_function.set_pointers(Ca, Cb)
+            grad_phi = [np.zeros((npoints, 2)) for i_orb in range(self.nbf)]
+
+        offset = 0
+        for i_block in blocks:
+            points_function.compute_points(i_block)
+            b_points = i_block.npoints()
+            offset += b_points
+            lpos = np.array(i_block.functions_local_to_global())
+            if len(lpos)==0:
+                continue
+            
+            #Obtain subset of phi_@ matrix
+            gx = np.array(points_function.basis_values()["PHI_X"])[:b_points, :lpos.shape[0]]
+            gy = np.array(points_function.basis_values()["PHI_Y"])[:b_points, :lpos.shape[0]]
+            gz = np.array(points_function.basis_values()["PHI_Z"])[:b_points, :lpos.shape[0]]
+
+            for i_orb in range(self.nbf):
+                Ca_local = Ca.np[lpos, i_orb][:,None]
+                if self.ref == 1:
+                    grad_phi[i_orb][offset - b_points : offset] += ((gx + gy + gz) @ Ca_local)[:,0]
+                if self.ref == 2:
+                    Cb_local = Cb.np[lpos, i_orb][:,None]
+                    grad_phi[i_orb][offset - b_points : offset, 0] += ((gx + gy + gz) @ Ca_local)[:,0]
+                    grad_phi[i_orb][offset - b_points : offset, 1] += ((gx + gy + gz) @ Cb_local)[:,0]
+
+        return grad_phi
 
     def dft_grid_to_fock(self, value, Vpot):
         """For value on DFT spherical grid, Fock matrix is returned.
@@ -618,3 +761,13 @@ class Grider(Cubeprop):
             i += npoints
         assert i == value.shape[0], "Did not run through all the points. %i %i" %(i, value.shape[0])
         return VFock
+
+
+    #Miscellaneous
+    def get_basis_set_correction(self, grid=None):
+        osc_profile = basis_set_correction(self, grid)
+        return osc_profile
+    
+    def invert_kohn_sham_equations(self, wfn, grid=None):
+        vxc_inverted = invert_kohn_sham_equations(self, wfn, grid)
+        return vxc_inverted
