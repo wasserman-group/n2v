@@ -122,13 +122,14 @@ class Grider(Cubeprop):
 
         return grid, shape
 
-    def generate_dft_grid(self, wfn):
+    def generate_dft_grid(self, vpot):
         """
         Extracts DFT spherical grid and weights from wfn object
 
         Parameters
         ----------
-        wfn: psi4.core.{RKS, UKS}
+        vpot: psi4.core.VBase
+            Vpot object with dft grid data
 
         Returns
         -------
@@ -137,11 +138,6 @@ class Grider(Cubeprop):
             Shape: (4, npoints)
         
         """
-
-        try:
-            vpot = wfn.V_potential()
-        except:
-            raise ValueError("Wfn object does not contain a Vpotential object. Try with one obtained from a DFT calculation")
 
         nblocks = vpot.nblocks()
         blocks = [vpot.get_block(i) for i in range(nblocks)]
@@ -160,7 +156,6 @@ class Grider(Cubeprop):
             dft_grid[3, offset - b_points : offset] = i_block.w().np
 
         return dft_grid
-
 
     #Quantities on Grid
     def on_grid_ao(self, coeff, grid=None, basis=None, vpot=None):
@@ -762,12 +757,6 @@ class Grider(Cubeprop):
         assert i == value.shape[0], "Did not run through all the points. %i %i" %(i, value.shape[0])
         return VFock
 
-
     #Miscellaneous
-    def get_basis_set_correction(self, grid=None):
-        osc_profile = basis_set_correction(self, grid)
-        return osc_profile
-    
-    def invert_kohn_sham_equations(self, wfn, grid=None):
-        vxc_inverted = invert_kohn_sham_equations(self, wfn, grid)
-        return vxc_inverted
+    def get_basis_set_correction(self, grid):
+        return basis_set_correction(self, grid)    
