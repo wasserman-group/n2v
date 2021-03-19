@@ -107,30 +107,28 @@ class ZMP():
             elif zmp_functional == 'exp':
                 Sa0 = Da0 ** 0.05
                 Sb0 = Db0 ** 0.05
-
             self.Sa0 = self.dft_grid_to_fock(Sa0, Vpot=self.vpot)
-            self.Sb0 = self.dft_grid_to_fock(Sb0, Vpot=self.vpot)
+            if self.ref == 2:
+                self.Sb0 = self.dft_grid_to_fock(Sb0, Vpot=self.vpot)
+            else: 
+                self.Sb0 = self.Sa0.copy()
 
         vc_previous = np.zeros((self.nbf, self.nbf))
         self.Da = self.nt[0]
         self.Db = self.nt[1]
-
-        grid_diff_old = 100.0
-
-        self.proto_density_a =  0.0
-        self.proto_density_b =  0.0
-
-
         Da = self.nt[0]
         Db = self.nt[1]
         Cocca = self.ct[0]
         Coccb = self.ct[1]
+
+        grid_diff_old = 1/np.finfo(float).eps
+        self.proto_density_a =  np.zeros_like(Da)
+        self.proto_density_b =  np.zeros_like(Db)
+
 #------------->  Iterating over lambdas:
         for lam_i in lambda_list:
             self.shift = 0.1 * lam_i
-
             D_old = self.nt[0]
-            # vc_old = np.zeros_like(Da)
 
             # Trial & Residual Vector Lists
             state_vectors_a, state_vectors_b = [], []
@@ -139,9 +137,6 @@ class ZMP():
             for SCF_ITER in range(1,maxiter):
 
 #------------->  Generate Fock Matrix:
-                Fa = np.zeros((self.nbf, self.nbf))
-                Fb = np.zeros((self.nbf, self.nbf))
-
                 vc = self.generate_s_functional(lam_i,
                                                 zmp_functional,
                                                 Cocca, Coccb, 
@@ -150,16 +145,14 @@ class ZMP():
                 # #Potential mixing
                 # vc = (1-self.mixing) * vc + (self.mixing) * vc_old
 
-                #Equation 10 of Reference (1)
-                Fa += self.T + self.V + self.va + vc + vc_previous
-                Fb += self.T + self.V + self.vb + vc + vc_previous
-                # REAL Linear Mixing
-                # Fa += self.T + self.V + self.va + vc
-                # Fb += self.T + self.V + self.vb + vc
-
-                #Level Shift
+                #Equation 10 of Reference (1). Level shift. 
+                Fa = self.T + self.V + self.va + vc + vc_previous
                 Fa += (self.S2 - reduce(np.dot, (self.S2, Da, self.S2))) * self.shift
-                Fb += (self.S2 - reduce(np.dot, (self.S2, Db, self.S2))) * self.shift
+
+                if self.ref == 2:
+                    Fb = self.T + self.V + self.vb + vc + vc_previous
+                    Fb += (self.S2 - reduce(np.dot, (self.S2, Db, self.S2))) * self.shift
+                
 
     #------------->  DIIS:
                 if SCF_ITER > 1:
@@ -172,8 +165,10 @@ class ZMP():
                         state_vectors_a.append(Fa.copy())
                         error_vectors_a.append(grad_a.copy())
                     else:
-                        del state_vectors_a[0]
-                        del error_vectors_a[0]
+                        state_vectors_a.append(Fa.copy())
+                        error_vectors_a.append(grad_a.copy())
+                        del state_vectors_a[-1]
+                        del error_vectors_a[-1]
 
                     #Build inner product of error vectors
                     Bdim = len(state_vectors_a)
@@ -213,8 +208,10 @@ class ZMP():
                             state_vectors_b.append(Fb.copy())
                             error_vectors_b.append(grad_b.copy())
                         else:
-                            del state_vectors_b[0]
-                            del error_vectors_b[0]
+                            state_vectors_b.append(Fb.copy())
+                            error_vectors_b.append(grad_b.copy())
+                            del state_vectors_b[-1]
+                            del error_vectors_b[-1]
 
                         for i in range(len(state_vectors_b)):
                             for j in range(len(state_vectors_b)):
@@ -258,17 +255,16 @@ class ZMP():
             grid_diff = np.max(np.abs(D0 - density_current))
             if np.abs(grid_diff_old) < np.abs(grid_diff):
                 print(f"\nZMP halted. Density Error Stops Updating: old: {grid_diff_old}, current: {grid_diff}.")
-                # VXC is hartree-like Potential. We remove Fermi_Amaldi Guess.
-                self.proto_density_a += lam_i * (Da - self.nt[0]) * self.mixing
-                self.proto_density_b += lam_i * (Db - self.nt[1]) * self.mixing
-                vc_previous += vc * self.mixing
                 break
 
             grid_diff_old = grid_diff
             print(f"SCF Converged for lambda:{int(lam_i):5d}. Max density difference: {grid_diff}")
             #VXC is hartree-like Potential. We remove Fermi_Amaldi Guess.
             self.proto_density_a += lam_i * (Da - self.nt[0]) * self.mixing
-            self.proto_density_b += lam_i * (Db - self.nt[1]) * self.mixing
+            if self.ref == 2:
+                self.proto_density_b += lam_i * (Db - self.nt[1]) * self.mixing
+            else:
+                self.proto_density_b = self.proto_density_a.copy()
             vc_previous += vc * self.mixing
             # REAL LINEAR MIXING
             # if not np.isclose(np.linalg.norm(vc_previous), 0): # dont mix for first lambda
@@ -281,17 +277,25 @@ class ZMP():
             #     self.proto_density_b = lam_i * (Db - self.nt[1])
 
         self.proto_density_a -= lam_i * (Da - self.nt[0]) * self.mixing
-        self.proto_density_b -= lam_i * (Db - self.nt[1]) * self.mixing
         self.proto_density_a += lam_i * (Da - self.nt[0])
-        self.proto_density_b += lam_i * (Db - self.nt[1])
         self.proto_density_a -= (1 / (self.nalpha + self.nbeta)) * (self.nt[0])
-        self.proto_density_b -= (1 / (self.nbeta + self.nalpha)) * (self.nt[1])
         self.Da = Da
-        self.Db = Db
         self.Ca = Ca
-        self.Cb = Cb
         self.Coca = Cocca
-        self.Cocb = Coccb
+
+        if self.ref == 2:
+            self.proto_density_b -= lam_i * (Db - self.nt[1]) * self.mixing
+            self.proto_density_b += lam_i * (Db - self.nt[1])
+            self.proto_density_b -= (1 / (self.nbeta + self.nalpha)) * (self.nt[1])
+            self.Db = Db
+            self.Cb = Cb
+            self.Cocb = Coccb
+
+        else:
+            self.proto_density_b = self.proto_density_a.copy()
+            self.Db = self.Da.copy()
+            self.Cb = self.Ca.copy()
+            self.Cocb = self.Coca.copy()
 
 
     def generate_s_functional(self, lam, zmp_functional, Cocca, Coccb, Da, Db):
