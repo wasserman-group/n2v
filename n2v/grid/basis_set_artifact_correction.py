@@ -5,7 +5,6 @@ Basis Set Artifact Correction.
 import numpy as np
 from warnings import warn
 import psi4
-np.seterr(divide='ignore', invalid='ignore')
 
 def invert_kohn_sham_equations(self, wfn, grid):
     """
