@@ -18,8 +18,8 @@ from .methods.zmp import ZMP
 from .methods.mrks import MRKS
 from .methods.oucarter import OC
 from .methods.pdeco import PDECO
+from .methods.direct import Direct
 from .grid.grider import Grider
-
 
 @dataclass
 class data_bucket:
@@ -29,7 +29,7 @@ class data_bucket:
     pass
 
 
-class Inverter(WuYang, ZMP, MRKS, OC, PDECO, Grider):
+class Inverter(Direct, WuYang, ZMP, MRKS, OC, PDECO, Grider):
     """
     Attributes:
     ----------
@@ -127,9 +127,8 @@ class Inverter(WuYang, ZMP, MRKS, OC, PDECO, Grider):
 
         self.grid = data_bucket
         self.cubic_grid = data_bucket
-
+        
         self.J0 = None
-
         self.S4 = None  # Entry to save the 4 overlap matrix.
 
     #------------->  Basics:
@@ -240,6 +239,16 @@ class Inverter(WuYang, ZMP, MRKS, OC, PDECO, Grider):
             Maximum number of iterations inside the chosen inversion.
             Default: 50
 
+        direct
+        ------
+        Direct inversion of a set of Kohn-Sham equations. 
+        $$v_{xc}(r) = \frac{1}{n(r)} \sum_i^N [\phi_i^{*} (r) \nabla^2 \phi_i(r) + \varepsilon_i | \phi_i(r)|^2] $$
+            Parameters:
+            -----------
+                grid: np.ndarray, opt
+                    Grid where result will be expressed in.
+                    If not provided, dft grid will be used instead. 
+                
         wuyang
         ------
         the Wu-Yang method:
@@ -273,23 +282,23 @@ class Inverter(WuYang, ZMP, MRKS, OC, PDECO, Grider):
         ---
         The Zhao-Morrison-Parr Method:
         Phys. Rev. A 50, 2138 
-        Parameters:
-        ----------
-            lambda_list: list
-                List of Lamda parameters used as a coefficient for Hartree 
-                difference in SCF cycle. 
-            zmp_functional: str
-                Specifies what functional to use to drive the SCF procedure.
-                Options: {'hartree', 'log', 'exp', 'grad'}
-            zmp_mixing: float
-                mixing \in [0,1]. How much of the new potential is added in 
-                a given scf step. Values close to 1 may prevent SCF to convergence. 
-            opt_max_iter: float
-                Maximum number of iterations for scf cycle
-            opt_tol: float
-                Convergence criteria set for Density Difference and DIIS error. 
-            return:
-                The result will be stored in self.grid.vxc
+            Parameters:
+            ----------
+                lambda_list: list
+                    List of Lamda parameters used as a coefficient for Hartree 
+                    difference in SCF cycle. 
+                zmp_functional: str
+                    Specifies what functional to use to drive the SCF procedure.
+                    Options: {'hartree', 'log', 'exp', 'grad'}
+                zmp_mixing: float
+                    mixing \in [0,1]. How much of the new potential is added in 
+                    a given scf step. Values close to 1 may prevent SCF to convergence. 
+                opt_max_iter: float
+                    Maximum number of iterations for scf cycle
+                opt_tol: float
+                    Convergence criteria set for Density Difference and DIIS error. 
+                return:
+                    The result will be stored in self.grid.vxc
 
         mRKS
         ----
@@ -401,15 +410,18 @@ class Inverter(WuYang, ZMP, MRKS, OC, PDECO, Grider):
                 the result are stored in self.v_pbs
         """
 
-
+        #Generate Guide Potential
         if method.lower()=='mrks':
             if guide_potential_components[0] != 'hartree' or len(guide_potential_components) != 1:
                 print("The guide potential is changed to v_hartree.")
             self.generate_components(["hartree"])
-        else:
+        elif method.lower() != 'direct':
             self.generate_components(guide_potential_components)
 
-        if method.lower() == "wuyang":
+        #Invert
+        if method.lower() == "direct":
+            return self.direct_inversion(**keywords)
+        elif method.lower() == "wuyang":
             self.wuyang(opt_max_iter, **keywords)
         elif method.lower() == "zmp":
             self.zmp(opt_max_iter, **keywords)
@@ -440,7 +452,7 @@ class Inverter(WuYang, ZMP, MRKS, OC, PDECO, Grider):
         N = self.nalpha + self.nbeta
 
         if self.J0 is None:
-            if self.wfn.name() != "RHF" or self.wfn.name() != "UHF":
+            if type(self.wfn) == psi4.core.CCWavefunction:
                 nbf = self.nbf
                 C_NO = psi4.core.Matrix(nbf, nbf)
                 eigs_NO = psi4.core.Vector(nbf)
