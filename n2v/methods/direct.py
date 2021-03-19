@@ -21,6 +21,8 @@ class Direct():
         grid: np.ndarray. Shape: (3xnpoints)
             Grid used to compute correction. 
             If None, dft grid is used. 
+        correction: bool
+            Adds correction for spurious basis set artifacts
 
         Returns:
         --------
