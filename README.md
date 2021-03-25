@@ -8,22 +8,25 @@ n(r) to v(r)
 [![codecov](https://codecov.io/gh/VHchavez/n2v/branch/main/graph/badge.svg?token=4B8r0cQ2Wk)](https://codecov.io/gh/VHchavez/n2v)
 [![licence](https://img.shields.io/github/license/wasserman-group/n2v?color=blue)](https://github.com/wasserman-group/n2v/blob/main/LICENSE)
 
-
 ### Getting started: 
-- Use a Python environment (<3.7).
-- Clone and install from this repository.
+- We recommend the use of a conda environment (<3.7).
 - If installing in Windows, we recommend the use of [WSL](https://docs.microsoft.com/en-us/windows/wsl/install-win10).
 
+#### Installation: 
+
+- Through pip:
 ```
-git clone https://github.com/wasserman-group/n2v.git
-cd n2v
-pip install . 
+pip install ntov 
 ```
-- Libxc and pylibxc must be installed as well. 
+- conda coming soon!
+
+
+#### Additional dependencies: 
+- Libxc *and* pylibxc must be installed as well. 
 ```
 conda install -c conda-forge libxc
 ```
-- To communicate libxc with your python site-packages folder (using bash):
+- To communicate libxc with your python site-packages folder:
 ```
 wget http://www.tddft.org/programs/libxc/down.php?file=5.0.0/libxc-5.0.0.tar.gz
 tar -xf libxc-5.0.0.tar.gz
