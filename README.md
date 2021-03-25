@@ -8,18 +8,17 @@ n(r) to v(r)
 [![codecov](https://codecov.io/gh/VHchavez/n2v/branch/main/graph/badge.svg?token=4B8r0cQ2Wk)](https://codecov.io/gh/VHchavez/n2v)
 [![licence](https://img.shields.io/github/license/wasserman-group/n2v?color=blue)](https://github.com/wasserman-group/n2v/blob/main/LICENSE)
 
-### Getting started: 
-- We recommend the use of a conda environment (<3.7).
-- If installing in Windows, we recommend the use of [WSL](https://docs.microsoft.com/en-us/windows/wsl/install-win10).
 
-#### Installation: 
+### Tutorials:
+Learn how to use `n2v` with these [examples](https://github.com/wasserman-group/n2v_examples) or try it without installing: [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/wasserman-group/n2v_examples/HEAD)
+
+### Installation: 
 
 - Through pip:
 ```
 pip install ntov 
 ```
 - conda coming soon!
-
 
 #### Additional dependencies: 
 - Libxc *and* pylibxc must be installed as well. 
@@ -34,12 +33,11 @@ cd libxc-5.0.0
 python setup.py install
 ```
 
+### Additional Information: 
+- We recommend the use of a conda environment (<3.7).
+- If installing in Windows, we recommend the use of [WSL](https://docs.microsoft.com/en-us/windows/wsl/install-win10).
 - If any unexpected error occurs, please contact us at: gonza445@purdue.edu 
 
-### Tutorials:
-Learn how to use n2v with these [examples](https://github.com/wasserman-group/n2v_examples).  
-Or try it [without installing](https://jupyter.org/binder)
-  
 ### Copyright
 Copyright (c) 2021, Wasserman Group  
 
