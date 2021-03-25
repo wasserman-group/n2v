@@ -21,7 +21,7 @@ except:
 
 setup(
     # Self-descriptive entries which should always be present
-    name='n2v',
+    name='ntov',
     author='Wasserman Group',
     author_email='gonza445@purdue.edu',
     description=short_description[0],
