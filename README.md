@@ -10,7 +10,7 @@ n(r) to v(r)
 
 
 ### Tutorials:
-Learn how to use `n2v` with these [examples](https://github.com/wasserman-group/n2v_examples) or try it without installing: [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/wasserman-group/n2v_examples/HEAD)
+- Learn how to use `n2v` with these [examples](https://github.com/wasserman-group/n2v_examples) or try it without installing: [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/wasserman-group/n2v_examples/HEAD)
 
 ### Installation: 
 
