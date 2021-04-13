@@ -285,7 +285,7 @@ class ZMP():
         self.Da = Da
         self.Ca = Ca
         self.Coca = Cocca
-        self.eigs_a = eigs_a
+        self.eigvecs_a = eigs_a
 
         if self.ref == 2:
             self.proto_density_b -= lam_i * (Db - self.nt[1]) * self.mixing
@@ -294,14 +294,14 @@ class ZMP():
             self.Db = Db
             self.Cb = Cb
             self.Cocb = Coccb
-            self.eigs_b = eigs_a
+            self.eigvecs_b = eigs_b
 
         else:
             self.proto_density_b = self.proto_density_a.copy()
             self.Db = self.Da.copy()
             self.Cb = self.Ca.copy()
             self.Cocb = self.Coca.copy()
-            self.eigs_b = self.eigs_a.copy()
+            self.eigvecs_b = self.eigvecs_a.copy()
 
 
     def generate_s_functional(self, lam, zmp_functional, Cocca, Coccb, Da, Db):
