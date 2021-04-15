@@ -18,6 +18,7 @@ class ZMP():
             lambda_list=[70],
             zmp_functional='hartree',
             zmp_mixing = 1,
+            print_scf = False, 
             ):
 
         """
@@ -57,12 +58,13 @@ class ZMP():
         self.mixing = zmp_mixing
 
         print("\nRunning ZMP:")
-        self.zmp_scf(lambda_list, zmp_functional, opt_max_iter, D_conv=opt_tol)
+        self.zmp_scf(lambda_list, zmp_functional, opt_max_iter, print_scf, D_conv=opt_tol)
 
     def zmp_scf(self, 
             lambda_list,
             zmp_functional,
             maxiter, 
+            print_scf,
             D_conv):
         """
         Performs scf cycle
@@ -243,8 +245,9 @@ class ZMP():
                 derror = np.max(np.abs(ddm))
 
                 #Uncomment to debug internal SCF
-                # if len(lambda_list==1) and np.mod(SCF_ITER,5) == 0.0:
-                #    print(f"Iteration: {SCF_ITER:3d} | Self Convergence Error: {derror:10.5e} | DIIS Error: {diis_error:10.5e}")
+                if print_scf is True:
+                    if np.mod(SCF_ITER,5) == 0.0:
+                        print(f"Iteration: {SCF_ITER:3d} | Self Convergence Error: {derror:10.5e} | DIIS Error: {diis_error:10.5e}")
                 
                 if abs(derror) < D_conv and abs(diis_error) < D_conv:
                     break
@@ -282,6 +285,7 @@ class ZMP():
         self.Da = Da
         self.Ca = Ca
         self.Coca = Cocca
+        self.eigvecs_a = eigs_a
 
         if self.ref == 2:
             self.proto_density_b -= lam_i * (Db - self.nt[1]) * self.mixing
@@ -290,12 +294,14 @@ class ZMP():
             self.Db = Db
             self.Cb = Cb
             self.Cocb = Coccb
+            self.eigvecs_b = eigs_b
 
         else:
             self.proto_density_b = self.proto_density_a.copy()
             self.Db = self.Da.copy()
             self.Cb = self.Ca.copy()
             self.Cocb = self.Coca.copy()
+            self.eigvecs_b = self.eigvecs_a.copy()
 
 
     def generate_s_functional(self, lam, zmp_functional, Cocca, Coccb, Da, Db):
