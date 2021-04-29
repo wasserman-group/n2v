@@ -112,7 +112,7 @@ class OC():
         epsilon_b_LDA = wfn_LDA.epsilon_b().np
         self.Vpot = wfn_LDA.V_potential()
 
-        vxc_LDA_DFT = self.on_grid_vxc(Da=Da_LDA, Db=Db_LDA, vpot=self.Vpot)
+        vxc_LDA_DFT = self.on_grid_vxc(Da=Da_LDA, Db=Db_LDA, Vpot=self.Vpot)
         vxc_LDA = self.on_grid_vxc(Da=Da_LDA, Db=Db_LDA, grid=grid_info)
         if self.ref != 1:
             assert vxc_LDA.shape[-1] == 2
@@ -269,7 +269,7 @@ class OC():
             self.eigvecs_b = np.array(wfn_temp.epsilon_b())
             del wfn_temp
 
-        # nerror = self.on_grid_density(Da=self.nt[0]-self.Da, Db=self.nt[1]-self.Da, vpot=self.Vpot)
+        # nerror = self.on_grid_density(Da=self.nt[0]-self.Da, Db=self.nt[1]-self.Da, Vpot=self.Vpot)
         # w = self.Vpot.get_np_xyzw()[-1]
         # nerror = np.sum(np.abs(nerror.T) * w)
         # print("nerror", nerror)
@@ -332,7 +332,7 @@ class OC():
 
 
             print(f"Iter: {OC_step}, Density Change: {Derror:2.2e}, Eigenvalue Change: {eerror:2.2e}.")
-            # nerror = self.on_grid_density(Da=self.nt[0] - self.Da, Db=self.nt[1] - self.Da, vpot=self.Vpot)
+            # nerror = self.on_grid_density(Da=self.nt[0] - self.Da, Db=self.nt[1] - self.Da, Vpot=self.Vpot)
             # nerror = np.sum(np.abs(nerror.T) * w)
             # print("nerror", nerror)
 

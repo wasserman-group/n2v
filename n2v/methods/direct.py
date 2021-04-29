@@ -63,16 +63,16 @@ class Direct():
             
         else:
             #Use DFT grid
-            vpot = wfn.V_potential()
-            orb       = self.on_grid_orbitals(Ca=wfn.Ca().np, Cb=wfn.Cb().np, vpot=vpot)
-            lap       = self.on_grid_lap_phi(Ca=wfn.Ca().np, Cb=wfn.Cb().np, vpot=vpot)
-            vex, vha  = self.on_grid_esp(Da=wfn.Da().np, Db=wfn.Db().np, vpot=vpot)[:2]
-            den       = self.on_grid_density(Da=wfn.Da().np, Db=wfn.Db().np, vpot=vpot)
+            Vpot = wfn.V_potential()
+            orb       = self.on_grid_orbitals(Ca=wfn.Ca().np, Cb=wfn.Cb().np, Vpot=Vpot)
+            lap       = self.on_grid_lap_phi(Ca=wfn.Ca().np, Cb=wfn.Cb().np, Vpot=Vpot)
+            vex, vha  = self.on_grid_esp(Da=wfn.Da().np, Db=wfn.Db().np, Vpot=Vpot)[:2]
+            den       = self.on_grid_density(Da=wfn.Da().np, Db=wfn.Db().np, Vpot=Vpot)
             eig_a = wfn.epsilon_a_subset("AO", "ALL").np
 
             #Calculate correction
             if correction is True:
-                dft_grid = self.generate_dft_grid(vpot)
+                dft_grid = self.generate_dft_grid(Vpot)
                 osc_profile = self.get_basis_set_correction(dft_grid)
 
         #Build Reversed LDA from orbitals and density

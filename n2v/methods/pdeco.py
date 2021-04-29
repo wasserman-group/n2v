@@ -80,6 +80,9 @@ class PDECO():
         """
         if wfn is None:
             wfn = self.wfn
+
+        print(f"4-AO-Overlap tensor will take about {self.nbf **4 / 8 * 1e-9:d} GB.")
+
         mints = psi4_mintshelper( self.basis )
 
         aux_basis = psi4_basiset.build(wfn.molecule(), "DF_BASIS_SCF", "",

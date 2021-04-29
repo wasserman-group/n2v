@@ -51,11 +51,11 @@ def invert_kohn_sham_equations(self, wfn, grid):
         
     else:
         #Use DFT grid
-        vpot = wfn.V_potential()
-        orb       = self.on_grid_orbitals(Ca=wfn.Ca().np, Cb=wfn.Cb().np, vpot=vpot)
-        lap       = self.on_grid_lap_phi(Ca=wfn.Ca().np, Cb=wfn.Cb().np, vpot=vpot)
-        vex, vha  = self.on_grid_esp(Da=wfn.Da().np, Db=wfn.Db().np, vpot=vpot)[:2]
-        den       = self.on_grid_density(Da=wfn.Da().np, Db=wfn.Db().np, vpot=vpot)
+        Vpot = wfn.V_potential()
+        orb       = self.on_grid_orbitals(Ca=wfn.Ca().np, Cb=wfn.Cb().np, Vpot=Vpot)
+        lap       = self.on_grid_lap_phi(Ca=wfn.Ca().np, Cb=wfn.Cb().np, Vpot=Vpot)
+        vex, vha  = self.on_grid_esp(Da=wfn.Da().np, Db=wfn.Db().np, Vpot=Vpot)[:2]
+        den       = self.on_grid_density(Da=wfn.Da().np, Db=wfn.Db().np, Vpot=Vpot)
         eig_a = wfn.epsilon_a_subset("AO", "ALL").np
 
     #Build Reversed LDA from orbitals and density
@@ -130,12 +130,12 @@ def basis_set_correction(self, grid):
         
     else:
         #Use DFT grid from LDA calculation
-        vpot = correction_wfn.V_potential()
-        orb       = self.on_grid_orbitals(Ca=correction_wfn.Ca().np, Cb=correction_wfn.Cb().np, vpot=vpot)
-        lap       = self.on_grid_lap_phi(Ca=correction_wfn.Ca().np, Cb=correction_wfn.Cb().np, vpot=vpot)
-        vex, vha  = self.on_grid_esp(Da=correction_wfn.Da().np, Db=correction_wfn.Db().np, vpot=vpot)[:2]
-        vxc_lda   = self.on_grid_vxc(Da=correction_wfn.Da().np, Db=correction_wfn.Db().np, vpot=vpot)
-        den       = self.on_grid_density(Da=correction_wfn.Da().np, Db=correction_wfn.Db().np, vpot=vpot)
+        Vpot = correction_wfn.V_potential()
+        orb       = self.on_grid_orbitals(Ca=correction_wfn.Ca().np, Cb=correction_wfn.Cb().np, Vpot=Vpot)
+        lap       = self.on_grid_lap_phi(Ca=correction_wfn.Ca().np, Cb=correction_wfn.Cb().np, Vpot=Vpot)
+        vex, vha  = self.on_grid_esp(Da=correction_wfn.Da().np, Db=correction_wfn.Db().np, Vpot=Vpot)[:2]
+        vxc_lda   = self.on_grid_vxc(Da=correction_wfn.Da().np, Db=correction_wfn.Db().np, Vpot=Vpot)
+        den       = self.on_grid_density(Da=correction_wfn.Da().np, Db=correction_wfn.Db().np, Vpot=Vpot)
         eig_a = correction_wfn.epsilon_a_subset("AO", "ALL").np
     
     #Build Reversed LDA from orbitals and density

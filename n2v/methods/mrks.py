@@ -509,7 +509,7 @@ class MRKS():
             self._diagonalize_with_potential_vFock(v=vxc_Fock)
 
             print(f"Iter: {mRKS_step}, Density Change: {Derror:2.2e}, Eigenvalue Change: {eerror:2.2e}, "
-                  "Potential Change: {verror:2.2e}.")
+                  f"Potential Change: {verror:2.2e}.")
 
         if vxc_grid is not None:
             grid_info = self.grid_to_blocks(vxc_grid)
