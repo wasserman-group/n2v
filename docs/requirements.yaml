@@ -1,12 +1,21 @@
 name: docs
 channels:
+  - conda-forge
+  - psi4
+  - defaults
 dependencies:
     # Base depends
   - python
   - pip
+  - numpy
+  - scipy
+  - psi4
 
-
+    # Testing
+  - pytest
+  - pytest-cov
+  - codecov
 
     # Pip-only installs
-  #- pip:
-
+  - pip:
+    - opt-einsum
