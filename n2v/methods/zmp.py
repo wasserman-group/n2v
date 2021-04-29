@@ -89,12 +89,12 @@ class ZMP():
             functional = psi4.driver.dft.build_superfunctional("SVWN", restricted=True if self.ref==1 else False)[0]
             Vpot = psi4.core.VBase.build(self.basis, functional, ref)
             Vpot.initialize()
-            self.vpot = Vpot
+            self.Vpot = Vpot
         else:
-            self.vpot = self.wfn.V_potential()
+            self.Vpot = self.wfn.V_potential()
 
         # Obtain target density on dft_grid 
-        D0 = self.on_grid_density(grid=None, Da=self.nt[0], Db=self.nt[1],  vpot=self.vpot)
+        D0 = self.on_grid_density(grid=None, Da=self.nt[0], Db=self.nt[1],  Vpot=self.Vpot)
 
         #Calculate kernels
         if zmp_functional.lower() != 'hartree':
@@ -109,9 +109,9 @@ class ZMP():
             elif zmp_functional == 'exp':
                 Sa0 = Da0 ** 0.05
                 Sb0 = Db0 ** 0.05
-            self.Sa0 = self.dft_grid_to_fock(Sa0, Vpot=self.vpot)
+            self.Sa0 = self.dft_grid_to_fock(Sa0, Vpot=self.Vpot)
             if self.ref == 2:
-                self.Sb0 = self.dft_grid_to_fock(Sb0, Vpot=self.vpot)
+                self.Sb0 = self.dft_grid_to_fock(Sb0, Vpot=self.Vpot)
             else: 
                 self.Sb0 = self.Sa0.copy()
 
@@ -256,7 +256,7 @@ class ZMP():
                 if SCF_ITER == maxiter - 1:
                     raise ValueError("ZMP Error: Maximum Number of SCF cycles reached. Try different settings.")
 
-            density_current = self.on_grid_density(grid=None, Da=Da, Db=Db, vpot=self.vpot)
+            density_current = self.on_grid_density(grid=None, Da=Da, Db=Db, Vpot=self.Vpot)
             grid_diff = np.max(np.abs(D0 - density_current))
             if np.abs(grid_diff_old) < np.abs(grid_diff):
                 print(f"\nZMP halted. Density Error Stops Updating: old: {grid_diff_old}, current: {grid_diff}.")
@@ -331,7 +331,7 @@ class ZMP():
 
         else:
 
-            D = self.on_grid_density(vpot=self.vpot, Da=Da, Db=Db)
+            D = self.on_grid_density(Vpot=self.Vpot, Da=Da, Db=Db)
 
             if self.ref == 1:
                 Da, Db = D[:,0], D[:,0]
@@ -348,8 +348,8 @@ class ZMP():
                 Sb = Db ** 0.05
 
             #Generate AO matrix from functions. 
-            Sa = self.dft_grid_to_fock(Sa, Vpot=self.vpot)
-            Sb = self.dft_grid_to_fock(Sb, Vpot=self.vpot)
+            Sa = self.dft_grid_to_fock(Sa, Vpot=self.Vpot)
+            Sb = self.dft_grid_to_fock(Sb, Vpot=self.Vpot)
             vc = (Sa + Sb) - (self.Sa0 + self.Sb0)
 
         return vc
