@@ -322,7 +322,7 @@ class ZMP():
             if self.ref == 1:
                 vc_a = 2 * lam * ( J[0] - self.J0[0] ) 
                 vc = [vc_a]
-            if self.ref == 2:
+            else:
                 vc_a = lam * ( J[0] - self.J0[0] ) 
                 vc = [vc_a]
                 vc_b = lam * ( J[1] - self.J0[1] )
