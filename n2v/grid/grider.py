@@ -122,13 +122,13 @@ class Grider(Cubeprop):
 
         return grid, shape
 
-    def generate_dft_grid(self, vpot):
+    def generate_dft_grid(self, Vpot):
         """
         Extracts DFT spherical grid and weights from wfn object
 
         Parameters
         ----------
-        vpot: psi4.core.VBase
+        Vpot: psi4.core.VBase
             Vpot object with dft grid data
 
         Returns
@@ -139,11 +139,11 @@ class Grider(Cubeprop):
         
         """
 
-        nblocks = vpot.nblocks()
-        blocks = [vpot.get_block(i) for i in range(nblocks)]
-        npoints = vpot.grid().npoints()
+        nblocks = Vpot.nblocks()
+        blocks = [Vpot.get_block(i) for i in range(nblocks)]
+        npoints = Vpot.grid().npoints()
 
-        dft_grid = np.empty((4, npoints))
+        dft_grid = np.zeros((4, npoints))
 
         offset = 0
         for i_block in blocks:
@@ -158,7 +158,7 @@ class Grider(Cubeprop):
         return dft_grid
 
     #Quantities on Grid
-    def on_grid_ao(self, coeff, grid=None, basis=None, vpot=None):
+    def on_grid_ao(self, coeff, grid=None, basis=None, Vpot=None):
         """
         Generates a quantity on the grid given its ao representation.
         *This is the most general function for basis to grid transformation.
@@ -171,7 +171,7 @@ class Grider(Cubeprop):
             grid where density will be computed.
         basis: psi4.core.BasisSet, optional
             The basis set. If not given it will use target wfn.basisset().
-        vpot: psi4.core.VBase
+        Vpot: psi4.core.VBase
             Vpotential object with info about grid. 
             Provides DFT spherical grid. Only comes to play if no grid is given. 
 
@@ -192,15 +192,15 @@ class Grider(Cubeprop):
                 blocks, npoints, points_function = self.grid_to_blocks(grid, basis=basis)
             else:
                 blocks, npoints, points_function = grid
-        elif grid is None and vpot is not None:
-            nblocks = vpot.nblocks()
-            blocks = [vpot.get_block(i) for i in range(nblocks)]
-            npoints = vpot.grid().npoints()
-            points_function = vpot.properties()[0]
+        elif grid is None and Vpot is not None:
+            nblocks = Vpot.nblocks()
+            blocks = [Vpot.get_block(i) for i in range(nblocks)]
+            npoints = Vpot.grid().npoints()
+            points_function = Vpot.properties()[0]
         else:
             raise ValueError("A grid or a V_potential (DFT grid) must be given.")
 
-        coeff_r = np.empty((npoints))
+        coeff_r = np.zeros((npoints))
 
         offset = 0
         for i_block in blocks:
@@ -224,7 +224,7 @@ class Grider(Cubeprop):
     def on_grid_density(self, grid=None,
                               Da=None, 
                               Db=None,
-                              vpot=None):
+                              Vpot=None):
         """
         Generates Density given grid
 
@@ -234,7 +234,7 @@ class Grider(Cubeprop):
             Alpha, Beta densities. Shape: (num_ao_basis, num_ao_basis)
         grid: np.ndarray Shape: (3, npoints) or (4, npoints) or tuple for block_handler (return of grid_to_blocks)
             grid where density will be computed.
-        vpot: psi4.core.VBase
+        Vpot: psi4.core.VBase
             Vpotential object with info about grid.
             Provides DFT spherical grid. Only comes to play if no grid is given. 
 
@@ -245,8 +245,8 @@ class Grider(Cubeprop):
         """
 
         if Da is None and Db is None:
-            Da = psi4.core.Matrix.from_array(self.Da)
-            Db = psi4.core.Matrix.from_array(self.Db)
+            Da = psi4.core.Matrix.from_array(self.nt[0])
+            Db = psi4.core.Matrix.from_array(self.nt[1])
         else:
             Da = psi4.core.Matrix.from_array(Da)
             Db = psi4.core.Matrix.from_array(Db)
@@ -262,11 +262,11 @@ class Grider(Cubeprop):
                 blocks, npoints, points_function = self.grid_to_blocks(grid)
             else:
                 blocks, npoints, points_function = grid
-        elif grid is None and vpot is not None:
-            nblocks = vpot.nblocks()
-            blocks = [vpot.get_block(i) for i in range(nblocks)]
-            npoints = vpot.grid().npoints()
-            points_function = vpot.properties()[0]
+        elif grid is None and Vpot is not None:
+            nblocks = Vpot.nblocks()
+            blocks = [Vpot.get_block(i) for i in range(nblocks)]
+            npoints = Vpot.grid().npoints()
+            points_function = Vpot.properties()[0]
         else:
             raise ValueError("A grid or a V_potential (DFT grid) must be given.")
 
@@ -274,12 +274,12 @@ class Grider(Cubeprop):
         if self.ref == 1:
             points_function.set_pointers(Da)
             rho_a = points_function.point_values()["RHO_A"]
-            density   = np.empty((npoints))
+            density   = np.zeros((npoints))
         if self.ref == 2:
             points_function.set_pointers(Da, Db)
             rho_a = points_function.point_values()["RHO_A"]
             rho_b = points_function.point_values()["RHO_B"]
-            density   = np.empty((npoints, self.ref))
+            density   = np.zeros((npoints, self.ref))
 
         offset = 0
         for i_block in blocks:
@@ -295,7 +295,7 @@ class Grider(Cubeprop):
 
         return density
 
-    def on_grid_orbitals(self, Ca=None, Cb=None, grid=None, vpot=None):
+    def on_grid_orbitals(self, Ca=None, Cb=None, grid=None, Vpot=None):
         """
         Generates orbitals given grid
 
@@ -305,7 +305,7 @@ class Grider(Cubeprop):
             Alpha, Beta Orbital Coefficient Matrix. Shape: (num_ao_basis, num_ao_basis)
         grid: np.ndarray Shape: (3, npoints) or (4, npoints) or tuple for block_handler (return of grid_to_blocks)
             grid where density will be computed
-        vpot: psi4.core.VBase
+        Vpot: psi4.core.VBase
             Vpotential object with info about grid.
             Provides DFT spherical grid. Only comes to play if no grid is given. 
 
@@ -336,20 +336,20 @@ class Grider(Cubeprop):
                 blocks, npoints, points_function = self.grid_to_blocks(grid)
             else:
                 blocks, npoints, points_function = grid
-        elif grid is None and vpot is not None:
-            nblocks = vpot.nblocks()
-            blocks = [vpot.get_block(i) for i in range(nblocks)]
-            npoints = vpot.grid().npoints()
-            points_function = vpot.properties()[0]
+        elif grid is None and Vpot is not None:
+            nblocks = Vpot.nblocks()
+            blocks = [Vpot.get_block(i) for i in range(nblocks)]
+            npoints = Vpot.grid().npoints()
+            points_function = Vpot.properties()[0]
         else:
             raise ValueError("A grid or a V_potential (DFT grid) must be given.")
 
         if self.ref == 1:
-            orbitals_r = [np.empty((npoints)) for i_orb in range(self.nbf)]
+            orbitals_r = [np.zeros((npoints)) for i_orb in range(self.nbf)]
             points_function.set_pointers(Ca)
             Ca_np = Ca.np
         if self.ref == 2:
-            orbitals_r = [np.empty((npoints, 2)) for i_orb in range(self.nbf)]
+            orbitals_r = [np.zeros((npoints, 2)) for i_orb in range(self.nbf)]
             points_function.set_pointers(Ca, Cb)
             Ca_np = Ca.np
             Cb_np = Cb.np
@@ -378,7 +378,7 @@ class Grider(Cubeprop):
 
         return orbitals_r
 
-    def on_grid_esp(self, Da=None, Db=None, grid=None, vpot=None, wfn=None):
+    def on_grid_esp(self, Da=None, Db=None, grid=None, Vpot=None, wfn=None):
 
         """
         Generates EXTERNAL/ESP/HARTREE and Fermi Amaldi Potential on given grid
@@ -390,7 +390,7 @@ class Grider(Cubeprop):
             will be used.
         grid: np.ndarray Shape: (3, npoints) or (4, npoints) or tuple for block_handler (return of grid_to_blocks)
             grid where density will be computed.
-        vpot: psi4.core.VBase
+        Vpot: psi4.core.VBase
             Vpotential object with info about grid.
             Provides DFT spherical grid. Only comes to play if no grid is given. 
         
@@ -419,10 +419,10 @@ class Grider(Cubeprop):
                 blocks, npoints, points_function = self.grid_to_blocks(grid)
             else:
                 blocks, npoints, points_function = grid
-        elif grid is None and vpot is not None:
-            nblocks = vpot.nblocks()
-            blocks = [vpot.get_block(i) for i in range(nblocks)]
-            npoints = vpot.grid().npoints()
+        elif grid is None and Vpot is not None:
+            nblocks = Vpot.nblocks()
+            blocks = [Vpot.get_block(i) for i in range(nblocks)]
+            npoints = Vpot.grid().npoints()
         else:
             raise ValueError("A grid or a V_potential (DFT grid) must be given.")
 
@@ -475,7 +475,7 @@ class Grider(Cubeprop):
         return vext, hartree, v_fa, esp
 
     def on_grid_vxc(self, func_id=1, grid=None, Da=None, Db=None,
-                          vpot=None):
+                          Vpot=None):
         """
         Generates Vxc given grid
 
@@ -488,7 +488,7 @@ class Grider(Cubeprop):
             Full list of functionals: https://www.tddft.org/programs/libxc/functionals/
         grid: np.ndarray Shape: (3, npoints) or (4, npoints) or tuple for block_handler (return of grid_to_blocks)
             grid where density will be computed.
-        vpot: psi4.core.VBase
+        Vpot: psi4.core.VBase
             Vpotential object with info about grid.
             Provides DFT spherical grid. Only comes to play if no grid is given. 
 
@@ -514,15 +514,15 @@ class Grider(Cubeprop):
             else:
                 blocks, npoints, points_function = grid
             density = self.on_grid_density(Da=Da, Db=Db, grid=grid)
-        elif grid is None and vpot is not None:
-            nblocks = vpot.nblocks()
-            blocks = [vpot.get_block(i) for i in range(nblocks)]
-            npoints = vpot.grid().npoints()
-            density = self.on_grid_density(Da=Da, Db=Db, vpot=vpot)
+        elif grid is None and Vpot is not None:
+            nblocks = Vpot.nblocks()
+            blocks = [Vpot.get_block(i) for i in range(nblocks)]
+            npoints = Vpot.grid().npoints()
+            density = self.on_grid_density(Da=Da, Db=Db, Vpot=Vpot)
         else:
             raise ValueError("A grid or a V_potential (DFT grid) must be given.")
 
-        vxc = np.empty((npoints, self.ref))
+        vxc = np.zeros((npoints, self.ref))
         ingredients = {}
         offset = 0
         for i_block in blocks:
@@ -546,7 +546,7 @@ class Grider(Cubeprop):
                        Ca=None, 
                        Cb=None, 
                        grid=None,
-                       vpot=None):
+                       Vpot=None):
         """
         Generates laplacian of molecular orbitals
 
@@ -556,7 +556,7 @@ class Grider(Cubeprop):
             Alpha, Beta Orbital Coefficient Matrix. Shape: (num_ao_basis, num_ao_basis)
         grid: np.ndarray Shape: (3, npoints) or (4, npoints) or tuple for block_handler (return of grid_to_blocks)
             grid where density will be computed.
-        vpot: psi4.core.VBase
+        Vpot: psi4.core.VBase
             Vpotential object with info about grid.
             Provides DFT spherical grid. Only comes to play if no grid is given. 
 
@@ -584,11 +584,11 @@ class Grider(Cubeprop):
                 blocks, npoints, points_function = self.grid_to_blocks(grid)
             else:
                 blocks, npoints, points_function = grid
-        elif grid is None and vpot is not None:
-            nblocks = vpot.nblocks()
-            blocks = [vpot.get_block(i) for i in range(nblocks)]
-            npoints = vpot.grid().npoints()
-            points_function = vpot.properties()[0]
+        elif grid is None and Vpot is not None:
+            nblocks = Vpot.nblocks()
+            blocks = [Vpot.get_block(i) for i in range(nblocks)]
+            npoints = Vpot.grid().npoints()
+            points_function = Vpot.properties()[0]
         else:
             raise ValueError("A grid or a V_potential (DFT grid) must be given.")
 
@@ -631,7 +631,7 @@ class Grider(Cubeprop):
                        Ca=None, 
                        Cb=None, 
                        grid=None,
-                       vpot=None):
+                       Vpot=None):
         """
         Generates laplacian of molecular orbitals
 
@@ -641,7 +641,7 @@ class Grider(Cubeprop):
             Alpha, Beta Orbital Coefficient Matrix. Shape: (num_ao_basis, num_ao_basis)
         grid: np.ndarray Shape: (3, npoints) or (4, npoints) or tuple for block_handler (return of grid_to_blocks)
             grid where density will be computed.
-        vpot: psi4.core.VBase
+        Vpot: psi4.core.VBase
             Vpotential object with info about grid.
             Provides DFT spherical grid. Only comes to play if no grid is given. 
 
@@ -669,11 +669,11 @@ class Grider(Cubeprop):
                 blocks, npoints, points_function = self.grid_to_blocks(grid)
             else:
                 blocks, npoints, points_function = grid
-        elif grid is None and vpot is not None:
-            nblocks = vpot.nblocks()
-            blocks = [vpot.get_block(i) for i in range(nblocks)]
-            npoints = vpot.grid().npoints()
-            points_function = vpot.properties()[0]
+        elif grid is None and Vpot is not None:
+            nblocks = Vpot.nblocks()
+            blocks = [Vpot.get_block(i) for i in range(nblocks)]
+            npoints = Vpot.grid().npoints()
+            points_function = Vpot.properties()[0]
         else:
             raise ValueError("A grid or a V_potential (DFT grid) must be given.")
 
