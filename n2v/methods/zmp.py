@@ -250,7 +250,8 @@ class ZMP():
                     if np.mod(SCF_ITER,5) == 0.0:
                         print(f"Iteration: {SCF_ITER:3d} | Self Convergence Error: {derror:10.5e} | DIIS Error: {diis_error:10.5e}")
                 
-                if abs(derror) < D_conv and abs(diis_error) < D_conv*10:
+                #DIIS error may improve as fast as the D_conv. Relax the criteria an order of magnitude. 
+                if abs(derror) < D_conv and abs(diis_error) < D_conv*10: 
                     break
                 if SCF_ITER == maxiter - 1:
                     raise ValueError("ZMP Error: Maximum Number of SCF cycles reached. Try different settings.")
@@ -324,7 +325,6 @@ class ZMP():
                 vc = [vc_a]
             else:
                 vc_a = lam * ( J[0] - self.J0[0] ) 
-                vc = [vc_a]
                 vc_b = lam * ( J[1] - self.J0[1] )
                 vc = [vc_a, vc_b]            
             return vc
