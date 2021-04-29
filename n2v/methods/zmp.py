@@ -115,7 +115,8 @@ class ZMP():
             else: 
                 self.Sb0 = self.Sa0.copy()
 
-        vc_previous = np.zeros((self.nbf, self.nbf))
+        vc_previous_a = np.zeros((self.nbf, self.nbf))
+        vc_previous_b = np.zeros((self.nbf, self.nbf))
         self.Da = self.nt[0]
         self.Db = self.nt[1]
         Da = self.nt[0]
@@ -148,11 +149,11 @@ class ZMP():
                 # vc = (1-self.mixing) * vc + (self.mixing) * vc_old
 
                 #Equation 10 of Reference (1). Level shift. 
-                Fa = self.T + self.V + self.va + vc + vc_previous
+                Fa = self.T + self.V + self.va + vc[0] + vc_previous_a
                 Fa += (self.S2 - reduce(np.dot, (self.S2, Da, self.S2))) * self.shift
 
                 if self.ref == 2:
-                    Fb = self.T + self.V + self.vb + vc + vc_previous
+                    Fb = self.T + self.V + self.vb + vc[1] + vc_previous_b
                     Fb += (self.S2 - reduce(np.dot, (self.S2, Db, self.S2))) * self.shift
                 
 
@@ -249,10 +250,11 @@ class ZMP():
                     if np.mod(SCF_ITER,5) == 0.0:
                         print(f"Iteration: {SCF_ITER:3d} | Self Convergence Error: {derror:10.5e} | DIIS Error: {diis_error:10.5e}")
                 
-                if abs(derror) < D_conv and abs(diis_error) < D_conv:
+                #DIIS error may improve as fast as the D_conv. Relax the criteria an order of magnitude. 
+                if abs(derror) < D_conv and abs(diis_error) < D_conv*10: 
                     break
                 if SCF_ITER == maxiter - 1:
-                    raise ValueError("Maximum Number of SCF cycles reached. Try different settings.")
+                    raise ValueError("ZMP Error: Maximum Number of SCF cycles reached. Try different settings.")
 
             density_current = self.on_grid_density(grid=None, Da=Da, Db=Db, vpot=self.vpot)
             grid_diff = np.max(np.abs(D0 - density_current))
@@ -268,7 +270,11 @@ class ZMP():
                 self.proto_density_b += lam_i * (Db - self.nt[1]) * self.mixing
             else:
                 self.proto_density_b = self.proto_density_a.copy()
-            vc_previous += vc * self.mixing
+
+            vc_previous_a += vc[0] * self.mixing
+            if self.ref == 2:
+                vc_previous_b += vc[1] * self.mixing
+
             # REAL LINEAR MIXING
             # if not np.isclose(np.linalg.norm(vc_previous), 0): # dont mix for first lambda
             #     self.proto_density_a = lam_i * (Da - self.nt[0]) * (1-self.mixing) + self.proto_density_a * self.mixing
@@ -314,7 +320,13 @@ class ZMP():
             J, _ = self.form_jk(Cocca, Coccb)
 
             #Equation 7 of Reference (1)
-            vc = lam * ( (J[0] + J[1]) - (self.J0[0] + self.J0[1]) )
+            if self.ref == 1:
+                vc_a = 2 * lam * ( J[0] - self.J0[0] ) 
+                vc = [vc_a]
+            else:
+                vc_a = lam * ( J[0] - self.J0[0] ) 
+                vc_b = lam * ( J[1] - self.J0[1] )
+                vc = [vc_a, vc_b]            
             return vc
 
         else:

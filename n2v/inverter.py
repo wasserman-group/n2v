@@ -121,10 +121,9 @@ class Inverter(Direct, WuYang, ZMP, MRKS, OC, PDECO, Grider):
         self.pbs       = self.basis if pbs == "same" \
                                     else psi4.core.BasisSet.build( self.mol, key='BASIS', target=self.pbs_str)
         self.npbs      = self.pbs.nbf()
-        self.v_pbs        = np.zeros( (self.npbs) ) if self.ref == 1 \
+        self.v_pbs     = np.zeros( (self.npbs) ) if self.ref == 1 \
                                                  else np.zeros( 2 * self.npbs )
         self.generate_mints_matrices()
-
         self.grid = data_bucket
         self.cubic_grid = data_bucket
         
