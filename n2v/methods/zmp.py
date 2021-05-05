@@ -106,7 +106,7 @@ class ZMP():
             self.Vpot = self.wfn.V_potential()
 
         # Obtain target density on dft_grid 
-        D0 = self.on_grid_density(grid=None, Da=self.nt[0], Db=self.nt[1],  Vpot=self.Vpot)
+        D0 = self.on_grid_density(grid=None, Da=self.Dt[0], Db=self.Dt[1],  Vpot=self.Vpot)
 
         #Calculate kernels
         if zmp_functional.lower() != 'hartree':
@@ -129,10 +129,10 @@ class ZMP():
 
         vc_previous_a = np.zeros((self.nbf, self.nbf))
         vc_previous_b = np.zeros((self.nbf, self.nbf))
-        self.Da = self.nt[0]
-        self.Db = self.nt[1]
-        Da = self.nt[0]
-        Db = self.nt[1]
+        self.Da = self.Dt[0]
+        self.Db = self.Dt[1]
+        Da = self.Dt[0]
+        Db = self.Dt[1]
         Cocca = self.ct[0]
         Coccb = self.ct[1]
 
@@ -143,7 +143,7 @@ class ZMP():
 #------------->  Iterating over lambdas:
         for lam_i in lambda_list:
             self.shift = 0.1 * lam_i
-            D_old = self.nt[0]
+            D_old = self.Dt[0]
 
             # Trial & Residual Vector Lists
             state_vectors_a, state_vectors_b = [], []
@@ -274,9 +274,9 @@ class ZMP():
             grid_diff_old = grid_diff
             print(f"SCF Converged for lambda:{int(lam_i):5d}. Max density difference: {grid_diff}")
             #VXC is hartree-like Potential. We remove Fermi_Amaldi Guess.
-            self.proto_density_a += lam_i * (Da - self.nt[0]) * self.mixing
+            self.proto_density_a += lam_i * (Da - self.Dt[0]) * self.mixing
             if self.ref == 2:
-                self.proto_density_b += lam_i * (Db - self.nt[1]) * self.mixing
+                self.proto_density_b += lam_i * (Db - self.Dt[1]) * self.mixing
             else:
                 self.proto_density_b = self.proto_density_a.copy()
 
@@ -284,15 +284,15 @@ class ZMP():
             if self.ref == 2:
                 vc_previous_b += vc[1] * self.mixing
 
-        self.proto_density_a -= lam_i * (Da - self.nt[0]) * self.mixing
-        self.proto_density_a += lam_i * (Da - self.nt[0])
+        self.proto_density_a -= lam_i * (Da - self.Dt[0]) * self.mixing
+        self.proto_density_a += lam_i * (Da - self.Dt[0])
         if self.guide_potential_components[0].lower() == "fermi_amaldi":
             # for ref==1, vxc = \int dr (proto_density_a + proto_density_b)/|r-r'| - 1/N*vH
             if self.ref == 1:
-                self.proto_density_a -= (1 / (self.nalpha + self.nbeta)) * (self.nt[0])
+                self.proto_density_a -= (1 / (self.nalpha + self.nbeta)) * (self.Dt[0])
             # for ref==1, vxc = \int dr (proto_density_a)/|r-r'| - 1/N*vH
             else:
-                self.proto_density_a -= (1 / (self.nalpha + self.nbeta)) * (self.nt[0] + self.nt[1])
+                self.proto_density_a -= (1 / (self.nalpha + self.nbeta)) * (self.Dt[0] + self.Dt[1])
 
         self.Da = Da
         self.Ca = Ca
@@ -300,15 +300,15 @@ class ZMP():
         self.eigvecs_a = eigs_a
 
         if self.ref == 2:
-            self.proto_density_b -= lam_i * (Db - self.nt[1]) * self.mixing
-            self.proto_density_b += lam_i * (Db - self.nt[1])
+            self.proto_density_b -= lam_i * (Db - self.Dt[1]) * self.mixing
+            self.proto_density_b += lam_i * (Db - self.Dt[1])
             if self.guide_potential_components[0].lower() == "fermi_amaldi":
                 # for ref==1, vxc = \int dr (proto_density_a + proto_density_b)/|r-r'| - 1/N*vH
                 if self.ref == 1:
-                    self.proto_density_b -= (1 / (self.nalpha + self.nbeta)) * (self.nt[1])
+                    self.proto_density_b -= (1 / (self.nalpha + self.nbeta)) * (self.Dt[1])
                 # for ref==1, vxc = \int dr (proto_density_a)/|r-r'| - 1/N*vH
                 else:
-                    self.proto_density_b -= (1 / (self.nalpha + self.nbeta)) * (self.nt[0] + self.nt[1])
+                    self.proto_density_b -= (1 / (self.nalpha + self.nbeta)) * (self.Dt[0] + self.Dt[1])
             self.Db = Db
             self.Cb = Cb
             self.Cocb = Coccb

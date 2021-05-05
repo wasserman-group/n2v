@@ -245,8 +245,8 @@ class Grider(Cubeprop):
         """
 
         if Da is None and Db is None:
-            Da = psi4.core.Matrix.from_array(self.nt[0])
-            Db = psi4.core.Matrix.from_array(self.nt[1])
+            Da = psi4.core.Matrix.from_array(self.Dt[0])
+            Db = psi4.core.Matrix.from_array(self.Dt[1])
         else:
             Da = psi4.core.Matrix.from_array(Da)
             Db = psi4.core.Matrix.from_array(Db)
@@ -505,9 +505,9 @@ class Grider(Cubeprop):
             raise ValueError("Only LDA fucntionals are supported on the grid")
 
         if Da is None:
-            Da = self.nt[0]
+            Da = self.Dt[0]
         if Db is None:
-            Db = self.nt[0]
+            Db = self.Dt[0]
 
         if grid is not None:
             if type(grid) is np.ndarray:

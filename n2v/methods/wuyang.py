@@ -91,11 +91,11 @@ class WuYang():
         if not np.allclose(v, self.v_pbs):
             self._diagonalize_with_potential_pbs(v)
 
-        self.grad_a = contract('ij,ijt->t', (self.Da - self.nt[0]), self.S3)
-        self.grad_b = contract('ij,ijt->t', (self.Db - self.nt[1]), self.S3)
+        self.grad_a = contract('ij,ijt->t', (self.Da - self.Dt[0]), self.S3)
+        self.grad_b = contract('ij,ijt->t', (self.Db - self.Dt[1]), self.S3)
 
         kinetic     =   np.sum(self.T * (self.Da))
-        potential   =   np.sum((self.V + self.va) * (self.Da - self.nt[0]))
+        potential   =   np.sum((self.V + self.va) * (self.Da - self.Dt[0]))
         optimizing  =   np.sum(v[:self.npbs] * self.grad_a)
 
         if self.ref == 1:
@@ -103,7 +103,7 @@ class WuYang():
 
         else:
             kinetic    +=   np.sum(self.T * (self.Db))
-            potential  +=   np.sum((self.V + self.vb) * (self.Db - self.nt[1]))
+            potential  +=   np.sum((self.V + self.vb) * (self.Db - self.Dt[1]))
             optimizing +=   np.sum(v[self.npbs:] * self.grad_b)
             L = kinetic + potential + optimizing
 
@@ -130,8 +130,8 @@ class WuYang():
         """
         if not np.allclose(v, self.v_pbs):
             self._diagonalize_with_potential_pbs(v)
-        self.grad_a = contract('ij,ijt->t', (self.Da - self.nt[0]), self.S3)
-        self.grad_b = contract('ij,ijt->t', (self.Db - self.nt[1]), self.S3) 
+        self.grad_a = contract('ij,ijt->t', (self.Da - self.Dt[0]), self.S3)
+        self.grad_b = contract('ij,ijt->t', (self.Db - self.Dt[1]), self.S3)
 
         if self.ref == 1:
             self.grad   = self.grad_a

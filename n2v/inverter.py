@@ -51,10 +51,10 @@ class Inverter(Direct, WuYang, ZMP, MRKS, OC, PDECO, Grider):
         Reference calculation
         1 -> Restricted
         2 -> Unrestricted
-    nt : List
-        List of psi4.core.Matrix for target densities
+    Dt : List
+        List of psi4.core.Matrix for target density matrices (on AO).
     ct : List
-        List of psi4.core.Matrix for occupied orbitals
+        List of psi4.core.Matrix for input occupied orbitals. This might not be correct for post-HartreeFock methods.
     pbs_str: string
         name of Potential basis set
     pbs : psi4.core.BasisSet
@@ -116,7 +116,7 @@ class Inverter(Direct, WuYang, ZMP, MRKS, OC, PDECO, Grider):
         self.ref       = 1 if psi4.core.get_global_option("REFERENCE") == "RHF" or \
                               psi4.core.get_global_option("REFERENCE") == "RKS" else 2
         self.jk        = wfn.jk() if hasattr(wfn, "jk") == True else self.generate_jk()
-        self.nt        = (np.array(wfn.Da_subset("AO")), np.array(wfn.Db_subset("AO")))
+        self.Dt        = (np.array(wfn.Da_subset("AO")), np.array(wfn.Db_subset("AO")))
         self.ct        = (np.array(wfn.Ca_subset("AO", "OCC")), np.array(wfn.Cb_subset("AO", "OCC")))
         self.pbs       = self.basis if pbs == "same" \
                                     else psi4.core.BasisSet.build( self.mol, key='BASIS', target=self.pbs_str)
@@ -480,7 +480,7 @@ class Inverter(Direct, WuYang, ZMP, MRKS, OC, PDECO, Grider):
                 self.wfn.Da().diagonalize(C_NO, eigs_NO, psi4.core.DiagonalizeOrder.Descending)
                 occu = np.sqrt(eigs_NO.np)
                 New_Orb_a = occu * C_NO.np
-                assert np.allclose(New_Orb_a @ New_Orb_a.T, self.nt[0])
+                assert np.allclose(New_Orb_a @ New_Orb_a.T, self.Dt[0])
                 if self.ref == 1:
                     New_Orb_b = New_Orb_a
                 else:
@@ -510,15 +510,15 @@ class Inverter(Direct, WuYang, ZMP, MRKS, OC, PDECO, Grider):
                 _, wfn_0 = psi4.energy( "svwn"+"/"+self.basis_str, molecule=self.mol , return_wfn = True)
 
             if self.ref == 1:
-                ntarget = psi4.core.Matrix.from_array( [ self.nt[0] + self.nt[1] ] )
+                ntarget = psi4.core.Matrix.from_array( [ self.Dt[0] + self.Dt[1] ] )
                 wfn_0.V_potential().set_D( [ntarget] )
                 vxc_a = psi4.core.Matrix( self.nbf, self.nbf )
                 wfn_0.V_potential().compute_V([vxc_a])
                 self.va += vxc_a.np
                 self.vb += vxc_a.np
             elif self.ref == 2:
-                na_target = psi4.core.Matrix.from_array( self.nt[0] )
-                nb_target = psi4.core.Matrix.from_array( self.nt[1] )
+                na_target = psi4.core.Matrix.from_array( self.Dt[0] )
+                nb_target = psi4.core.Matrix.from_array( self.Dt[1] )
                 wfn_0.V_potential().set_D( [na_target, nb_target] )
                 vxc_a = psi4.core.Matrix( self.nbf, self.nbf )
                 vxc_b = psi4.core.Matrix( self.nbf, self.nbf )

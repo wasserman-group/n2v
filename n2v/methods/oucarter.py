@@ -244,11 +244,11 @@ class OC():
         Nbeta = self.nbeta
         # Initialization.
         if init is None:
-            self.Da = np.copy(self.nt[0])
+            self.Da = np.copy(self.Dt[0])
             self.Coca = np.copy(self.ct[0])
             self.eigvecs_a = self.wfn.epsilon_a().np[:Nalpha]
 
-            self.Db = np.copy(self.nt[1])
+            self.Db = np.copy(self.Dt[1])
             self.Cocb = np.copy(self.ct[1])
             self.eigvecs_b = self.wfn.epsilon_b().np[:Nbeta]
         elif init.lower()=="continue":
@@ -265,7 +265,7 @@ class OC():
             self.eigvecs_b = np.array(wfn_temp.epsilon_b())
             del wfn_temp
 
-        # nerror = self.on_grid_density(Da=self.nt[0]-self.Da, Db=self.nt[1]-self.Da, Vpot=self.Vpot)
+        # nerror = self.on_grid_density(Da=self.Dt[0]-self.Da, Db=self.Dt[1]-self.Da, Vpot=self.Vpot)
         # w = self.Vpot.get_np_xyzw()[-1]
         # nerror = np.sum(np.abs(nerror.T) * w)
         # print("nerror", nerror)
@@ -274,9 +274,9 @@ class OC():
         vxc_old_beta = 0.0
         Da_old = 0.0
         eig_old = 0.0
-        tauLmP_rho = self._get_l_kinetic_energy_density_directly(self.nt[0], self.ct[0][:, :Nalpha])
+        tauLmP_rho = self._get_l_kinetic_energy_density_directly(self.Dt[0], self.ct[0][:, :Nalpha])
         if self.ref != 1:
-            tauLmP_rho_beta = self._get_l_kinetic_energy_density_directly(self.nt[1], self.ct[1][:, :Nbeta])
+            tauLmP_rho_beta = self._get_l_kinetic_energy_density_directly(self.Dt[1], self.ct[1][:, :Nbeta])
 
         for OC_step in range(1, maxiter+1):
             tauP_rho = self._pauli_kinetic_energy_density(self.Da, self.Coca)
@@ -328,19 +328,19 @@ class OC():
 
 
             print(f"Iter: {OC_step}, Density Change: {Derror:2.2e}, Eigenvalue Change: {eerror:2.2e}.")
-            # nerror = self.on_grid_density(Da=self.nt[0] - self.Da, Db=self.nt[1] - self.Da, Vpot=self.Vpot)
+            # nerror = self.on_grid_density(Da=self.Dt[0] - self.Da, Db=self.Dt[1] - self.Da, Vpot=self.Vpot)
             # nerror = np.sum(np.abs(nerror.T) * w)
             # print("nerror", nerror)
 
         # Calculate vxc on grid
 
         vH0 = self.on_grid_esp(grid=grid_info)[1]
-        tauLmP_rho = self._get_l_kinetic_energy_density_directly(self.nt[0], self.ct[0][:, :Nalpha], grid_info=grid_info)
+        tauLmP_rho = self._get_l_kinetic_energy_density_directly(self.Dt[0], self.ct[0][:, :Nalpha], grid_info=grid_info)
         tauP_rho = self._pauli_kinetic_energy_density(self.Da, self.Coca, grid_info=grid_info)
         shift = self.eigvecs_a[Nalpha - 1] - self.wfn.epsilon_a().np[Nalpha - 1]
         e_bar = self._average_local_orbital_energy(self.Da, self.Coca, self.eigvecs_a[:Nalpha], grid_info=grid_info)
         if self.ref != 1:
-            tauLmP_rho_beta = self._get_l_kinetic_energy_density_directly(self.nt[1], self.ct[1][:, :Nbeta],
+            tauLmP_rho_beta = self._get_l_kinetic_energy_density_directly(self.Dt[1], self.ct[1][:, :Nbeta],
                                                                      grid_info=grid_info)
             tauP_rho_beta = self._pauli_kinetic_energy_density(self.Db, self.Cocb, grid_info=grid_info)
             shift_beta = self.eigvecs_b[Nbeta - 1] - self.wfn.epsilon_b().np[Nbeta - 1]
