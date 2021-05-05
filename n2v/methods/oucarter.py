@@ -224,10 +224,6 @@ class OC():
         #     raise ValueError("Currently only supports Spin-Restricted "
         #                      "calculations since Spin-Unrestricted CI "
         #                      "is not supported by Psi4.")
-
-        
-        if self.guide_potential_components[0] != "hartree":
-            raise ValueError("Hartree potential is necessary as the guide potential.")
         
         grid_info = self.grid_to_blocks(vxc_grid)
         if self.ref == 1:
