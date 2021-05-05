@@ -289,15 +289,37 @@ class Inverter(Direct, WuYang, ZMP, MRKS, OC, PDECO, Grider):
                 zmp_functional: str
                     Specifies what functional to use to drive the SCF procedure.
                     Options: {'hartree', 'log', 'exp', 'grad'}
-                zmp_mixing: float
-                    mixing \in [0,1]. How much of the new potential is added in 
-                    a given scf step. Values close to 1 may prevent SCF to convergence. 
+                zmp_mixing: float, optional
+                    mixing \in [0,1]. How much of the new potential is added in.
+                    For example, zmp_mixing = 0 means the traditional ZMP, i.e. all the potentials from previous
+                    smaller lambda are ignored.
+                    Zmp_mixing = 1 means that all the potentials of previous lambdas are accumulated, the larger lambda
+                    potential are meant to fix the wrong/inaccurate region of the potential of the sum of the previous
+                    potentials instead of providing an entire new potentials.
+                    default: 1
                 opt_max_iter: float
                     Maximum number of iterations for scf cycle
                 opt_tol: float
                     Convergence criteria set for Density Difference and DIIS error. 
                 return:
-                    The result will be stored in self.grid.vxc
+                    The result will be stored in self.proto_density_a and self.proto_density_b
+                    For zmp_mixing==1, restricted (ref==1):
+                        self.proto_density_a = \sum_i lambda_i * (Da_i - Dt[0]) - 1/N * (Dt[0])
+                        self.proto_density_b = \sum_i lambda_i * (Db_i - Dt[1]) - 1/N * (Dt[1]);
+                    unrestricted (ref==1):
+                        self.proto_density_a = \sum_i lambda_i * (Da_i - Dt[0]) - 1/N * (Dt[0] + Dt[1])
+                        self.proto_density_b = \sum_i lambda_i * (Db_i - Dt[1]) - 1/N * (Dt[0] + Dt[1]);
+                    For restricted (ref==1):
+                        vxc = \int dr' \frac{self.proto_density_a + self.proto_density_b}{|r-r'|}
+                            = 2 * \int dr' \frac{self.proto_density_a}{|r-r'|};
+                    for unrestricted (ref==2):
+                        vxc_up = \int dr' \frac{self.proto_density_a}{|r-r'|}
+                        vxc_down = \int dr' \frac{self.proto_density_b}{|r-r'|}.
+                    To get potential on grid, one needs to do
+                        vxc = self.on_grid_esp(Da=self.proto_density_a, Db=self.proto_density_b, grid=grid) for restricted;
+                        vxc_up = self.on_grid_esp(Da=self.proto_density_a, Db=np.zeros_like(self.proto_density_a),
+                                  grid=grid) for unrestricted;
+
 
         mRKS
         ----
