@@ -400,19 +400,20 @@ class Grider(Cubeprop):
             External, Hartree, ESP, and Fermi Amaldi potential on the given grid
             Shape: (npoints, )
         """
+
+        if wfn is None:
+            wfn = self.wfn
+
         if Da is not None or Db is not None:
             Da_temp = np.copy(self.wfn.Da().np)
             Db_temp = np.copy(self.wfn.Db().np)
             if Da is not None:
-                self.wfn.Da().np[:] = Da
+                wfn.Da().np[:] = Da
             if Db is not None:
-                self.wfn.Db().np[:] = Db
+                wfn.Db().np[:] = Db
 
         nthreads = psi4.get_num_threads()
         psi4.set_num_threads(1)
-        
-        if wfn is None:
-            wfn = self.wfn
         
         if grid is not None:
             if type(grid) is np.ndarray:
@@ -467,9 +468,9 @@ class Grider(Cubeprop):
         v_fa = (1 - 1.0 / (self.nalpha + self.nbeta)) * hartree
 
         if Da is not None:
-            self.wfn.Da().np[:] = Da_temp
+            wfn.Da().np[:] = Da_temp
         if Db is not None:
-            self.wfn.Db().np[:] = Db_temp
+            wfn.Db().np[:] = Db_temp
         psi4.set_num_threads(nthreads)
 
         return vext, hartree, v_fa, esp
