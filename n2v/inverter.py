@@ -285,10 +285,7 @@ class Inverter(Direct, WuYang, ZMP, MRKS, OC, PDECO, Grider):
             ----------
                 lambda_list: list
                     List of Lamda parameters used as a coefficient for Hartree 
-                    difference in SCF cycle. 
-                zmp_functional: str
-                    Specifies what functional to use to drive the SCF procedure.
-                    Options: {'hartree', 'log', 'exp', 'grad'}
+                    difference in SCF cycle.
                 zmp_mixing: float, optional
                     mixing \in [0,1]. How much of the new potential is added in.
                     For example, zmp_mixing = 0 means the traditional ZMP, i.e. all the potentials from previous
