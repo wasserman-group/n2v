@@ -42,9 +42,6 @@ class ZMP():
         lambda_list: list
             List of Lamda parameters used as a coefficient for Hartree
             difference in SCF cycle.
-        zmp_functional: str
-            Specifies what functional to use to drive the SCF procedure.
-            Options: {'hartree', 'log', 'exp', 'grad'}
         zmp_mixing: float, optional
             mixing \in [0,1]. How much of the new potential is added in.
             For example, zmp_mixing = 0 means the traditional ZMP, i.e. all the potentials from previous
@@ -266,6 +263,16 @@ class ZMP():
                 if SCF_ITER == maxiter - 1:
                     raise ValueError("ZMP Error: Maximum Number of SCF cycles reached. Try different settings.")
 
+            density_current = self.on_grid_density(grid=None, Da=Da, Db=Db, Vpot=self.Vpot)
+            grid_diff = np.max(np.abs(D0 - density_current))
+            if np.abs(grid_diff_old) < np.abs(grid_diff):
+                # This is a greedy algorithm: if the density error stopped improving for this lambda, we will stop here.
+                print(f"\nZMP halted at lambda={lam_i}. Density Error Stops Updating: old: {grid_diff_old}, current: {grid_diff}.")
+                break
+
+            grid_diff_old = grid_diff
+            print(f"SCF Converged for lambda:{int(lam_i):5d}. Max density difference: {grid_diff}")
+
             self.proto_density_a += lam_i * (Da - self.Dt[0]) * self.mixing
             if self.ref == 2:
                 self.proto_density_b += lam_i * (Db - self.Dt[1]) * self.mixing
@@ -276,18 +283,14 @@ class ZMP():
             if self.ref == 2:
                 vc_previous_b += vc[1] * self.mixing
 
-            density_current = self.on_grid_density(grid=None, Da=Da, Db=Db, Vpot=self.Vpot)
-            grid_diff = np.max(np.abs(D0 - density_current))
-            if np.abs(grid_diff_old) < np.abs(grid_diff):
-                # This is a greedy algorithm: if the density error stopped improving for this lambda, we will stop here.
-                print(f"\nZMP halted. Density Error Stops Updating: old: {grid_diff_old}, current: {grid_diff}.")
-                break
+            # this is the lambda that is already proven to be improving the density, i.e. the corresponding
+            # potential has updated to proto_density
+            successful_lam = lam_i
+            # The proto_density corresponds to successful_lam
+            successful_proto_density = [(Da - self.Dt[0]), (Db - self.Dt[1])]
+# -------------> END Iterating over lambdas:
 
-            grid_diff_old = grid_diff
-            print(f"SCF Converged for lambda:{int(lam_i):5d}. Max density difference: {grid_diff}")
-
-        self.proto_density_a -= lam_i * (Da - self.Dt[0]) * self.mixing
-        self.proto_density_a += lam_i * (Da - self.Dt[0])
+        self.proto_density_a += successful_lam * successful_proto_density[0] * (1 - self.mixing)
         if self.guide_potential_components[0].lower() == "fermi_amaldi":
             # for ref==1, vxc = \int dr (proto_density_a + proto_density_b)/|r-r'| - 1/N*vH
             if self.ref == 1:
@@ -302,8 +305,7 @@ class ZMP():
         self.eigvecs_a = eigs_a
 
         if self.ref == 2:
-            self.proto_density_b -= lam_i * (Db - self.Dt[1]) * self.mixing
-            self.proto_density_b += lam_i * (Db - self.Dt[1])
+            self.proto_density_b += successful_lam * successful_proto_density[1] * (1 - self.mixing)
             if self.guide_potential_components[0].lower() == "fermi_amaldi":
                 # for ref==1, vxc = \int dr (proto_density_a + proto_density_b)/|r-r'| - 1/N*vH
                 if self.ref == 1:
@@ -322,6 +324,7 @@ class ZMP():
             self.Cb = self.Ca.copy()
             self.Cocb = self.Coca.copy()
             self.eigvecs_b = self.eigvecs_a.copy()
+        print(successful_lam)
 
 
     def generate_s_functional(self, lam, zmp_functional, Cocca, Coccb, Da, Db):
