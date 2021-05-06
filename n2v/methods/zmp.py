@@ -16,7 +16,6 @@ class ZMP():
             opt_max_iter=100, 
             opt_tol= psi4.core.get_option("SCF", "D_CONVERGENCE"), 
             lambda_list=[70],
-            zmp_functional='hartree',
             zmp_mixing = 1,
             print_scf = False, 
             ):
@@ -81,7 +80,7 @@ class ZMP():
         self.mixing = zmp_mixing
 
         print("\nRunning ZMP:")
-        self.zmp_scf(lambda_list, zmp_functional, opt_max_iter, print_scf, D_conv=opt_tol)
+        self.zmp_scf(lambda_list, 'hartree', opt_max_iter, print_scf, D_conv=opt_tol)
 
     def zmp_scf(self, 
             lambda_list,
@@ -91,7 +90,9 @@ class ZMP():
             D_conv):
         """
         Performs scf cycle
-        Parameters
+        Parameters:
+            zmp_functional: options the penalty term.
+            But others are not currently working except for Hartree penalty (original ZMP).
         ----------
         """
 
@@ -265,15 +266,6 @@ class ZMP():
                 if SCF_ITER == maxiter - 1:
                     raise ValueError("ZMP Error: Maximum Number of SCF cycles reached. Try different settings.")
 
-            density_current = self.on_grid_density(grid=None, Da=Da, Db=Db, Vpot=self.Vpot)
-            grid_diff = np.max(np.abs(D0 - density_current))
-            if np.abs(grid_diff_old) < np.abs(grid_diff):
-                print(f"\nZMP halted. Density Error Stops Updating: old: {grid_diff_old}, current: {grid_diff}.")
-                break
-
-            grid_diff_old = grid_diff
-            print(f"SCF Converged for lambda:{int(lam_i):5d}. Max density difference: {grid_diff}")
-            #VXC is hartree-like Potential. We remove Fermi_Amaldi Guess.
             self.proto_density_a += lam_i * (Da - self.Dt[0]) * self.mixing
             if self.ref == 2:
                 self.proto_density_b += lam_i * (Db - self.Dt[1]) * self.mixing
@@ -283,6 +275,16 @@ class ZMP():
             vc_previous_a += vc[0] * self.mixing
             if self.ref == 2:
                 vc_previous_b += vc[1] * self.mixing
+
+            density_current = self.on_grid_density(grid=None, Da=Da, Db=Db, Vpot=self.Vpot)
+            grid_diff = np.max(np.abs(D0 - density_current))
+            if np.abs(grid_diff_old) < np.abs(grid_diff):
+                # This is a greedy algorithm: if the density error stopped improving for this lambda, we will stop here.
+                print(f"\nZMP halted. Density Error Stops Updating: old: {grid_diff_old}, current: {grid_diff}.")
+                break
+
+            grid_diff_old = grid_diff
+            print(f"SCF Converged for lambda:{int(lam_i):5d}. Max density difference: {grid_diff}")
 
         self.proto_density_a -= lam_i * (Da - self.Dt[0]) * self.mixing
         self.proto_density_a += lam_i * (Da - self.Dt[0])
