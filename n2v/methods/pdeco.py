@@ -109,9 +109,9 @@ class PDECO():
         # self._diagonalize_with_potential_pbs(v)
 
         if self.ref == 1:
-            L = 4 * contract("ijkl,ij,kl", self.S4, self.Da - self.nt[0], self.Da- self.nt[0])
+            L = 4 * contract("ijkl,ij,kl", self.S4, self.Da - self.Dt[0], self.Da- self.Dt[0])
         else:
-            L = contract("ijkl,ij,kl", self.S4, self.Da+self.Db-self.nt[0]-self.nt[1], self.Da+self.Db-self.nt[0]-self.nt[1])
+            L = contract("ijkl,ij,kl", self.S4, self.Da+self.Db-self.Dt[0]-self.Dt[1], self.Da+self.Db-self.Dt[0]-self.Dt[1])
         # Add lambda-regularization
         if self.lambda_reg is not None:
             T = self.T_pbs
@@ -135,7 +135,7 @@ class PDECO():
 
         if self.ref == 1:
             grad_temp = np.zeros((self.nbf, self.nbf))
-            g = 8 * contract("ijkl,ij,km->lm", self.S4, 2 * (self.nt[0] - self.Da), self.Coca)  # shape (ao, mo)
+            g = 8 * contract("ijkl,ij,km->lm", self.S4, 2 * (self.Dt[0] - self.Da), self.Coca)  # shape (ao, mo)
             u = 0.5 * contract("lm,lm->m", self.Coca, g)  # shape (mo, )
             g -= 2 * contract('m,ij,jm->im', u, self.S2, self.Coca) # shape (ao, mo)
             for idx in range(self.nalpha):
@@ -149,7 +149,7 @@ class PDECO():
             self.grad = contract("ij,ijk->k", grad_temp, self.S3)
         else:
             grad_temp_a = np.zeros((self.nbf, self.nbf))
-            g_a = 4 * contract("ijkl,ij,km->lm", self.S4, (self.nt[0] - self.Da) + (self.nt[1] - self.Db), self.Coca)  # shape (ao, mo)
+            g_a = 4 * contract("ijkl,ij,km->lm", self.S4, (self.Dt[0] - self.Da) + (self.Dt[1] - self.Db), self.Coca)  # shape (ao, mo)
             u_a = 0.5 * contract("lm,lm->m", self.Coca, g_a)  # shape (mo, )
             g_a -= 2 * contract('m,ij,jm->im', u_a, self.S2, self.Coca) # shape (ao, mo)
             for idx in range(self.nalpha):
@@ -161,7 +161,7 @@ class PDECO():
                 grad_temp_a += p_i[:, np.newaxis] * self.Coca[:,idx]
 
             grad_temp_b = np.zeros((self.nbf, self.nbf))
-            g_b = 4 * contract("ijkl,ij,km->lm", self.S4, (self.nt[0] - self.Da) + (self.nt[1] - self.Db), self.Cocb)  # shape (ao, mo)
+            g_b = 4 * contract("ijkl,ij,km->lm", self.S4, (self.Dt[0] - self.Da) + (self.Dt[1] - self.Db), self.Cocb)  # shape (ao, mo)
             u_b = 0.5 * contract("lm,lm->m", self.Cocb, g_b)  # shape (mo, )
             g_b -= 2 * contract('m,ij,jm->im', u_b, self.S2, self.Cocb) # shape (ao, mo)
             for idx in range(self.nbeta):

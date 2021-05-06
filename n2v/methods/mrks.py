@@ -440,12 +440,12 @@ class MRKS():
             C_a_NO = Ca @ C_a_NO
 
             # prepare properties on the grid
-            ebarWF = self._average_local_orbital_energy(self.nt[0], C_a_GFM, eigs_a_GFM)
-            taup_rho_WF = self._pauli_kinetic_energy_density(self.nt[0], C_a_NO, eigs_a_NO)
+            ebarWF = self._average_local_orbital_energy(self.Dt[0], C_a_GFM, eigs_a_GFM)
+            taup_rho_WF = self._pauli_kinetic_energy_density(self.Dt[0], C_a_NO, eigs_a_NO)
         elif self.wfn.name() == "RHF":  # Since HF is a special case, no need for GFM and NO as in CI.
             epsilon_a = self.wfn.epsilon_a_subset("AO", "OCC").np
-            ebarWF = self._average_local_orbital_energy(self.nt[0], self.ct[0][:,:Nalpha], epsilon_a)
-            taup_rho_WF = self._pauli_kinetic_energy_density(self.nt[0], self.ct[0])
+            ebarWF = self._average_local_orbital_energy(self.Dt[0], self.ct[0][:,:Nalpha], epsilon_a)
+            taup_rho_WF = self._pauli_kinetic_energy_density(self.Dt[0], self.ct[0])
         else:
             raise ValueError("Currently only supports Spin-Restricted "
                              "calculations since Spin-Unrestricted CI "
@@ -457,7 +457,7 @@ class MRKS():
 
         # Initialization.
         if init is None:
-            self.Da = np.copy(self.nt[0])
+            self.Da = np.copy(self.Dt[0])
             self.Coca = np.copy(self.ct[0])
             self.eigvecs_a = self.wfn.epsilon_a().np[:Nalpha]
         elif init.lower()=="continue":
@@ -519,18 +519,18 @@ class MRKS():
             vxchole = self._vxc_hole_quadrature(grid_info=grid_info,
                                                 atol=sing[2], atol1=sing[3])
             if self.wfn.name() == "CIWavefunction":
-                ebarWF = self._average_local_orbital_energy(self.nt[0],
+                ebarWF = self._average_local_orbital_energy(self.Dt[0],
                                                             C_a_GFM, eigs_a_GFM,
                                                             grid_info=grid_info)
-                taup_rho_WF = self._pauli_kinetic_energy_density(self.nt[0],
+                taup_rho_WF = self._pauli_kinetic_energy_density(self.Dt[0],
                                                                  C_a_NO, eigs_a_NO,
                                                                  grid_info=grid_info)
             elif self.wfn.name() == "RHF":
-                ebarWF = self._average_local_orbital_energy(self.nt[0],
+                ebarWF = self._average_local_orbital_energy(self.Dt[0],
                                                             self.ct[0],
                                                             epsilon_a[:Nalpha],
                                                             grid_info=grid_info)
-                taup_rho_WF = self._pauli_kinetic_energy_density(self.nt[0],
+                taup_rho_WF = self._pauli_kinetic_energy_density(self.Dt[0],
                                                                  self.ct[0],
                                                                  grid_info=grid_info)
             ebarKS = self._average_local_orbital_energy(self.Da, self.Coca,
