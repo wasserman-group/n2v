@@ -93,37 +93,39 @@ class ZMP():
         ----------
         """
 
-        #Checks if there is dft grid available. 
-        if hasattr(self.wfn, 'V_potential()') == False:
-            ref = "RV" if self.ref == 1 else "UV"
-            functional = psi4.driver.dft.build_superfunctional("SVWN", restricted=True if self.ref==1 else False)[0]
-            Vpot = psi4.core.VBase.build(self.basis, functional, ref)
-            Vpot.initialize()
-            self.Vpot = Vpot
-        else:
-            self.Vpot = self.wfn.V_potential()
+        # #Checks if there is dft grid available. 
+        # if hasattr(self.wfn, 'V_potential()') == False:
+        #     ref = "RV" if self.ref == 1 else "UV"
+        #     functional = psi4.driver.dft.build_superfunctional("SVWN", restricted=True if self.ref==1 else False)[0]
+        #     Vpot = psi4.core.VBase.build(self.basis, functional, ref)
+        #     Vpot.initialize()
+        #     self.Vpot = Vpot
+        # else:
+        #     self.Vpot = self.wfn.V_potential()
 
         # Obtain target density on dft_grid 
-        D0 = self.on_grid_density(grid=None, Da=self.Dt[0], Db=self.Dt[1],  Vpot=self.Vpot)
+        
 
         #Calculate kernels
         if zmp_functional.lower() != 'hartree':
             if self.ref == 1:
+                D0 = self.eng.grid.density(Da=self.Dt[0])
                 Da0, Db0 = D0[:,0], D0[:,0]
             else:
+                D0 = self.eng.grid.density(Da=self.Dt[0], Db=self.Dt[1])
                 Da0, Db0 = D0[:,0], D0[:,1]
 
-            if zmp_functional == 'log':
-                Sa0 = np.log(Da0) + 1  
-                Sb0 = np.log(Db0) + 1
-            elif zmp_functional == 'exp':
-                Sa0 = Da0 ** 0.05
-                Sb0 = Db0 ** 0.05
-            self.Sa0 = self.dft_grid_to_fock(Sa0, Vpot=self.Vpot)
-            if self.ref == 2:
-                self.Sb0 = self.dft_grid_to_fock(Sb0, Vpot=self.Vpot)
-            else: 
-                self.Sb0 = self.Sa0.copy()
+            # if zmp_functional == 'log':
+            #     Sa0 = np.log(Da0) + 1  
+            #     Sb0 = np.log(Db0) + 1
+            # elif zmp_functional == 'exp':
+            #     Sa0 = Da0 ** 0.05
+            #     Sb0 = Db0 ** 0.05
+            # self.Sa0 = self.dft_grid_to_fock(Sa0, Vpot=self.Vpot)
+            # if self.ref == 2:
+            #     self.Sb0 = self.dft_grid_to_fock(Sb0, Vpot=self.Vpot)
+            # else: 
+            #     self.Sb0 = self.Sa0.copy()
 
         vc_previous_a = np.zeros((self.nbf, self.nbf))
         vc_previous_b = np.zeros((self.nbf, self.nbf))
@@ -334,7 +336,7 @@ class ZMP():
         """
 
         if zmp_functional.lower() == 'hartree':
-            J, _ = self.form_jk(Cocca, Coccb)
+            J, _ = self.eng.compute_hartree(Cocca, Coccb)
 
             #Equation 7 of Reference (1)
             if self.ref == 1:
@@ -346,28 +348,28 @@ class ZMP():
                 vc = [vc_a, vc_b]            
             return vc
 
-        else:
+        # else:
 
-            D = self.on_grid_density(Vpot=self.Vpot, Da=Da, Db=Db)
+        #     D = self.on_grid_density(Vpot=self.Vpot, Da=Da, Db=Db)
 
-            if self.ref == 1:
-                Da, Db = D[:,0], D[:,0]
-            else:
-                Da, Db = D[:,0], D[:,1]
+        #     if self.ref == 1:
+        #         Da, Db = D[:,0], D[:,0]
+        #     else:
+        #         Da, Db = D[:,0], D[:,1]
                 
-            #Calculate kernels
-            #Equations 37, 38, 39, 40 of Reference (3)
-            if zmp_functional.lower() == 'log':
-                Sa = np.log(Da) + 1
-                Sb = np.log(Db) + 1 
-            if zmp_functional.lower() == 'exp':
-                Sa = Da ** 0.05
-                Sb = Db ** 0.05
+        #     #Calculate kernels
+        #     #Equations 37, 38, 39, 40 of Reference (3)
+        #     if zmp_functional.lower() == 'log':
+        #         Sa = np.log(Da) + 1
+        #         Sb = np.log(Db) + 1 
+        #     if zmp_functional.lower() == 'exp':
+        #         Sa = Da ** 0.05
+        #         Sb = Db ** 0.05
 
-            #Generate AO matrix from functions. 
-            Sa = self.dft_grid_to_fock(Sa, Vpot=self.Vpot)
-            Sb = self.dft_grid_to_fock(Sb, Vpot=self.Vpot)
-            vc = (Sa + Sb) - (self.Sa0 + self.Sb0)
+        #     #Generate AO matrix from functions. 
+        #     Sa = self.dft_grid_to_fock(Sa, Vpot=self.Vpot)
+        #     Sb = self.dft_grid_to_fock(Sb, Vpot=self.Vpot)
+        #     vc = (Sa + Sb) - (self.Sa0 + self.Sb0)
 
-        return vc
+        #     return vc
         
