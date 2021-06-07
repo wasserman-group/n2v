@@ -5,9 +5,9 @@ grider.py
 import numpy as np
 import psi4
 
+from opt_einsum import contract
+
 class Psi4Grider():
-
-
     def __init__(self, mol, basis, ref):
         
         self.mol = mol
@@ -19,6 +19,9 @@ class Psi4Grider():
         wfn_base = psi4.core.Wavefunction.build(self.mol, self.basis_str)
         self.wfn = psi4.proc.scf_wavefunction_factory('svwn', wfn_base, "UKS")
         self.wfn.initialize()
+
+        self.nalpha = self.wfn.nalpha()
+        self.nbeta  = self.wfn.nbeta()
 
         # Clean Vpot
         restricted = True if ref == 1 else False
@@ -106,6 +109,70 @@ class Psi4Grider():
 
         return blocks, npoints, point_func
 
+    def ao(self, coeff, grid=None, basis=None):
+        """
+        Generates a quantity on the grid given its ao representation.
+        *This is the most general function for basis to grid transformation.
+
+        Parameters
+        ----------
+        coeff: np.ndarray
+            Vector/Matrix of quantity on ao basis. Shape: {(num_ao_basis, ), (num_ao_basis, num_ao_basis)}
+        grid: np.ndarray Shape: (3, npoints) or (4, npoints) or tuple for block_handler (return of grid_to_blocks)
+            grid where density will be computed.
+        basis: psi4.core.BasisSet, optional
+            The basis set. If not given it will use target wfn.basisset().
+        Vpot: psi4.core.VBase
+            Vpotential object with info about grid. 
+            Provides DFT spherical grid. Only comes to play if no grid is given. 
+
+        Returns
+        -------
+        coeff_r: np.ndarray Shape: (npoints, )
+            Quantity expressed by the coefficient on the given grid 
+
+
+        """
+
+
+        if grid is not None:
+            if type(grid) is np.ndarray:
+                if grid.shape[0] != 3 and grid.shape[0] != 4:
+                    raise ValueError("The shape of grid should be (3, npoints) "
+                                     "or (4, npoints) but got (%i, %i)" % (grid.shape[0], grid.shape[1]))
+                blocks, npoints, points_function = self.grid_to_blocks(grid, basis=basis)
+            else:
+                blocks, npoints, points_function = grid
+        elif grid is None:
+            Vpot = self.Vpot
+            nblocks = Vpot.nblocks()
+            blocks = [Vpot.get_block(i) for i in range(nblocks)]
+            npoints = Vpot.grid().npoints()
+            points_function = Vpot.properties()[0]
+        else:
+            raise ValueError("A grid or a V_potential (DFT grid) must be given.")
+
+        coeff_r = np.zeros((npoints))
+
+        offset = 0
+        for i_block in blocks:
+            points_function.compute_points(i_block)
+            b_points = i_block.npoints()
+            offset += b_points
+            lpos = np.array(i_block.functions_local_to_global())
+            if len(lpos)==0:
+                continue
+            phi = np.array(points_function.basis_values()["PHI"])[:b_points, :lpos.shape[0]]
+
+            if coeff.ndim == 1:
+                l_mat = coeff[(lpos[:])]
+                coeff_r[offset - b_points : offset] = contract('pm,m->p', phi, l_mat)
+            elif coeff.ndim == 2:
+                l_mat = coeff[(lpos[:, None], lpos)]
+                coeff_r[offset - b_points : offset] = contract('pm,mn,pn->p', phi, l_mat, phi)
+
+        return coeff_r
+
     def density(self, Da, Db=None, grid=None):
         """
         Generates Density given grid
@@ -172,11 +239,9 @@ class Psi4Grider():
 
         pass
 
-    def esp(self, Da=None, Db=None, grid=None, Vpot=None, wfn=None):
-
+    def esp(self, Da=None, Db=None, vpot=None, grid=None, compute_hartree=True):
         """
         Generates EXTERNAL/ESP/HARTREE and Fermi Amaldi Potential on given grid
-
         Parameters
         ----------
         Da,Db: np.ndarray, opt, shape (nbf, nbf)
@@ -184,7 +249,7 @@ class Psi4Grider():
             will be used.
         grid: np.ndarray Shape: (3, npoints) or (4, npoints) or tuple for block_handler (return of grid_to_blocks)
             grid where density will be computed.
-        Vpot: psi4.core.VBase
+        vpot: psi4.core.VBase
             Vpotential object with info about grid.
             Provides DFT spherical grid. Only comes to play if no grid is given. 
         
@@ -194,16 +259,15 @@ class Psi4Grider():
             External, Hartree, ESP, and Fermi Amaldi potential on the given grid
             Shape: (npoints, )
         """
+        wfn = self.wfn
 
-        if wfn is None:
-            wfn = self.wfn
-
-        if Da is not None:
-            Da_temp = np.copy(wfn.Da().np)
-            wfn.Da().np[:] = Da
-        if  Db is not None:
-            Db_temp = np.copy(wfn.Db().np)
-            wfn.Db().np[:] = Db
+        if Da is not None or Db is not None:
+            Da_temp = np.copy(self.wfn.Da().np)
+            Db_temp = np.copy(self.wfn.Db().np)
+            if Da is not None:
+                wfn.Da().np[:] = Da
+            if Db is not None:
+                wfn.Db().np[:] = Db
 
         nthreads = psi4.get_num_threads()
         psi4.set_num_threads(1)
@@ -213,13 +277,12 @@ class Psi4Grider():
                 blocks, npoints, points_function = self.grid_to_blocks(grid)
             else:
                 blocks, npoints, points_function = grid
-        elif grid is None:
-            Vpot = self.Vpot
-            nblocks = Vpot.nblocks()
-            blocks = [Vpot.get_block(i) for i in range(nblocks)]
-            npoints = Vpot.grid().npoints()
-        else:
-            raise ValueError("A grid or a V_potential (DFT grid) must be given.")
+        elif vpot is not None:
+            nblocks = vpot.nblocks()
+            blocks = [vpot.get_block(i) for i in range(nblocks)]
+            npoints = vpot.grid().npoints()
+        elif vpot is not None and grid is not None:
+            raise ValueError("Only one option can be given")
 
         #Initialize Arrays
         vext = np.zeros(npoints)
@@ -234,7 +297,8 @@ class Psi4Grider():
         zs = [mol_dict["elez"][i] for i in indx]
         rs = [self.mol.geometry().np[i] for i in indx]
 
-        esp_wfn = psi4.core.ESPPropCalc(wfn)
+        if compute_hartree:
+            esp_wfn = psi4.core.ESPPropCalc(wfn)
 
         #Loop Through blocks
         offset = 0
@@ -246,27 +310,33 @@ class Psi4Grider():
                 y = i_block.y().np
                 z = i_block.z().np
 
-                # EXTERNAL
+                #EXTERNAL
                 for atom in range(natoms):
                     r =  np.sqrt((x-rs[atom][0])**2 + (y-rs[atom][1])**2 + (z-rs[atom][2])**2)
                     vext_temp = - 1.0 * zs[atom] / r
                     vext_temp[np.isinf(vext_temp)] = 0.0
                     vext[offset - b_points : offset] += vext_temp
-                # ESP
-                xyz = np.concatenate((x[:,None],y[:,None],z[:,None]), axis=1)
-                grid_block = psi4.core.Matrix.from_array(xyz)
-                esp[offset - b_points : offset] = esp_wfn.compute_esp_over_grid_in_memory(grid_block).np
 
-        # HARTREE
-        hartree = - 1.0 * (vext + esp)
+                if compute_hartree:
+                    #ESP
+                    xyz = np.concatenate((x[:,None],y[:,None],z[:,None]), axis=1)
+                    grid_block = psi4.core.Matrix.from_array(xyz)
+                    esp[offset - b_points : offset] = esp_wfn.compute_esp_over_grid_in_memory(grid_block).np
+
+        #Hartree
+        if compute_hartree:
+            hartree = - 1.0 * (vext + esp)
 
         if Da is not None:
-            wfn.Da().np[:] = Da_temp
+            self.wfn.Da().np[:] = Da_temp
         if Db is not None:
-            wfn.Db().np[:] = Db_temp
+            self.wfn.Db().np[:] = Db_temp
         psi4.set_num_threads(nthreads)
 
-        return vext, hartree, esp
+        if compute_hartree:
+            return vext, hartree, esp
+        else:
+            return vext
 
     def get_orbitals():
         pass

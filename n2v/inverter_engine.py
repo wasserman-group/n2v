@@ -8,6 +8,7 @@ from opt_einsum import contract
 
 from .engines import Psi4Engine
 from .methods.zmp import ZMP
+from .methods.wuyang import WuYang
 
 @dataclass
 class V:
@@ -19,7 +20,7 @@ class E:
     """Stores Energies"""
     pass
 
-class InverterEngine(ZMP):
+class InverterEngine(ZMP, WuYang):
 
     def __init__( self, engine='psi4' ):
         if engine == 'psi4':
@@ -30,6 +31,12 @@ class InverterEngine(ZMP):
 
     def set_system( self, molecule, basis, ref=1, pbs='same' ):
         # Communicate TO engine
+
+        #Assert units are in bohr
+        units = molecule.to_schema(dtype='psi4')['units']
+        if units != "Bohr":
+            raise ValueError("Units need to be set in Bohr")
+            
         self.mol_str = molecule.save_string_xyz()
         self.eng.mol  = molecule
         self.eng.basis_str = basis
@@ -47,6 +54,8 @@ class InverterEngine(ZMP):
         # Receive FROM engine
         self.nbf  = self.eng.nbf
         self.npbs = self.eng.npbs
+        self.v_pbs = np.zeros( (self.npbs) ) if self.ref == 1 \
+                                             else np.zeros( 2 * self.npbs )
 
     def set_basis_matrices( self ):
         """Generate basis dependant matrices"""
@@ -117,14 +126,26 @@ class InverterEngine(ZMP):
         else:
             raise ValueError("Guide component not recognized")
 
-    def invert(self, method='zmp', 
-                     guide_components='hartree',
+    def invert(self, method = 'zmp', 
+                     guide_components = 'hartree',
+                     opt_max_iter = 50,
                      **keywords):
-        """I invert"""
-
+        """"""
         self.generate_components(guide_components)
 
-        if method.lower() == 'zmp':
-            self.zmp(**keywords)
+        if method.lower() == "direct":
+            return self.direct_inversion(**keywords)
+        elif method.lower() == "wuyang":
+            self.wuyang(opt_max_iter, **keywords)
+        elif method.lower() == "zmp":
+            self.zmp(opt_max_iter, **keywords)
+        elif method.lower() == "mrks":
+            return self.mRKS(opt_max_iter, **keywords)
+        elif method.lower() == 'oc':
+            return self.oucarter(opt_max_iter, **keywords)
+        elif method.lower() == 'pdeco':
+            return self.pdeco(opt_max_iter, **keywords)
+        else:
+            raise ValueError(f"Inversion method not available. Methods available: {['wuyang', 'zmp', 'mrks', 'oc', 'pdeco']}")
 
 
