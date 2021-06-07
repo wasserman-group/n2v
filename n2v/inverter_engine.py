@@ -9,6 +9,7 @@ from opt_einsum import contract
 from .engines import Psi4Engine
 from .methods.zmp import ZMP
 from .methods.wuyang import WuYang
+from .methods.pdeco import PDECO
 
 @dataclass
 class V:
@@ -20,7 +21,7 @@ class E:
     """Stores Energies"""
     pass
 
-class InverterEngine(ZMP, WuYang):
+class InverterEngine(ZMP, WuYang, PDECO):
 
     def __init__( self, engine='psi4' ):
         if engine == 'psi4':
@@ -36,7 +37,7 @@ class InverterEngine(ZMP, WuYang):
         units = molecule.to_schema(dtype='psi4')['units']
         if units != "Bohr":
             raise ValueError("Units need to be set in Bohr")
-            
+
         self.mol_str = molecule.save_string_xyz()
         self.eng.mol  = molecule
         self.eng.basis_str = basis
