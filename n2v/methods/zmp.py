@@ -77,11 +77,10 @@ class ZMP():
         self.mixing = zmp_mixing
 
         print("\nRunning ZMP:")
-        self.zmp_scf(lambda_list, 'hartree', opt_max_iter, print_scf, D_conv=opt_tol)
+        self.zmp_scf(lambda_list, opt_max_iter, print_scf, D_conv=opt_tol)
 
     def zmp_scf(self, 
             lambda_list,
-            zmp_functional,
             maxiter, 
             print_scf,
             D_conv):
@@ -91,42 +90,17 @@ class ZMP():
             zmp_functional: options the penalty term.
             But others are not currently working except for Hartree penalty (original ZMP).
         ----------
-        """
+        """        
 
-        # #Checks if there is dft grid available. 
-        # if hasattr(self.wfn, 'V_potential()') == False:
-        #     ref = "RV" if self.ref == 1 else "UV"
-        #     functional = psi4.driver.dft.build_superfunctional("SVWN", restricted=True if self.ref==1 else False)[0]
-        #     Vpot = psi4.core.VBase.build(self.basis, functional, ref)
-        #     Vpot.initialize()
-        #     self.Vpot = Vpot
-        # else:
-        #     self.Vpot = self.wfn.V_potential()
+        # Target density on grid
+        if self.ref == 1:
+            D0 = self.eng.grid.density(Da=self.Dt[0])
+            Da0, Db0 = D0, D0
+        else:
+            D0 = self.eng.grid.density(Da=self.Dt[0], Db=self.Dt[1])
+            Da0, Db0 = D0[:,0], D0[:,1]
 
-        # Obtain target density on dft_grid 
-        
-
-        #Calculate kernels
-        if zmp_functional.lower() != 'hartree':
-            if self.ref == 1:
-                D0 = self.eng.grid.density(Da=self.Dt[0])
-                Da0, Db0 = D0[:,0], D0[:,0]
-            else:
-                D0 = self.eng.grid.density(Da=self.Dt[0], Db=self.Dt[1])
-                Da0, Db0 = D0[:,0], D0[:,1]
-
-            # if zmp_functional == 'log':
-            #     Sa0 = np.log(Da0) + 1  
-            #     Sb0 = np.log(Db0) + 1
-            # elif zmp_functional == 'exp':
-            #     Sa0 = Da0 ** 0.05
-            #     Sb0 = Db0 ** 0.05
-            # self.Sa0 = self.dft_grid_to_fock(Sa0, Vpot=self.Vpot)
-            # if self.ref == 2:
-            #     self.Sb0 = self.dft_grid_to_fock(Sb0, Vpot=self.Vpot)
-            # else: 
-            #     self.Sb0 = self.Sa0.copy()
-
+        # Initialize Stuff
         vc_previous_a = np.zeros((self.nbf, self.nbf))
         vc_previous_b = np.zeros((self.nbf, self.nbf))
         self.Da = self.Dt[0]
@@ -153,7 +127,6 @@ class ZMP():
 
 #------------->  Generate Fock Matrix:
                 vc = self.generate_s_functional(lam_i,
-                                                zmp_functional,
                                                 Cocca, Coccb, 
                                                 Da, Db)
 
@@ -164,7 +137,6 @@ class ZMP():
                 if self.ref == 2:
                     Fb = self.T + self.V + self.vb + vc[1] + vc_previous_b
                     Fb += (self.S2 - reduce(np.dot, (self.S2, Db, self.S2))) * self.shift
-                
 
     #------------->  DIIS:
                 if SCF_ITER > 1:
@@ -255,7 +227,7 @@ class ZMP():
                 derror = np.max(np.abs(ddm))
 
                 #Uncomment to debug internal SCF
-                if print_scf is True:
+                if True:
                     if np.mod(SCF_ITER,5) == 0.0:
                         print(f"Iteration: {SCF_ITER:3d} | Self Convergence Error: {derror:10.5e} | DIIS Error: {diis_error:10.5e}")
                 
@@ -265,7 +237,10 @@ class ZMP():
                 if SCF_ITER == maxiter - 1:
                     raise ValueError("ZMP Error: Maximum Number of SCF cycles reached. Try different settings.")
 
-            density_current = self.on_grid_density(grid=None, Da=Da, Db=Db, Vpot=self.Vpot)
+            if self.ref == 1:
+                density_current = self.eng.grid.density(Da=Da, grid=None)
+            else:
+                density_current = self.eng.grid.density(Da=Da, Db=Db, grid=None)
             grid_diff = np.max(np.abs(D0 - density_current))
             if np.abs(grid_diff_old) < np.abs(grid_diff):
                 # This is a greedy algorithm: if the density error stopped improving for this lambda, we will stop here.
@@ -293,7 +268,7 @@ class ZMP():
 # -------------> END Iterating over lambdas:
 
         self.proto_density_a += successful_lam * successful_proto_density[0] * (1 - self.mixing)
-        if self.guide_potential_components[0].lower() == "fermi_amaldi":
+        if self.guide_components[0].lower() == "fermi_amaldi":
             # for ref==1, vxc = \int dr (proto_density_a + proto_density_b)/|r-r'| - 1/N*vH
             if self.ref == 1:
                 self.proto_density_a -= (1 / (self.nalpha + self.nbeta)) * (self.Dt[0])
@@ -329,47 +304,22 @@ class ZMP():
         print(successful_lam)
 
 
-    def generate_s_functional(self, lam, zmp_functional, Cocca, Coccb, Da, Db):
+    def generate_s_functional(self, lam, Cocca, Coccb, Da, Db):
         """
         Generates S_n Functional as described in:
         https://doi.org/10.1002/qua.26400
         """
 
-        if zmp_functional.lower() == 'hartree':
-            J, _ = self.eng.compute_hartree(Cocca, Coccb)
+        J = self.eng.compute_hartree(Cocca, Coccb)
 
-            #Equation 7 of Reference (1)
-            if self.ref == 1:
-                vc_a = 2 * lam * ( J[0] - self.J0[0] ) 
-                vc = [vc_a]
-            else:
-                vc_a = lam * ( J[0] - self.J0[0] ) 
-                vc_b = lam * ( J[1] - self.J0[1] )
-                vc = [vc_a, vc_b]            
-            return vc
-
-        # else:
-
-        #     D = self.on_grid_density(Vpot=self.Vpot, Da=Da, Db=Db)
-
-        #     if self.ref == 1:
-        #         Da, Db = D[:,0], D[:,0]
-        #     else:
-        #         Da, Db = D[:,0], D[:,1]
-                
-        #     #Calculate kernels
-        #     #Equations 37, 38, 39, 40 of Reference (3)
-        #     if zmp_functional.lower() == 'log':
-        #         Sa = np.log(Da) + 1
-        #         Sb = np.log(Db) + 1 
-        #     if zmp_functional.lower() == 'exp':
-        #         Sa = Da ** 0.05
-        #         Sb = Db ** 0.05
-
-        #     #Generate AO matrix from functions. 
-        #     Sa = self.dft_grid_to_fock(Sa, Vpot=self.Vpot)
-        #     Sb = self.dft_grid_to_fock(Sb, Vpot=self.Vpot)
-        #     vc = (Sa + Sb) - (self.Sa0 + self.Sb0)
-
-        #     return vc
+        #Equation 7 of Reference (1)
+        if self.ref == 1:
+            vc_a = 2 * lam * ( J[0] - self.J0[0] ) 
+            self.vca = J[0] - self.J0[0]
+            vc = [vc_a]
+        else:
+            vc_a = lam * ( J[0] - self.J0[0] ) 
+            vc_b = lam * ( J[1] - self.J0[1] )
+            vc = [vc_a, vc_b]            
+        return vc
         

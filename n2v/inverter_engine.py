@@ -1,9 +1,10 @@
 """
 Inverter.py
 """
-
+from warnings import warn
 from dataclasses import dataclass
 import numpy as np
+from opt_einsum import contract
 
 from .engines import Psi4Engine
 from .methods.zmp import ZMP
@@ -19,8 +20,6 @@ class E:
     pass
 
 class InverterEngine(ZMP):
-
-    # Initialize System
 
     def __init__( self, engine='psi4' ):
         if engine == 'psi4':
@@ -38,8 +37,8 @@ class InverterEngine(ZMP):
         self.ref = ref
         self.eng.ref = ref
 
-        self.nalpha = None
-        self.nbeta = None
+        # self.nalpha = None
+        # self.nbeta = None
 
         # Initialize ecompasses everything the engine builds with basis set 
         self.eng.initialize()
@@ -63,7 +62,7 @@ class InverterEngine(ZMP):
         self.S4 = None
 
     def compute_hartree( self, Cooc_a, Cooc_b ):
-        return self.eng.generate_hartree(Cooc_a, Cooc_b)
+        return self.eng.compute_hartree(Cooc_a, Cooc_b)
 
     def diagonalize( self, matrix, ndocc ):
         """
@@ -98,15 +97,34 @@ class InverterEngine(ZMP):
     # Actual Methods
     def generate_components(self, guide_components, **keywords):
         """ I generate """
-        if guide_components == 'none':
-            self.va = np.zeros( self.nbf )
-            self.vb = np.zeros( self.nbf )
+        self.guide_components = guide_components
+        self.va = np.zeros( (self.nbf, self.nbf) )
+        self.vb = np.zeros( (self.nbf, self.nbf) )
+        self.J0 = self.compute_hartree(self.ct[0], self.ct[1])
+        N       = self.nalpha + self.nbeta
 
-    def invert(self, method='zmp', guide_components='none'):
+        if guide_components == 'none':
+            warn("Convergence will likely not be achieved")
+        elif guide_components == 'hartree':
+            self.va += self.J0[0]
+            self.vb += self.J0[1]
+        elif guide_components == 'fermi_amaldi':
+            "Im calculating Fermi Amaldi Component"
+            print("Computing Fermi Amaldi")
+            v_fa = (1-1/N) * (self.J0[0] + self.J0[1])
+            self.va += v_fa
+            self.vb += v_fa
+        else:
+            raise ValueError("Guide component not recognized")
+
+    def invert(self, method='zmp', 
+                     guide_components='hartree',
+                     **keywords):
         """I invert"""
+
         self.generate_components(guide_components)
 
         if method.lower() == 'zmp':
-            self.zmp()
+            self.zmp(**keywords)
 
 

@@ -10,10 +10,13 @@ from ..grid import Psi4Grider
 
 class Psi4Engine(Engine):
 
-    def __init__(self):
-        pass
+    # def __init__(self):
+    #     pass
 
     def initialize(self):
+        """
+        Initializes basic objects required for the Psi4Engine
+        """
         self.basis = psi4.core.BasisSet.build( self.mol, key='BASIS', target=self.basis_str)
         self.pbs   = psi4.core.BasisSet.build( self.mol, key='BASIS', target=self.pbs_str)
 
@@ -35,7 +38,7 @@ class Psi4Engine(Engine):
         """External potential in ao basis"""
         return np.array( self.mints.ao_potential() )
     def get_A(self):
-        """Inverse Squared root of S matrix"""
+        """Inverse squared root of S matrix"""
         A = self.mints.ao_overlap()
         A.power( -0.5, 1e-16 )
         return np.array( A )
@@ -60,7 +63,7 @@ class Psi4Engine(Engine):
 
     def compute_hartree(self, Cocc_a, Cocc_b):
         """
-        Computes har
+        Generates Coulomb and Exchange matrices from occupied orbitals
         """
         Cocc_a = psi4.core.Matrix.from_array(Cocc_a)
         Cocc_b = psi4.core.Matrix.from_array(Cocc_b)
