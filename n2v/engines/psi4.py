@@ -4,6 +4,7 @@ Provides interface n2v interface to Psi4
 
 import numpy as np
 import psi4
+from opt_einsum import contract
 
 from .engine import Engine
 from ..grid import Psi4Grider
@@ -31,22 +32,50 @@ class Psi4Engine(Engine):
     def get_T(self):
         """Kinetic Potential in ao basis"""
         return np.array( self.mints.ao_kinetic() )
+
     def get_Tpbas(self):
         """Kinetic Potential in pbs"""
         return np.array( self.mints.ao_kinetic(self.pbs, self.pbs) )
+
     def get_V(self):
         """External potential in ao basis"""
         return np.array( self.mints.ao_potential() )
+
     def get_A(self):
         """Inverse squared root of S matrix"""
         A = self.mints.ao_overlap()
         A.power( -0.5, 1e-16 )
         return np.array( A )
+
     def get_S(self):
         """Overlap matrix of ao basis"""
         return np.array( self.mints.ao_overlap() )
+
     def get_S3(self):
         return np.array( self.mints.ao_3coverlap(self.basis,self.basis,self.pbs) )
+
+    def get_S4(self):
+        """
+        Calculates four overlap integral with Density Fitting method.
+        S4_{ijkl} = \int dr \phi_i(r)*\phi_j(r)*\phi_k(r)*\phi_l(r)
+        Parameters
+        ----------
+        wfn: psi4.core.Wavefunction
+            Wavefunction object of moleculep
+        Return
+        ------
+        S4
+        """
+
+        print(f"4-AO-Overlap tensor will take about {self.nbf **4 / 8 * 1e-9:f} GB.")
+
+        aux_basis = psi4.core.BasisSet.build(self.mol, "DF_BASIS_SCF", "", "JKFIT", self.basis_str)
+        S_Pmn = np.squeeze(self.mints.ao_3coverlap(aux_basis, self.basis, self.basis ))
+        S_PQ = np.array(self.mints.ao_overlap(aux_basis, aux_basis))
+        S_PQinv = np.linalg.pinv(S_PQ, rcond=1e-9)
+        S4 = contract('Pmn,PQ,Qrs->mnrs', S_Pmn, S_PQinv, S_Pmn)
+        return S4
+
 
     def generate_jk(self, gen_K=False):
         """
