@@ -14,6 +14,22 @@ class Psi4Engine(Engine):
     # def __init__(self):
     #     pass
 
+    def set_system(self, molecule, basis, ref, pbs):
+        """
+        Initializes geometry and basis infromation
+        """
+        self.mol_str = molecule
+        self.mol = psi4.geometry(molecule)
+        
+        #Assert units are in bohr
+        units = self.mol.to_schema(dtype='psi4')['units']
+        if units != "Bohr":
+            raise ValueError("Units need to be set in Bohr")
+        self.basis_str = basis
+        self.ref = ref 
+        self.pbs = pbs
+        self.pbs_str   = basis if pbs == 'same' else pbs
+
     def initialize(self):
         """
         Initializes basic objects required for the Psi4Engine
@@ -103,3 +119,5 @@ class Psi4Engine(Engine):
         J = (np.array(self.jk.J()[0]), np.array(self.jk.J()[1]))
         return J
 
+
+ 
