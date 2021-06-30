@@ -5,6 +5,7 @@ Density-to-potential inversion module
 
 # Add imports here
 from .inverter import *
+# from .inverter_engine import *
 
 # Handle versioneer
 from ._version import get_versions
