@@ -61,39 +61,6 @@ class PDECO():
             self.v_pbs = opt_results.x
             self.opt_info = opt_results
 
-
-    # def fouroverlap(self, wfn=None):
-    #     """
-    #     Calculates four overlap integral with Density Fitting method.
-    #     S4_{ijkl} = \int dr \phi_i(r)*\phi_j(r)*\phi_k(r)*\phi_l(r)
-
-    #     Parameters
-    #     ----------
-    #     wfn: psi4.core.Wavefunction
-    #         Wavefunction object of molecule
-
-    #     Return
-    #     ------
-    #     S4
-    #     """
-    #     if wfn is None:
-    #         wfn = self.wfn
-
-    #     print(f"4-AO-Overlap tensor will take about {self.nbf **4 / 8 * 1e-9:d} GB.")
-
-    #     mints = psi4_mintshelper( self.basis )
-
-    #     aux_basis = psi4_basiset.build(wfn.molecule(), "DF_BASIS_SCF", "",
-    #                                  "JKFIT", wfn.basisset().name())
-    #     S_Pmn = np.squeeze(mints.ao_3coverlap(aux_basis, wfn.basisset(),
-    #                                           wfn.basisset()))
-    #     S_PQ = np.array(mints.ao_overlap(aux_basis, aux_basis))
-
-    #     S_PQinv = np.linalg.pinv(S_PQ, rcond=1e-9)
-
-    #     S4 = np.einsum('Pmn,PQ,Qrs->mnrs', S_Pmn, S_PQinv, S_Pmn, optimize=True)
-    #     return S4
-
     def lagrangian_pbeco(self, v):
         """
         Lagrangian to be minimized wrt external potential

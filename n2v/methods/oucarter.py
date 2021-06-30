@@ -88,100 +88,8 @@ class OC():
         assert iw == tauLmP_rho.shape[0], "Somehow the whole space is not fully integrated."
 
         return tauLmP_rho
-
-    def _get_optimized_external_potential(self, grid_info, average_alpha_beta=False):
-        """
-        $
-        v^{~}{ext}(r) = \epsilon^{-LDA}(r)
-        - \frac{\tau^{LDA}{L}}{n^{LDA}(r)}
-        - v_{H}^{LDA}(r) - v_{xc}^{LDA}(r)
-        $
-        (22) in [1].
-        """
-
-        Nalpha = self.nalpha
-        Nbeta = self.nbeta
-
-        # SVWN calculation
-        wfn_LDA = psi4.energy("SVWN/" + self.basis_str, molecule=self.mol, return_wfn=True)[1]
-        Da_LDA = wfn_LDA.Da().np
-        Db_LDA = wfn_LDA.Db().np
-        Ca_LDA = wfn_LDA.Ca().np
-        Cb_LDA = wfn_LDA.Cb().np
-        epsilon_a_LDA = wfn_LDA.epsilon_a().np
-        epsilon_b_LDA = wfn_LDA.epsilon_b().np
-        self.Vpot = wfn_LDA.V_potential()
-
-        vxc_LDA_DFT = self.on_grid_vxc(Da=Da_LDA, Db=Db_LDA, Vpot=self.Vpot)
-        vxc_LDA = self.on_grid_vxc(Da=Da_LDA, Db=Db_LDA, grid=grid_info)
-        if self.ref != 1:
-            assert vxc_LDA.shape[-1] == 2
-            vxc_LDA_beta = vxc_LDA[:,1]
-            vxc_LDA = vxc_LDA[:, 0]
-            vxc_LDA_DFT_beta = vxc_LDA_DFT[:, 1]
-            vxc_LDA_DFT = vxc_LDA_DFT[:, 0]
-
-        # _average_local_orbital_energy() taken from mrks.py.
-        e_bar_DFT = self._average_local_orbital_energy(Da_LDA, Ca_LDA[:,:Nalpha], epsilon_a_LDA[:Nalpha])
-        e_bar = self._average_local_orbital_energy(Da_LDA, Ca_LDA[:, :Nalpha], epsilon_a_LDA[:Nalpha], grid_info=grid_info)
-
-
-        tauLmP_rho_DFT = self._get_l_kinetic_energy_density_directly(Da_LDA, Ca_LDA[:,:Nalpha])
-        tauLmP_rho = self._get_l_kinetic_energy_density_directly(Da_LDA, Ca_LDA[:,:Nalpha], grid_info=grid_info)
-
-        tauP_rho_DFT = self._pauli_kinetic_energy_density(Da_LDA, Ca_LDA[:,:Nalpha])
-        tauP_rho = self._pauli_kinetic_energy_density(Da_LDA, Ca_LDA[:,:Nalpha], grid_info=grid_info)
-
-        tauL_rho_DFT = tauLmP_rho_DFT + tauP_rho_DFT
-        tauL_rho = tauLmP_rho + tauP_rho
-
-        vext_opt_no_H_DFT = e_bar_DFT - tauL_rho_DFT - vxc_LDA_DFT
-        vext_opt_no_H = e_bar - tauL_rho - vxc_LDA
-
-        J = self.form_jk(Ca_LDA[:,:Nalpha],  Cb_LDA[:,:Nbeta])[0]
-        vext_opt_no_H_DFT_Fock = self.dft_grid_to_fock(vext_opt_no_H_DFT, self.Vpot)
-        vext_opt_DFT_Fock = vext_opt_no_H_DFT_Fock - J[0] - J[1]
-
-        # # Does vext_opt need a shift?
-        # Fock_LDA = self.T + vext_opt_DFT_Fock + J[0] + J[1] + self.dft_grid_to_fock(vxc_LDA_DFT, self.Vpot)
-        # eigvecs_a = self.diagonalize(Fock_LDA, self.nalpha)[-1]
-        # shift = eigvecs_a[Nalpha-1] - epsilon_a_LDA[Nalpha-1]
-        # vext_opt_DFT_Fock -= shift * self.S2
-        # print("LDA shift:", shift, eigvecs_a[Nalpha-1], epsilon_a_LDA[Nalpha-1])
-
-        vH = self.on_grid_esp(grid=grid_info, wfn=wfn_LDA)[1]
-        vext_opt = vext_opt_no_H - vH
-        # vext_opt -= shift
-
-        if self.ref != 1:
-            e_bar_DFT_beta = self._average_local_orbital_energy(Db_LDA, Cb_LDA[:,:Nbeta], epsilon_b_LDA[:Nbeta])
-            e_bar_beta = self._average_local_orbital_energy(Db_LDA, Cb_LDA[:, :Nbeta], epsilon_b_LDA[:Nbeta], grid_info=grid_info)
-
-
-            tauLmP_rho_DFT_beta = self._get_l_kinetic_energy_density_directly(Db_LDA, Cb_LDA[:,:Nbeta])
-            tauLmP_rho_beta = self._get_l_kinetic_energy_density_directly(Db_LDA, Cb_LDA[:,:Nalpha], grid_info=grid_info)
-
-            tauP_rho_DFT_beta = self._pauli_kinetic_energy_density(Db_LDA, Cb_LDA[:,:Nbeta])
-            tauP_rho_beta = self._pauli_kinetic_energy_density(Db_LDA, Cb_LDA[:,:Nbeta], grid_info=grid_info)
-
-            tauL_rho_DFT_beta = tauLmP_rho_DFT_beta + tauP_rho_DFT_beta
-            tauL_rho_beta = tauLmP_rho_beta + tauP_rho_beta
-
-            vext_opt_no_H_DFT_beta = e_bar_DFT_beta - tauL_rho_DFT_beta - vxc_LDA_DFT_beta
-            vext_opt_no_H_beta = e_bar_beta - tauL_rho_beta - vxc_LDA_beta
-
-            vext_opt_no_H_DFT_Fock_beta = self.dft_grid_to_fock(vext_opt_no_H_DFT_beta, self.Vpot)
-            vext_opt_DFT_Fock_beta = vext_opt_no_H_DFT_Fock_beta - J[0] - J[1]
-
-            vext_opt_beta = vext_opt_no_H_beta - vH
-
-            # vext_opt_DFT_Fock = (vext_opt_DFT_Fock + vext_opt_DFT_Fock_beta) * 0.5
-            # vext_opt = (vext_opt + vext_opt_beta) * 0.5
-
-            return (vext_opt_DFT_Fock, vext_opt_DFT_Fock_beta), (vext_opt, vext_opt_beta)
-        return vext_opt_DFT_Fock, vext_opt
     
-    def oucarter(self, maxiter, vxc_grid, D_tol=1e-7,
+    def oucarter(self, maxiter, vxc_grid=None, D_tol=1e-7,
              eig_tol=1e-4, frac_old=0.5, init="scan"):
         """
         (23) in [1].
@@ -224,19 +132,29 @@ class OC():
         #     raise ValueError("Currently only supports Spin-Restricted "
         #                      "calculations since Spin-Unrestricted CI "
         #                      "is not supported by Psi4.")
-        
-        grid_info = self.grid_to_blocks(vxc_grid)
-        if self.ref == 1:
-            grid_info[-1].set_pointers(self.wfn.Da())
-        else:
-            grid_info[-1].set_pointers(self.wfn.Da(), self.wfn.Db())
+
+        if self.eng_str == 'psi4':
+            if vxc_grid is not None:
+                plotting_grid = self.eng.grid.grid_to_blocks(vxc_grid)
+
+            # Set pointers for target density
+            points_func = self.eng.grid.Vpot.properties()[0]
+            if self.ref == 1:
+                da_psi4 = psi4.core.Matrix.from_array(self.Dt[0])
+                points_func.set_pointers(da_psi4)
+            else:
+                da_psi4 = psi4.core.Matrix.from_array(self.Dt[0])
+                db_psi4 = psi4.core.Matrix.from_array(self.Dt[1])
+                points_func.set_pointers(da_psi4, db_psi4)
+
+        # Obtain optimized external Potential
+        # Need to get vext_opt_plot and vext_opt_nm
 
         if self.ref == 1:
-            vext_opt_Fock, vext_opt = self._get_optimized_external_potential(grid_info)
+            vext_opt_Fock, vext_opt = self.eng.grid.optimized_external_potential()
         else:
-            (vext_opt_Fock, vext_opt_Fock_beta), (vext_opt, vext_opt_beta) = self._get_optimized_external_potential(grid_info)
+            (vext_opt_Fock, vext_opt_Fock_beta), (vext_opt, vext_opt_beta) = self.eng.grid.optimized_external_potential()
 
-        assert self.Vpot is not None
         
         vH0_Fock = self.va
         
