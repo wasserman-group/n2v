@@ -81,7 +81,7 @@ class PDECO():
         if wfn is None:
             wfn = self.wfn
 
-        print(f"4-AO-Overlap tensor will take about {self.nbf **4 / 8 * 1e-9:d} GB.")
+        print(f"4-AO-Overlap tensor will take about {self.nbf **4 / 8 * 1e-9:f} GB.")
 
         mints = psi4_mintshelper( self.basis )
 
