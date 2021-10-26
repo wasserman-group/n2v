@@ -23,8 +23,7 @@ import n2v
 # -- Project information -----------------------------------------------------
 
 project = 'n2v'
-copyright = ("2020, Wasserman Group. Project structure based on the "
-             "Computational Molecular Science Python Cookiecutter version 1.5")
+copyright = ("2020, Wasserman Group.")
 author = 'Wasserman Group'
 
 # The short X.Y version
@@ -105,7 +104,7 @@ html_logo = "../media/logo_nameless_png.png"
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+# html_static_path = ['_static']
 
 # Custom sidebar templates, must be a dictionary that maps document names
 # to template names.

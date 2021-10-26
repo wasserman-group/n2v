@@ -1,11 +1,10 @@
 **First Steps**
 ===============
 
-This page details how to get started with n2v. 
-I'll show you how to do things in n2v
+This page details how to get started with *n2v*. 
 
 *n2v* allows you to perform density-to-potential inversions. 
-By default, we interface our package with the package Psi4. Thus it is a good idea
+By default, we interface our package with the package Psi4. It is a good idea
 to become familiarized with it and it's python interface. 
 
 The first need we need to make a calculation is to obtain a target density. Let 
@@ -36,7 +35,7 @@ us do this in Psi4 for the Neon atom.
   # - Obtain a wavefunction object (wfn) as well. 
   e, wfn = psi4.properties("CCSD/cc-pvdz", return_wfn=True, properties=["dipole"], molecule=Ne)
 
-All of the information required to invert the calculated density into its effective potentiall 
+All of the information required to invert the calculated density into its effective potential
 is stored in the wfn. With it, we can create an inverter object and start using 
 n2v.
 
