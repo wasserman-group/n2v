@@ -1,7 +1,8 @@
-API Documentation
-=================
+**API Documentation**
+=====================
 
 .. autosummary::
    :toctree: autosummary
 
-   n2v.canvas
+.. automodapi:: n2v
+
