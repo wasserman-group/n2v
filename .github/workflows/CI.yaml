@@ -42,7 +42,7 @@ jobs:
       run: |
         eval "$(conda shell.bash hook)" && conda activate test
         cd ~
-        wget --content-disposition  http://www.tddft.org/programs/libxc/down. php?file=5.0.0/libxc-5.0.0.tar.gz
+        wget --content-disposition  http://www.tddft.org/programs/libxc/down.php?file=5.0.0/libxc-5.0.0.tar.gz
         tar xf libxc-5.0.0.tar.gz
         cd libxc-5.0.0/
         python -m pip install . --no-deps
