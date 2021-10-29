@@ -5,12 +5,13 @@ channels:
   - defaults
 dependencies:
     # Base depends
+  - psi4
   - python
   - pip
   - sphinx
   - numpy
   - scipy
-  - psi4
+
 
     # Testing
   - pytest
