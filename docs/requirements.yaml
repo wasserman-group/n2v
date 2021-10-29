@@ -5,12 +5,12 @@ channels:
   - defaults
 dependencies:
     # Base depends
-  # - psi4
+  - psi4
   - python
   - pip
   - sphinx
-  # - numpy
-  # - scipy
+  - numpy
+  - scipy
   # - sphinx_automodapi
 
 
