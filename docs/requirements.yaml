@@ -5,12 +5,14 @@ channels:
   - defaults
 dependencies:
     # Base depends
-  - psi4
   - python
   - pip
-  - sphinx
   - numpy
   - scipy
+  - psi4
+  - pytest
+  - pytest-cov
+  - codecov
   # - sphinx_automodapi
 
 
@@ -22,5 +24,6 @@ dependencies:
     # Pip-only installs
   - pip:
     # - insegel
-    - opt-einsum
-    - sphinx_automodapi
+  - recommonmark
+  - readthedocs-sphinx-ext
+  - opt-einsum
