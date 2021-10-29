@@ -7,8 +7,11 @@ Functions associated with PDE-Constrained Optimization.
 import numpy as np
 from opt_einsum import contract
 from scipy.optimize import minimize
-from psi4.core import BasisSet as psi4_basiset
-from psi4.core import MintsHelper as psi4_mintshelper
+try:
+    from psi4.core import BasisSet as psi4_basiset
+    from psi4.core import MintsHelper as psi4_mintshelper
+except:
+    pass
 
 class PDECO():
     """
