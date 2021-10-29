@@ -15,12 +15,6 @@ dependencies:
   - codecov
 
 
-
-    # Testing
-  - pytest
-  - pytest-cov
-  - codecov
-
     # Pip-only installs
   - pip:
     # - insegel
