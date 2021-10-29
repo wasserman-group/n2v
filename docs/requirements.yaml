@@ -9,8 +9,9 @@ dependencies:
   - python
   - pip
   - sphinx
-  - numpy
-  - scipy
+  # - numpy
+  # - scipy
+  - sphinx_automodapi
 
 
     # Testing
@@ -20,5 +21,5 @@ dependencies:
 
     # Pip-only installs
   - pip:
-    - insegel
+    # - insegel
     - opt-einsum
