@@ -11,7 +11,7 @@ dependencies:
   - sphinx
   # - numpy
   # - scipy
-  - sphinx_automodapi
+  # - sphinx_automodapi
 
 
     # Testing
@@ -23,3 +23,4 @@ dependencies:
   - pip:
     # - insegel
     - opt-einsum
+    - sphinx_automodapi
