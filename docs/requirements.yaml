@@ -5,7 +5,7 @@ channels:
   - defaults
 dependencies:
     # Base depends
-  - psi4
+  # - psi4
   - python
   - pip
   - sphinx
