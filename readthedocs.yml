@@ -6,10 +6,10 @@ build:
   image: latest
 
 python:
-  version: 3.8
-  install:
-    - method: pip
-      path: .
+  version: 3.7
+  # install:
+  #   - method: pip
+  #     path: .
 
 conda:
   environment: docs/requirements.yaml
