@@ -25,5 +25,5 @@ dependencies:
   - pip:
     # - insegel
   - recommonmark
-  - readthedocs-sphinx-ext
+  # - readthedocs-sphinx-ext
   - opt-einsum
