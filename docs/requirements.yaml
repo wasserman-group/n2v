@@ -17,6 +17,7 @@ dependencies:
 
     # Pip-only installs
   - pip:
+    - insegel
     - sphinx_automodapi
     - recommonmark
     - opt-einsum
