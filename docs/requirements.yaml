@@ -13,7 +13,7 @@ dependencies:
   - pytest
   - pytest-cov
   - codecov
-  # - sphinx_automodapi
+  - sphinx_automodapi
 
 
     # Testing
