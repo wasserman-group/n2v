@@ -13,13 +13,12 @@ dependencies:
   - pytest
   - pytest-cov
   - codecov
-  - sphinx_automodapi
 
 
     # Pip-only installs
   - pip:
     # - insegel
-
-  - recommonmark
+    - sphinx_automodapi
+    - recommonmark
   # - readthedocs-sphinx-ext
-  - opt-einsum
+    - opt-einsum
