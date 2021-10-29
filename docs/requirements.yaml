@@ -1,7 +1,7 @@
 name: docs
 channels:
   - conda-forge
-  - psi4
+  # - psi4
   - defaults
 dependencies:
     # Base depends
@@ -9,7 +9,7 @@ dependencies:
   - pip
   - numpy
   - scipy
-  - psi4
+  # - psi4
   - pytest
   - pytest-cov
   - codecov
@@ -17,8 +17,6 @@ dependencies:
 
     # Pip-only installs
   - pip:
-    # - insegel
     - sphinx_automodapi
     - recommonmark
-  # - readthedocs-sphinx-ext
     - opt-einsum

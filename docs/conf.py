@@ -122,6 +122,9 @@ html_logo = "../media/logo_nameless_png.png"
 # Output file base name for HTML help builder.
 htmlhelp_basename = 'n2vdoc'
 
+# -- Mock heavy packages -----------------------------------------------------
+autodoc_mock_imports = ["psi4"]
+
 
 # -- Options for LaTeX output ------------------------------------------------
 
