@@ -13,7 +13,7 @@ dependencies:
   - pytest
   - pytest-cov
   - codecov
-  - sphinx_automodapi
+
 
 
     # Testing
@@ -24,6 +24,7 @@ dependencies:
     # Pip-only installs
   - pip:
     # - insegel
+  - sphinx_automodapi
   - recommonmark
   # - readthedocs-sphinx-ext
   - opt-einsum
