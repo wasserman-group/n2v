@@ -53,7 +53,7 @@ extensions = [
     'sphinx_automodapi.automodsumm'
 ]
 
-autosummary_generate = True
+autosummary_generate = False
 napoleon_google_docstring = False
 napoleon_use_param = False
 napoleon_use_ivar = True
