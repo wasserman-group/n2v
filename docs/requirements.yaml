@@ -19,5 +19,5 @@ dependencies:
 
     # Pip-only installs
   - pip:
-    - pyinsegeltest
+    - insegel
     # - opt-einsum
