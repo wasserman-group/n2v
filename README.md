@@ -37,7 +37,7 @@ python setup.py install
 ### Additional Information: 
 - We recommend the use of a conda environment (<3.7).
 - If installing in Windows, we recommend the use of [WSL](https://docs.microsoft.com/en-us/windows/wsl/install-win10).
-- If any unexpected error occurs, please contact us at: gonza445@purdue.edu 
+- If any unexpected error occurs, please contact Victor H. Chavez or Yuming Shi at gonza445@purdue.edu or shi449@purdue.edu respectively. 
 
 ### Copyright
 Copyright (c) 2021, Wasserman Group  
