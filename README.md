@@ -2,9 +2,9 @@
 <p align="center">
 <br>
 <img src="media/logo_png.png" alt="n2v" height=300> <br><br>
-<a href="https://github.com/wasserman-group/n2v/actions"> <img src="https://github.com/wasserman-group/n2v/actions/workflows/CI.yaml/badge.svg" /></a>
+<!-- <a href="https://github.com/wasserman-group/n2v/actions"> <img src="https://github.com/wasserman-group/n2v/actions/workflows/CI.yaml/badge.svg" /></a> -->
 <a href="https://lgtm.com/projects/g/wasserman-group/n2v/?mode=list"><img src="https://img.shields.io/lgtm/grade/python/github/wasserman-group/n2v"></a>
-<a href="https://codecov.io/gh/wasserman-group/n2v"> <img src="https://codecov.io/gh/VHchavez/n2v/branch/main/graph/badge.svg?token=4B8r0cQ2Wk" /></a>
+<!-- <a href="https://codecov.io/gh/wasserman-group/n2v"> <img src="https://codecov.io/gh/VHchavez/n2v/branch/main/graph/badge.svg?token=4B8r0cQ2Wk" /></a> -->
 <a href="https://github.com/wasserman-group/n2v/blob/main/LICENSE"><img src="https://img.shields.io/github/license/wasserman-group/n2v?color=blue" /></a>
 <br>
 </p>
