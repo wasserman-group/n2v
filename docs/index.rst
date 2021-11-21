@@ -22,4 +22,6 @@ Take a look at our documentation to learn to use our code:
 Cite our work:
 *coming soon*
 
-This work was supported by a fellowship from The Molecular Sciences Software Institute under NSF grant OAC-1547580.
+n2v is library written by Victor H. Chavez and Yuming Shi. 
+Victor H. Chavez is supported by a fellowship from The Molecular Sciences Software Institute under NSF grant OAC-1547580.
+Copyright 2021 Wasserman Group. 
