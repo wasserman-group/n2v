@@ -7,7 +7,7 @@ dependencies:
     # Base depends
   - python
   - pip
-  - psi4
+  - psi4-dev
   - numpy
   - scipy
 
