@@ -17,6 +17,7 @@ Take a look at our documentation to learn to use our code:
    first_steps
    on_the_grid
    invert
+   api
 
 
 Cite our work:
