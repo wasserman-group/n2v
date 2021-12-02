@@ -2,9 +2,9 @@
 <p align="center">
 <br>
 <img src="media/logo_png.png" alt="n2v" height=300> <br><br>
-<a href="https://github.com/wasserman-group/n2v/actions"> <img src="https://github.com/wasserman-group/n2v/actions/workflows/CI.yaml/badge.svg" /></a>
+<!-- <a href="https://github.com/wasserman-group/n2v/actions"> <img src="https://github.com/wasserman-group/n2v/actions/workflows/CI.yaml/badge.svg" /></a> -->
 <a href="https://lgtm.com/projects/g/wasserman-group/n2v/?mode=list"><img src="https://img.shields.io/lgtm/grade/python/github/wasserman-group/n2v"></a>
-<a href="https://codecov.io/gh/wasserman-group/n2v"> <img src="https://codecov.io/gh/VHchavez/n2v/branch/main/graph/badge.svg?token=4B8r0cQ2Wk" /></a>
+<!-- <a href="https://codecov.io/gh/wasserman-group/n2v"> <img src="https://codecov.io/gh/VHchavez/n2v/branch/main/graph/badge.svg?token=4B8r0cQ2Wk" /></a> -->
 <a href="https://github.com/wasserman-group/n2v/blob/main/LICENSE"><img src="https://img.shields.io/github/license/wasserman-group/n2v?color=blue" /></a>
 <br>
 </p>
@@ -37,7 +37,7 @@ python setup.py install
 ### Additional Information: 
 - We recommend the use of a conda environment (<3.7).
 - If installing in Windows, we recommend the use of [WSL](https://docs.microsoft.com/en-us/windows/wsl/install-win10).
-- If any unexpected error occurs, please contact us at: gonza445@purdue.edu 
+- If any unexpected error occurs, please contact Victor H. Chavez or Yuming Shi at gonza445@purdue.edu or shi449@purdue.edu respectively. 
 
 ### Copyright
 Copyright (c) 2021, Wasserman Group  
