@@ -57,6 +57,7 @@ jobs:
       shell: bash
       run: |
         eval "$(conda shell.bash hook)" && conda activate test
+        python -c "import psi4; print('Hello')"
         pytest -v --cov=n2v --cov-report=xml --color=yes n2v/tests/
 
     - name: CodeCov
