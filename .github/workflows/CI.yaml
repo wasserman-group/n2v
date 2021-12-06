@@ -9,7 +9,7 @@ jobs:
       matrix:
         cfg:
         - conda-env: test_env
-          python-version: 3.10
+          python-version: 3.9
 
     env: 
       PYVER: ${{ matrix.cfg.python-version }}
