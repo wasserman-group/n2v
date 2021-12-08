@@ -5,6 +5,7 @@ Provides interface n2v interface to PySCF
 import numpy as np
 import scipy
 from opt_einsum import contract
+from gbasis.wrappers import from_pyscf
 
 import sys
 
@@ -56,29 +57,69 @@ class PySCFEngine(Engine):
         if self.pbs_str == 'same':
             self.npbs = self.nbf
         else:
-            "Can't use a different basis set for now"
+            self.npbs = self.mol_pbs.nao_nr()
 
     def get_T(self):
+        """
+        Generates Kinetic Operator in AO basis.
+        
+        Returns
+        -------
+        T: np.ndarray. Shape: (nbf, nbf)
+        """
         return self.mol.intor('int1e_kin')
 
     def get_Tpbas(self):
+        """
+        Generates Kinetic Operator in AO basis for additional basis. 
+
+        Returns
+        -------
+        T_pbas: np.ndarray. Shape: (nbf, nbf)
+        """
         return self.mol_pbs.intor('int1e_kin')
 
     def get_V(self):
+        """
+        Generates External Potential in AO basis
+
+        Returns
+        -------
+        V: np.ndarray. Shape: (nbf, nbf)
+        """
         return self.mol.intor('int1e_nuc')
 
     def get_A(self):
+        """
+        Generates S^(-0.5)
+
+        Returns
+        -------
+        A: np.ndarray. Shape: (nbf, nbf)
+        """
         A = self.mol.intor('int1e_ovlp')
         A = scipy.linalg.fractional_matrix_power(A, -.5)
         return A
 
     def get_S(self):
+        """
+        Builds Overlap matrix of AO basis
+
+        Returns
+        -------
+        S: np.ndarray. Shape: (nbf, nbf)
+        """
         return self.mol.intor('int1e_ovlp')
 
     def get_S3(self):
         """
         Builds 3 Overlap Matrix. 
         Manually built since Pyscf does not support it. 
+
+        Returns
+        -------
+        S3: np.ndarray. Shape: (nbf, nbf, nbf or npbs)
+            Third dimension depends on wether an additional basis is used. 
         """
 
         grid = dft.gen_grid.Grids(self.mol)
