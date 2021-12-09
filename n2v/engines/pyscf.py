@@ -7,6 +7,8 @@ import scipy
 from opt_einsum import contract
 from gbasis.wrappers import from_pyscf
 
+from ..grid import PySCFGrider
+
 import sys
 
 try: 
@@ -58,6 +60,9 @@ class PySCFEngine(Engine):
             self.npbs = self.nbf
         else:
             self.npbs = self.mol_pbs.nao_nr()
+
+        self.grid = PySCFGrider(self.mol)
+    
 
     def get_T(self):
         """
