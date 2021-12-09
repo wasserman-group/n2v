@@ -66,10 +66,11 @@ class Psi4Engine(Engine):
         return np.array( A )
 
     def get_S(self):
-        """Overlap matrix of ao basis"""
+        """Overlap matrix in AO basis"""
         return np.array( self.mints.ao_overlap() )
 
     def get_S3(self):
+        """3 Orbitals Overlap matrix in AO basis"""
         return np.array( self.mints.ao_3coverlap(self.basis,self.basis,self.pbs) )
 
     def get_S4(self):
