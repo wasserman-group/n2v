@@ -95,7 +95,6 @@ class Psi4Engine(Engine):
         S4 = contract('Pmn,PQ,Qrs->mnrs', S_Pmn, S_PQinv, S_Pmn)
         return S4
 
-
     def generate_jk(self, gen_K=False):
         """
         Creates jk object for generation of Coulomb and Exchange matrices
@@ -122,5 +121,23 @@ class Psi4Engine(Engine):
         J = (np.array(self.jk.J()[0]), np.array(self.jk.J()[1]))
         return J
 
+    def run_single_point(self, mol, basis, method):
+        """
+        Run a standard energy calculation
+        """
 
- 
+        wfn_temp = psi4.energy(init+"/" + self.basis_str, 
+                               molecule=self.mol, 
+                               return_wfn=True)[1]
+
+        if self.ref == 1:
+            D = np.array(wfn_temp.Da()) + np.array(wfn_temp.Db())
+            C = np.array(wfn_temp.Ca())
+            e = np.array(wfn_temp.epsilon_a())
+            
+        else:
+            D = np.stack( (np.array(wfn_temp.Da()), np.array(wfn_temp.Db())) )
+            C = np.stack( (np.array(wfn_temp.Ca()), np.array(wfn_temp.Cb())) )
+            e = np.stack( (np.array(wfn_temp.epsilon_a()), np.array(wfn_temp.epsilon_b())) )
+
+        return D, C, e
