@@ -175,11 +175,15 @@ class PySCFGrider:
         external_potential = self.atomic_charges[None, :] \
         / (np.sum((points[:, :, None] - self.atomic_coords.T[None, :, :]) ** 2, axis=1) ** 0.5)
         np.seterr(**old_settings)
+
+        if external_potential.ndim > 1:
+            external_potential = np.sum(external_potential, axis=1)
+
         return -external_potential
 
-    def to_ao(self, mat_nm, grid='spherical'):
+    def to_grid(self, f_nm, grid='spherical'):
         """
-        Takes quantity back to AO orbital basis
+        Expresses a matrix quantity on the grid
 
         Parameters
         ----------
@@ -192,18 +196,31 @@ class PySCFGrider:
 
         Returns
         -------
-        mat_g: np.ndarray
+        f_g: np.ndarray
             Vector/Matrix expressed on the requested grid
         """
         
         points = self.assert_grid(grid)
 
         phis = evaluate_basis(self.basis, points)
-        mat_g = mat_nm.dot(phis)
-        if mat_nm.ndim == 2:
-            mat_g *= phis
+        f_g = f_nm.dot(phis)
+        if f_nm.ndim == 2:
+            f_g *= phis
 
-        return mat_g
+        return f_g
+
+    def to_ao(self, f_g, grid='spherical'):
+        """
+        Expresses quantity on the AO basis
+        """
+
+        points = self.assert_grid(grid)
+
+        phis = evaluate_basis(self.basis, points)
+        f_nm = contract( 'pb, p,p,pa->ab', phis.T, f_g, self.w, phis.T )
+        f_nm = 0.5 * (f_nm + f_nm.T)
+
+        return f_nm
 
     # Specialized for methods. 
     def posdef_kinetic_energy_density(self, density, grid='spherical'):
@@ -248,6 +265,8 @@ class PySCFGrider:
         basis_dz = self.ao_deriv(derivs=[0,0,1], transform=None, grid=grid)
 
         if method == 'grid':
+            orbs = self.orbitals(C, grid=grid)
+            d_orbs = ((basis_dx + basis_dy + basis_dz).T @ C).T
             tau_p = np.zeros_like( density_g )
             orbs = self.orbitals(C, grid=grid)
             for i in range(C.shape[1]):
@@ -255,8 +274,7 @@ class PySCFGrider:
                     if i == j:
                         pass
                     else:
-                        tau_p += np.abs(orbs[i,:] * (basis_dx[j,:] + basis_dy[j,:] + basis_dz[j,:])
-                                   -orbs[j,:] * (basis_dx[i,:] + basis_dy[i,:] + basis_dz[i,:]))**2
+                        tau_p += np.abs( orbs[i,:] * (d_orbs[j,:]) - orbs[j,:] * (d_orbs[i,:]) )**2
 
         elif method == 'basis':
             basis = self.ao_deriv(grid=grid)
