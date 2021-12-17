@@ -63,7 +63,6 @@ class PySCFEngine(Engine):
 
         self.grid = PySCFGrider(self.mol)
     
-
     def get_T(self):
         """
         Generates Kinetic Operator in AO basis.
@@ -158,11 +157,67 @@ class PySCFEngine(Engine):
         """
 
         da = (ca @ ca.T)
-        db = (cb @ cb.T)
+        if cb is not None:
+            db = (cb @ cb.T)
+        else:
+            db = da
         mf = dft.uks.UKS(self.mol)
         J = mf.get_j(dm=[da, db])
 
         return J
     
-    
+    def run_single_point(self, mol, basis, method):
+        """
+        Run a Standard calculation
+        """
+
+        # DFT
+        molecule = gto.Mole()
+        molecule.atom = mol.atom
+        molecule.basis = basis
+        molecule.build()        
+
+        if self.ref == 1:
+            mf    = dft.RKS(mol)
+        else:
+            mf    = dft.UKS(mol)
+        mf.xc = method
+        mf.kernel()
+
+        return mf.make_rdm1(), mf.mo_coeff, mf.mo_energy 
+
+
+        # Post-SCF
+        
+    def diagonalize( self, matrix, ndocc ):
+        """
+        Diagonalizes Fock Matrix
+
+        Parameters
+        ----------
+        marrix: np.ndarray
+            Matrix to be diagonalized
+        ndocc: int
+            Number of occupied orbitals
+
+        Returns
+        -------
+        C: np.ndarray
+            Orbital Matrix
+        Cocc: np.ndarray
+            Occupied Orbital Matrix
+        D: np.ndarray
+            Density Matrix
+        eigves: np.ndarray
+            Eigenvalues
+        """
+
+        self.A = self.get_A()
+
+        Fp = self.A.dot(matrix).dot(self.A)
+        eigvecs, Cp = np.linalg.eigh(Fp)
+        C = self.A.dot(Cp)
+        Cocc = C[:, :ndocc]
+        D = contract('pi,qi->pq', Cocc, Cocc)
+        return C, Cocc, D, eigvecs
     
