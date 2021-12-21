@@ -52,8 +52,8 @@ jobs:
       run: |
         eval "$(conda shell.bash hook)" && conda activate test
         conda list --show-channel-urls
-        which psi4 python gcc
-        
+        conda install psi4 --channel psi4 -y
+ 
     - name: Run Pytest
       shell: bash
       run: |
