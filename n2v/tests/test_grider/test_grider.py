@@ -106,8 +106,8 @@ def test_orbitals( Ne ):
     print(orbitals[2])
     print(orbitals[10])
 
-    # assert np.isclose(orbitals[2], target_2, atol=1e-3).all()
-    # assert np.isclose(orbitals[10], target_10, atol=1e-3).all()
+    assert np.isclose(orbitals[2], target_2, atol=1e-3).all()
+    assert np.isclose(orbitals[10], target_10, atol=1e-3).all()
 
 def test_lap_phi( Ne ):
 
@@ -122,8 +122,8 @@ def test_lap_phi( Ne ):
     print(lap[2])
     print(lap[10])
 
-    # assert np.isclose(lap[2], target_2).all()
-    # assert np.isclose(lap[10], target_10).all()
+    assert np.isclose(lap[2], target_2).all()
+    assert np.isclose(lap[10], target_10).all()
 
 def test_grad_phi( Ne ):
 
