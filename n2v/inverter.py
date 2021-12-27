@@ -526,35 +526,3 @@ class Inverter(Direct, WuYang, ZMP, MRKS, OC, PDECO, Grider):
                 self.va += vxc_a.np
                 self.vb += vxc_b.np
         self.guide_potential_components = guide_potential_components
-
-    def finalize_energy(self):
-        """
-        Calculates energy contributions
-        """
-
-        target_one        = self.wfn.to_file()['floatvar']['ONE-ELECTRON ENERGY']
-        target_two        = self.wfn.to_file()['floatvar']['TWO-ELECTRON ENERGY']
-
-        energy_kinetic    = contract('ij,ij', self.T, (self.Da + self.Db))
-        energy_external   = contract('ij,ij', self.V, (self.Da + self.Db))
-        energy_hartree_a  = 0.5 * contract('ij,ji', self.J0[0] + self.J0[1], self.Da)
-        energy_hartree_b  = 0.5 * contract('ij,ji', self.J0[0] + self.J0[1], self.Db)
-
-        print("WARNING: XC Energy is not yet properly calculated")
-        energies = {"One-Electron Energy" : energy_kinetic + energy_external,
-                    "Two-Electron Energy" : energy_hartree_a + energy_hartree_b,
-                    # "XC"                  : energy_ks,
-                    # "Total Energy"        : energy_kinetic   + energy_external  + \
-                    #                         energy_hartree_a + energy_hartree_b + \
-                    #                         energy_ks 
-                    }
-
-        target_energies =  {"One-Electron Energy" : target_one,
-                            "Two-Electron Energy" : target_two,
-                           }
-
-        self.energies = energies
-        self.target_energies = target_energies
-
-        # print(f"Final Energies: {self.energies}")
-        # print(f"Target Energies: {self.target_energies}")
