@@ -100,14 +100,14 @@ def test_orbitals( Ne ):
     grid = Ne[2]
 
     orbitals = ine.on_grid_orbitals(Ca=wfn.Ca().np, Cb=wfn.Cb().np, grid=grid)
-    target_2 = np.array([ -1.19331155e-05, -1.95913453e-02, -1.80092501e-15,  1.95913453e-02, 1.19331155e-05 ])
-    target_10 = np.array([ -1.94996884e-20, -2.40318883e-05,  1.27720148e-15, -2.40318883e-05, 2.28806700e-20 ])
+    target_0 = np.array([-1.39426057e-08, -1.27790509e-04,  1.67530855e+01, -1.27790509e-04, -1.39426057e-08])
+    target_1 = np.array([-1.25081898e-06, -1.15539283e-02,  3.95352024e+00, -1.15539283e-02, -1.25081898e-06])
 
-    print(orbitals[2])
-    print(orbitals[10])
+    print(orbitals[0])
+    print(orbitals[1])
 
-    assert np.isclose(orbitals[2], target_2, atol=1e-3).all()
-    assert np.isclose(orbitals[10], target_10, atol=1e-3).all()
+    assert np.isclose(orbitals[0], target_0, atol=1e-3).all()
+    assert np.isclose(orbitals[1], target_1, atol=1e-3).all()
 
 def test_lap_phi( Ne ):
 
@@ -116,14 +116,14 @@ def test_lap_phi( Ne ):
     grid = Ne[2]
 
     lap = ine.on_grid_lap_phi(Ca=wfn.Ca().np, Cb=wfn.Cb().np, grid=grid)
-    target_2 = np.array([ -1.70876116e-04, -9.15497633e-03,  1.01523932e-11,  9.15497633e-03,1.70876116e-04 ])
-    target_10 = np.array([ -3.17122488e-19, -2.17229285e-03, -4.75875308e-12, -2.17229285e-03, 2.89742588e-19 ])
+    target_0 = np.array([-2.89807670e-07, -3.40206526e-04, -1.26411748e+05, -3.40206526e-04, -2.89807670e-07])
+    target_1 = np.array([-2.59992244e-05, -3.57517732e-02, -3.00612855e+04, -3.57517732e-02,-2.59992244e-05])
 
-    print(lap[2])
-    print(lap[10])
+    print(lap[0])
+    print(lap[1])
 
-    assert np.isclose(lap[2], target_2).all()
-    assert np.isclose(lap[10], target_10).all()
+    assert np.isclose(lap[0], target_0).all()
+    assert np.isclose(lap[1], target_1).all()
 
 def test_grad_phi( Ne ):
 
