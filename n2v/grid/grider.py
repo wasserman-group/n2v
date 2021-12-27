@@ -15,10 +15,10 @@ try:
 except:
     pass
 
-from .cubeprop import Cubeprop
+# from .cubeprop import Cubeprop
 from .basis_set_artifact_correction import basis_set_correction, invert_kohn_sham_equations
 
-class Grider(Cubeprop):
+class Grider():
 
     def grid_to_blocks(self, grid, basis=None):
         """
