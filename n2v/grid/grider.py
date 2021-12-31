@@ -501,7 +501,13 @@ class Grider():
 
         """
 
-        if func_id != 1:
+        local_functionals = [1,546,549,532,692,641,552,287,307,578,5,24,4,579,308,289,551,
+                             22,23,14,11,574,573,554,5900,12,13,25,9,10,27,3,684,683,17,7,
+                             28,29,30,31,8,317,2,6,536,537,538,318,577,259,547,548,20,599,43,
+                             51,580,50,550
+                             ]
+
+        if func_id not in local_functionals:
             raise ValueError("Only LDA fucntionals are supported on the grid")
 
         if Da is None:
