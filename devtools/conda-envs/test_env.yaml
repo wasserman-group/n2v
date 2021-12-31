@@ -7,7 +7,6 @@ dependencies:
     # Base depends
   - python
   - pip
-  - pyscf
   # - psi4/label/dev::psi4
   - numpy
   - scipy
@@ -19,4 +18,5 @@ dependencies:
 
     # Pip-only installs
   - pip:
+    - pyscf
     - opt-einsum
