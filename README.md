@@ -11,7 +11,8 @@
 
   
 ### Tutorials:
-- Learn how to use `n2v` with these [examples](https://github.com/wasserman-group/n2v_examples) or try it without installing: [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/wasserman-group/n2v_examples/HEAD)
+- Learn how to use `n2v` with these [examples](https://github.com/wasserman-group/n2v_examples) 
+<!-- - or try it without installing: [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/wasserman-group/n2v_examples/HEAD) -->
 
 ### Installation: 
 
@@ -22,6 +23,10 @@ pip install ntov
 - conda coming soon!
 
 #### Additional dependencies: 
+- Psi4 must be installed. 
+```
+conda install -c psi4 psi4
+```
 - Libxc *and* pylibxc must be installed as well. 
 ```
 conda install -c conda-forge libxc
