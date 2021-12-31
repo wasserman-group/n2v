@@ -28,9 +28,9 @@ class Inverter(ZMP, WuYang, PDECO, OC):
 
     def __init__( self, engine='psi4' ):
         self.eng_str = engine
-        if engine == 'psi4':
+        if engine.lower() == 'psi4':
             self.eng = Psi4Engine()
-        elif engine == 'pyscf':
+        elif engine.lower() == 'pyscf':
             self.eng = PySCFEngine()
         else:
             raise ValueError("Engine name is incorrect. The availiable engines are: {psi4, pyscf}")
