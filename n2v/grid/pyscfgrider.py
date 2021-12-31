@@ -67,7 +67,7 @@ class PySCFGrider:
         return points
 
 
-    def build_rectangular(self, npoints, overage=3):
+    def build_rectangular(self, npoints):
         """
         Builds rectangular grid containing molecule
 
@@ -211,7 +211,7 @@ class PySCFGrider:
 
     def to_ao(self, f_g, grid='spherical'):
         """
-        Expresses quantity on the AO basis
+        Expresses grid quantity on the AO basis
         """
 
         points = self.assert_grid(grid)
@@ -221,7 +221,7 @@ class PySCFGrider:
         f_nm = 0.5 * (f_nm + f_nm.T)
 
         return f_nm
-
+    
     # Specialized for methods. 
     def posdef_kinetic_energy_density(self, density, grid='spherical'):
         """
