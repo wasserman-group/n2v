@@ -1,6 +1,8 @@
 name: CI
 
 on: [push, pull_request]
+  branches:
+    - Engine
 
 jobs:
   test:
@@ -9,7 +11,7 @@ jobs:
       matrix:
         cfg:
         - conda-env: test_env
-          python-version: 3.7
+          python-version: 3.9
 
     env: 
       PYVER: ${{ matrix.cfg.python-version }}
@@ -37,33 +39,33 @@ jobs:
         python -m pip install .
         conda list
 
-    # - name: Libxc Python Library
-    #   shell: bash
-    #   run: |
-    #     eval "$(conda shell.bash hook)" && conda activate test
-    #     cd ~
-    #     wget --content-disposition  http://www.tddft.org/programs/libxc/down.php?file=5.0.0/libxc-5.0.0.tar.gz
-    #     tar xf libxc-5.0.0.tar.gz
-    #     cd libxc-5.0.0/
-    #     python -m pip install . --no-deps
+    - name: Libxc Python Library
+      shell: bash
+      run: |
+        eval "$(conda shell.bash hook)" && conda activate test
+        cd ~
+        wget --content-disposition  http://www.tddft.org/programs/libxc/down.php?file=5.0.0/libxc-5.0.0.tar.gz
+        tar xf libxc-5.0.0.tar.gz
+        cd libxc-5.0.0/
+        python -m pip install . --no-deps
 
     - name: Environment Information
       shell: bash
       run: |
         eval "$(conda shell.bash hook)" && conda activate test
         conda list --show-channel-urls
-        which psi4 python gcc
-        
-
+        conda install psi4 --channel psi4 -y
+ 
     - name: Run Pytest
       shell: bash
       run: |
         eval "$(conda shell.bash hook)" && conda activate test
+        python -c "import psi4; print('Hello')"
         pytest -v --cov=n2v --cov-report=xml --color=yes n2v/tests/
 
     - name: CodeCov
       uses: codecov/codecov-action@v1
-      # with:
-      #   file: ./coverage.xml
-      #   flags: unittests
-      #   name: codecov-${{ matrix.os }}-py${{ matrix.python-version }}
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-${{ matrix.os }}-py${{ matrix.python-version }}
