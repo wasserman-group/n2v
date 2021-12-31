@@ -1,15 +1,16 @@
 name: test
 channels:
   - conda-forge
-  - psi4
+  # - psi4
   - defaults
 dependencies:
     # Base depends
   - python
   - pip
+  - pyscf
+  # - psi4/label/dev::psi4
   - numpy
   - scipy
-  - psi4
 
     # Testing
   - pytest
