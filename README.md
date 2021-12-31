@@ -14,15 +14,7 @@
 - Learn how to use `n2v` with these [examples](https://github.com/wasserman-group/n2v_examples) 
 <!-- - or try it without installing: [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/wasserman-group/n2v_examples/HEAD) -->
 
-### Installation: 
-
-- Through pip:
-```
-pip install ntov 
-```
-- conda coming soon!
-
-#### Additional dependencies: 
+#### Installation. Additional Dependencies: 
 - Psi4 or PySCF must be installed. 
 ```
 conda install -c psi4 psi4
@@ -46,6 +38,12 @@ wget http://www.tddft.org/programs/libxc/down.php?file=5.0.0/libxc-5.0.0.tar.gz
 tar -xf libxc-5.0.0.tar.gz
 cd libxc-5.0.0
 python setup.py install
+```
+### Installation: 
+```
+git clone --branch Engine https://github.com/wasserman-group/n2v.git
+cd n2v
+pip install .
 ```
 
 ### Additional Information: 
