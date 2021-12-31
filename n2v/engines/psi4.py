@@ -29,8 +29,8 @@ class Psi4Engine(Engine):
         self.pbs = pbs
         self.pbs_str   = basis if pbs == 'same' else pbs
 
-        self.nalpha = None
-        self.nbeta = None
+        self.nalpha = 0 
+        self.nbeta = 0 
 
     def initialize(self):
         """
