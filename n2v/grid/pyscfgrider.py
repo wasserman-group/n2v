@@ -95,7 +95,7 @@ class PySCFGrider:
         self.z                = g3
         self.rectangular_grid = g3d
 
-    def density(self, density, grid='spherical'):
+    def density(self, Da, Db=None, grid='spherical'):
         """
         Computes density on grid. 
 
@@ -117,8 +117,12 @@ class PySCFGrider:
 
         points = self.assert_grid(grid)
 
-        density_g = evaluate_density(density, self.basis, points)
-        return density_g
+        density_a = evaluate_density(Da, self.basis, points)
+        if Db is not None:
+            density_b = evaluate_density(Db, self.basis, points)
+            density_g = np.concatenate([density_a, density,b])
+        else:
+            return density_a
 
     def hartree(self, density, grid='spherical'):
         """

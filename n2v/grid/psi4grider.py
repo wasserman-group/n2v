@@ -237,8 +237,6 @@ class Psi4Grider():
 
         return density
 
-        pass
-
     def esp(self, Da=None, Db=None, vpot=None, grid=None, compute_hartree=True):
         """
         Generates EXTERNAL/ESP/HARTREE and Fermi Amaldi Potential on given grid
