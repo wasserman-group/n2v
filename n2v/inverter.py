@@ -106,7 +106,6 @@ class Inverter(ZMP, WuYang, PDECO, OC):
     
     # Actual Methods
     def generate_components(self, guide_components, **keywords):
-        """ I generate """
         self.guide_components = guide_components
         self.va = np.zeros( (self.nbf, self.nbf) )
         self.vb = np.zeros( (self.nbf, self.nbf) )
@@ -131,6 +130,7 @@ class Inverter(ZMP, WuYang, PDECO, OC):
                      opt_max_iter = 50,
                      **keywords):
         """"""
+
         self.generate_components(guide_components)
 
         if method.lower() == "direct":
