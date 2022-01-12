@@ -94,11 +94,11 @@ class ZMP():
 
         # Target density on grid
         if self.ref == 1:
-            D0 = self.eng.grid.density(density=self.Dt[0])
+            D0 = self.eng.grid.density(Da=self.Dt[0])
             Da0, Db0 = D0, D0
         else:
-            Da0 = self.eng.grid.density(density=self.Dt[0])
-            Db0 = self.eng.grid.density(density=self.Dt[1])
+            D0 = self.eng.grid.density(Da=self.Dt[0], Db=self.Dt[1])
+            Da0, Db0 = D0[:,0], D0[:,1]
 
         # Initialize Stuff
         vc_previous_a = np.zeros((self.nbf, self.nbf))
@@ -238,11 +238,9 @@ class ZMP():
                     raise ValueError("ZMP Error: Maximum Number of SCF cycles reached. Try different settings.")
 
             if self.ref == 1:
-                density_current = self.eng.grid.density(density=Da)
+                density_current = self.eng.grid.density(Da=Da)
             else:
-                density_current_a = self.eng.grid.density(density=Da)
-                density_current_b = self.eng.grid.density(density=Db)
-                density_current = density_current_a + density_current_b
+                density_current_a = self.eng.grid.density(Da=Da, Db=Db)
             grid_diff = np.max(np.abs(D0 - density_current))
             if np.abs(grid_diff_old) < np.abs(grid_diff):
                 # This is a greedy algorithm: if the density error stopped improving for this lambda, we will stop here.
@@ -303,7 +301,7 @@ class ZMP():
             self.Cb = self.Ca.copy()
             self.Cocb = self.Coca.copy()
             self.eigvecs_b = self.eigvecs_a.copy()
-        print(successful_lam)
+
 
 
     def generate_s_functional(self, lam, Cocca, Coccb, Da, Db):
