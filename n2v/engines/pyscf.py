@@ -9,7 +9,7 @@ from gbasis.wrappers import from_pyscf
 
 from ..grid import PySCFGrider
 
-import sys
+import warnings
 
 try: 
     from pyscf import gto, scf, lib, dft
@@ -142,7 +142,25 @@ class PySCFEngine(Engine):
         return S3
 
     def get_S4(self):
-        sys.exit("S4 Not implemented yet")
+        """
+        Obtains a 4 AO Overlap Matrix using Density Fitting.
+        """
+         
+        grid = dft.gen_grid.Grids(self.mol)
+        grid.build()
+        bs1 = dft.numint.eval_ao(self.mol, grid.coords)
+
+        # PySCF's DF basis are identified by the suffix "-jk-fit".
+        auxbasis = self.mol.basis + '-jk-fit'
+        mol_aux = gto.M(atom=self.mol.atom, basis=auxbasis)
+        bs2 = dft.numint.eval_ao(mol_aux, grid.coords)
+
+        S_Pmn = contract('ij, ik, il, i -> jkl', bs2, bs1, bs1, grid.weights)
+        S_PQ = mol_aux.mol.intor('int1e_ovlp')
+        S_PQinv = np.linalg.pinv(S_PQ, rcond=1e-9)
+        S4 = contract('Pmn,PQ,Qrs->mnrs', S_Pmn, S_PQinv, S_Pmn)
+
+        return S4
 
     def compute_hartree(self, ca, cb=None):
         """
@@ -172,7 +190,7 @@ class PySCFEngine(Engine):
         """
 
         # DFT
-        molecule = gto.Mole()
+        molecule = gto.Mole() 
         molecule.atom = mol.atom
         molecule.basis = basis
         molecule.build()        
