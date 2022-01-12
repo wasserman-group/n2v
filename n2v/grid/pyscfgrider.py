@@ -15,9 +15,9 @@ from gbasis.evals.electrostatic_potential import (point_charge_integral,
      electrostatic_potential)
 from gbasis.wrappers import from_pyscf
 
-from grid.molgrid import MolGrid
-from grid.onedgrid import GaussLaguerre,  GaussLegendre, HortonLinear
-from grid.becke import BeckeWeights
+# from grid.molgrid import MolGrid
+# from grid.onedgrid import GaussLaguerre,  GaussLegendre, HortonLinear
+# from grid.becke import BeckeWeights
 
 from pyscf import dft
 
