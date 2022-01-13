@@ -4,6 +4,7 @@ Provides interface n2v interface to Psi4
 
 import numpy as np
 import psi4
+psi4.set_options({"save_jk" : True})
 from opt_einsum import contract
 
 from .engine import Engine
