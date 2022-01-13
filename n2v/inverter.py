@@ -9,12 +9,10 @@ import numpy as np
 from dataclasses import dataclass
 from opt_einsum import contract
 
-try:
-    import psi4
-    psi4.core.be_quiet()
-    psi4.core.clean()
-except:
-    pass    
+import psi4
+psi4.core.be_quiet()
+psi4.core.clean()
+psi4.set_options({"save_jk" : True})
 
 from .methods.wuyang import WuYang
 from .methods.zmp import ZMP
