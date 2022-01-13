@@ -30,6 +30,9 @@ class Psi4Grider():
         self.Vpot = psi4.core.VBase.build(self.basis, functional, reference)
         self.Vpot.initialize()
 
+        # self.spherical_points = np.array(self.Vpot.get_np_xyzw())[:3,:].T
+        # self.w = np.array(self.Vpot.get_np_xyzw())[3,:].T
+
         self.npoints = self.Vpot.grid().npoints()   
 
     def grid_to_blocks(self, grid, basis=None):
