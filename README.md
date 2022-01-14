@@ -34,10 +34,9 @@ conda install -c conda-forge libxc
 ```
 - To communicate libxc with your python site-packages folder:
 ```
-wget http://www.tddft.org/programs/libxc/down.php?file=5.0.0/libxc-5.0.0.tar.gz
-tar -xf libxc-5.0.0.tar.gz
-cd libxc-5.0.0
-python setup.py install
+wget http://www.tddft.org/programs/libxc/down.php?file=5.1.7/libxc-5.1.7.tar.gz -O - | tar -xz # Download and extract libxc. May not be the most updated version
+cd libxc-5.1.7 # Move into libxc directory. 
+python setup.py install # Install pylibxc
 ```
 ### Installation: 
 ```
