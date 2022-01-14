@@ -541,9 +541,9 @@ class Grider():
                 ingredients["rho"] = density[offset - b_points : offset, :]
 
             if self.ref == 1:
-                functional = Functional(1, 1)
+                functional = Functional(func_id, 1)
             else:
-                functional = Functional(1, 2) 
+                functional = Functional(func_id, 2) 
             xc_dictionary = functional.compute(ingredients)
             vxc[offset - b_points : offset, :] = xc_dictionary['vrho']
 
