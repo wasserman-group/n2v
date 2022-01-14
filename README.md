@@ -46,7 +46,7 @@ pip install .
 ```
 
 ### Additional Information: 
-- We recommend the use of a conda environment (<3.7).
+- We recommend the use of a conda environment (Python 3.7 or higher).
 - If installing in Windows, we recommend the use of [WSL](https://docs.microsoft.com/en-us/windows/wsl/install-win10).
 - If any unexpected error occurs, please contact Victor H. Chavez or Yuming Shi at gonza445@purdue.edu or shi449@purdue.edu respectively. 
 
