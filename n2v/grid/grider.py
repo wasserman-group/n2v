@@ -508,7 +508,7 @@ class Grider():
                              ]
 
         if func_id not in local_functionals:
-            raise ValueError("Only LDA fucntionals are supported on the grid")
+            raise ValueError("Only local functionals are supported on the grid")
 
         if Da is None:
             Da = self.Dt[0]
