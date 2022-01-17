@@ -18,6 +18,7 @@ Take a look at our documentation to learn to use our code:
    on_the_grid
    invert
    api
+   engines
 
 
 Cite our work:
@@ -25,4 +26,4 @@ Cite our work:
 
 n2v is library written by Victor H. Chavez and Yuming Shi. Victor H. Chavez is supported by a fellowship from The Molecular Sciences Software Institute under NSF grant OAC-1547580.
 
-Copyright 2021 Wasserman Group. 
+Copyright 2022 Wasserman Group. 
