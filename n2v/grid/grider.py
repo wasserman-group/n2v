@@ -10,10 +10,7 @@ from opt_einsum import contract
 import psi4
 psi4.core.be_quiet()
 
-try:
-    from pylibxc import LibXCFunctional as Functional
-except:
-    pass
+from pylibxc import LibXCFunctional as Functional
 
 # from .cubeprop import Cubeprop
 from .basis_set_artifact_correction import basis_set_correction, invert_kohn_sham_equations

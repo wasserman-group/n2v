@@ -6,10 +6,7 @@ Functions associated with mrks inversion
 
 import numpy as np
 from opt_einsum import contract
-try: 
-    import psi4
-except:
-    pass
+import psi4
 import time
 
 class MRKS():
