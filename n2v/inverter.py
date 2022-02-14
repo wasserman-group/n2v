@@ -13,6 +13,7 @@ from .methods.zmp import ZMP
 from .methods.wuyang import WuYang
 from .methods.pdeco import PDECO
 from .methods.oucarter import OC
+from .methods.mrks import MRKS
 
 @dataclass
 class V:
@@ -24,7 +25,7 @@ class E:
     """Stores Energies"""
     pass
 
-class Inverter(ZMP, WuYang, PDECO, OC):
+class Inverter(ZMP, WuYang, PDECO, OC, MRKS):
 
     def __init__( self, engine='psi4' ):
         self.eng_str = engine
@@ -103,7 +104,30 @@ class Inverter(ZMP, WuYang, PDECO, OC):
         Cocc = C[:, :ndocc]
         D = contract('pi,qi->pq', Cocc, Cocc)
         return C, Cocc, D, eigvecs
-    
+
+    def diagonalize_with_potential_vFock(self, v=None):
+        """
+        Diagonalize Fock matrix with additional external potential
+        """
+
+        if v is None:
+            fock_a = self.V + self.T + self.va
+        else:
+            if self.ref == 1:
+                fock_a = self.V + self.T + self.va + v
+            else:
+                valpha, vbeta = v
+                fock_a = self.V + self.T + self.va + valpha
+                fock_b = self.V + self.T + self.vb + vbeta
+
+
+        self.Ca, self.Coca, self.Da, self.eigvecs_a = self.diagonalize( fock_a, self.nalpha )
+
+        if self.ref == 1:
+            self.Cb, self.Cocb, self.Db, self.eigvecs_b = self.Ca.copy(), self.Coca.copy(), self.Da.copy(), self.eigvecs_a.copy()
+        else:
+            self.Cb, self.Cocb, self.Db, self.eigvecs_b = self.diagonalize( fock_b, self.nbeta )    
+
     # Actual Methods
     def generate_components(self, guide_components, **keywords):
         self.guide_components = guide_components
