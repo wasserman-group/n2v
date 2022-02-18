@@ -137,7 +137,8 @@ class Inverter(ZMP, WuYang, PDECO, OC, MRKS):
         N       = self.nalpha + self.nbeta
 
         if self.eng_str == 'psi4':
-            self.J0 = self.eng.hartree_NO(self.Dt[0])
+            J0_NO = self.eng.hartree_NO(self.Dt[0])
+            self.J0 = JO_NO if J0_NO is not None else self.J0
 
         if guide_components == 'none':
             warn("No guide potential was provided. Convergence may not be achieved")
@@ -152,7 +153,7 @@ class Inverter(ZMP, WuYang, PDECO, OC, MRKS):
             raise ValueError("Guide component not recognized")
 
     def invert(self, method = 'zmp', 
-                     guide_components = 'fermi_amaldi',
+                     guide_components = 'hartree',
                      opt_max_iter = 50,
                      **keywords):
         """"""

@@ -42,7 +42,7 @@ class MRKS():
     """
     vxc_hole_WF = None
 
-    def vxc_hole_quadrature(self, Vpot, grid_info=None, atol=1e-5, atol1=1e-4):
+    def _vxc_hole_quadrature(self, grid_info=None, atol=1e-5, atol1=1e-4, Vpot=None):
         """
         Calculating v_XC^hole in [1] (15) using quadrature
         integral on the default DFT spherical grid.
@@ -66,15 +66,15 @@ class MRKS():
         if self.vxc_hole_WF is not None and grid_info is None:
             return self.vxc_hole_WF
 
-        if self.wfn.name() == "CIWavefunction":
-            Tau_ijkl = self.wfn.get_tpdm("SUM", True).np
-            D2 = self.wfn.get_opdm(-1, -1, "SUM", True).np
-            C = self.wfn.Ca()
+        if self.eng.wfn.name() == "CIWavefunction":
+            Tau_ijkl = self.eng.wfn.get_tpdm("SUM", True).np
+            D2 = self.eng.wfn.get_opdm(-1, -1, "SUM", True).np
+            C = self.eng.wfn.Ca()
             Tau_ijkl = contract("pqrs,ip,jq,ur,vs->ijuv", Tau_ijkl, C, C, C, C)
             D2 = C.np @ D2 @ C.np.T
         else:
-            D2a = self.wfn.Da().np
-            D2b = self.wfn.Db().np
+            D2a = self.eng.wfn.Da().np
+            D2b = self.eng.wfn.Db().np
             D2 = D2a + D2b
 
         if grid_info is None:
@@ -144,7 +144,7 @@ class MRKS():
                 r_phi = np.array(points_func.basis_values()["PHI"])[:r_npoints, :r_lpos.shape[0]]
     
                 # Build a local slice of D
-                if self.wfn.name() == "CIWavefunction":
+                if self.eng.wfn.name() == "CIWavefunction":
                     lD2 = D2[(r_lpos[:, None], r_lpos)]
                     rho2 = contract('pm,mn,pn->p', r_phi, lD2, r_phi)
     
@@ -154,8 +154,8 @@ class MRKS():
                     n_xc = contract("mnuv,pm,pn,qu,qv->pq", Tap_temp, l_phi, l_phi, r_phi, r_phi)
                     n_xc *= rho1inv
                     n_xc -= rho2
-                elif self.wfn.name() == "RHF":
-                    lD2 = self.wfn.Da().np[(l_lpos[:, None], r_lpos)]
+                elif self.eng.wfn.name() == "RHF":
+                    lD2 = self.eng.wfn.Da().np[(l_lpos[:, None], r_lpos)]
                     n_xc = - 2 * contract("mu,nv,pm,pn,qu,qv->pq", lD2, lD2, l_phi, l_phi, r_phi, r_phi)
                     n_xc *= rho1inv
 
@@ -247,7 +247,7 @@ class MRKS():
         ----------------------
             The result will be save as self.grid.vxc
     """
-        if not self.wfn.name() in ["CIWavefunction", "RHF"]:
+        if not self.eng.wfn.name() in ["CIWavefunction", "RHF"]:
             raise ValueError("Currently only supports Psi4 CI wavefunction"
                              "inputs because Psi4 CCSD wavefunction currently "
                              "does not support two-particle density matrices.")
@@ -266,11 +266,11 @@ class MRKS():
         functional = psi4.driver.dft.build_superfunctional("SVWN", restricted=True)[0]
         Vpot = psi4.core.VBase.build(self.eng.basis, functional, "RV")
         Vpot.initialize()
-        Vpot.properties()[0].set_pointers(self.wfn.Da())
+        Vpot.properties()[0].set_pointers(self.eng.wfn.Da())
 
 
         # Preparing for WF properties
-        if self.wfn.name() == "CIWavefunction":
+        if self.eng.wfn.name() == "CIWavefunction":
             if not (psi4.core.get_global_option("opdm") and psi4.core.get_global_option("tpdm")):
                 raise ValueError("For CIWavefunction as input, make sure to turn on opdm and tpdm.")
             # TPDM & ERI Memory check
@@ -286,10 +286,10 @@ class MRKS():
                 print("Memory taken by ERI integral matrix and 2pdm is about: %.3f GB." % memory_footprint)
 
 
-            opdm = np.array(self.wfn.get_opdm(-1,-1,"SUM",False))
-            tpdm = self.wfn.get_tpdm("SUM", True).np
+            opdm = np.array(self.eng.wfn.get_opdm(-1,-1,"SUM",False))
+            tpdm = self.eng.wfn.get_tpdm("SUM", True).np
 
-            Ca = self.wfn.Ca().np
+            Ca = self.eng.wfn.Ca().np
 
             mints = psi4.core.MintsHelper(self.eng.basis)
 
@@ -317,7 +317,7 @@ class MRKS():
             # Transfer to AOs
             C_a_GFM = Ca @ C_a_GFM
 
-            # Solving for Natural Orbitals (NO)>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+            # Solving for Natural Orbitals (NO) 
             C_a_NO = psi4.core.Matrix(nbf, nbf)
             eigs_a_NO = psi4.core.Vector(nbf)
             psi4.core.Matrix.from_array(opdm).diagonalize(C_a_NO, eigs_a_NO, psi4.core.DiagonalizeOrder.Descending)
@@ -325,19 +325,19 @@ class MRKS():
             C_a_NO = C_a_NO.np
             C_a_NO = Ca @ C_a_NO
 
-            # prepare properties on the grid
-            ebarWF = self.eng.grid.average_local_orbital_energy(self.Dt[0], C_a_GFM, eigs_a_GFM, Vpot)
-            taup_rho_WF = self.eng.grid.pauli_kinetic_energy_density(self.Dt[0], C_a_NO, eigs_a_NO, Vpot)
-        elif self.wfn.name() == "RHF":  # Since HF is a special case, no need for GFM and NO as in CI.
-            epsilon_a = self.wfn.epsilon_a_subset("AO", "OCC").np
-            ebarWF = self.eng.grid.average_local_orbital_energy(self.Dt[0], self.ct[0][:,:Nalpha], epsilon_a, Vpot)
-            taup_rho_WF = self.eng.grid.pauli_kinetic_energy_density(self.Dt[0], self.ct[0])
+            # Rrepare components on the grid
+            ebarWF      = self.eng.grid._average_local_orbital_energy(self.Dt[0], C_a_GFM, eigs_a_GFM, Vpot=Vpot)
+            taup_rho_WF = self.eng.grid._pauli_kinetic_energy_density(self.Dt[0], C_a_NO, eigs_a_NO, Vpot=Vpot)
+        elif self.eng.wfn.name() == "RHF":  # Since HF is a special case, there is no need for GFM and NO as in CI.
+            epsilon_a = self.eng.wfn.epsilon_a_subset("AO", "OCC").np
+            ebarWF = self.eng.grid._average_local_orbital_energy(self.Dt[0], self.ct[0][:,:Nalpha], epsilon_a, Vpot=Vpot)
+            taup_rho_WF = self.eng.grid._pauli_kinetic_energy_density(self.Dt[0], self.ct[0], Vpot=Vpot)
         else:
             raise ValueError("Currently only supports Spin-Restricted "
                              "calculations since Spin-Unrestricted CI "
                              "is not supported by Psi4.")
 
-        vxchole = self.vxc_hole_quadrature(Vpot=Vpot, atol=sing[0], atol1=sing[1])
+        vxchole = self._vxc_hole_quadrature(atol=sing[0], atol1=sing[1], Vpot=Vpot)
 
         emax = np.max(ebarWF)
 
@@ -345,7 +345,7 @@ class MRKS():
         if init is None:
             self.Da = np.copy(self.Dt[0])
             self.Coca = np.copy(self.ct[0])
-            self.eigvecs_a = self.wfn.epsilon_a().np[:Nalpha]
+            self.eigvecs_a = self.eng.wfn.epsilon_a().np[:Nalpha]
         elif init.lower()=="continue":
             pass
         else:
@@ -360,8 +360,8 @@ class MRKS():
         eig_old = 0.0
         for mRKS_step in range(1, maxiter+1):
             # ebarKS = self._average_local_orbital_energy(self.molecule.Da.np, self.molecule.Ca.np[:,:Nalpha], self.molecule.eig_a.np[:Nalpha] + self.vout_constant)
-            ebarKS = self.eng.grid.average_local_orbital_energy(self.Da, self.Coca, self.eigvecs_a[:Nalpha], Vpot)
-            taup_rho_KS = self.eng.grid.pauli_kinetic_energy_density(self.Da, self.Coca, Vpot=Vpot)
+            ebarKS      = self.eng.grid._average_local_orbital_energy(self.Da, self.Coca, self.eigvecs_a[:Nalpha], Vpot=Vpot)
+            taup_rho_KS = self.eng.grid._pauli_kinetic_energy_density(self.Da, self.Coca, Vpot=Vpot)
             # self.vout_constant = emax - self.molecule.eig_a.np[self.molecule.nalpha - 1]
             potential_shift = emax - np.max(ebarKS)
             self.shift = potential_shift
@@ -390,48 +390,45 @@ class MRKS():
             Da_old = np.copy(self.Da)
             eig_old = np.copy(self.eigvecs_a[:Nalpha])
 
-            vxc_Fock = self.eng.grid.dft_grid_to_fock(vxc, Vpot=Vpot) 
+            vxc_Fock = self.eng.grid.dft_grid_to_fock(vxc, Vpot)
 
-            self.diagonalize_with_potential_vFock(v=vxc_Fock)
+            self._diagonalize_with_potential_vFock(v=vxc_Fock)
 
             print(f"Iter: {mRKS_step}, Density Change: {Derror:2.2e}, Eigenvalue Change: {eerror:2.2e}, "
                   f"Potential Change: {verror:2.2e}.")
 
         if vxc_grid is not None:
             grid_info = self.eng.grid.grid_to_blocks(vxc_grid)
-            grid_info[-1].set_pointers(self.wfn.Da())
+            grid_info[-1].set_pointers(self.eng.wfn.Da())
 
             # A larger atol seems to be necessary for user-defined grid
-            vxchole = self.vxc_hole_quadrature(grid_info=grid_info, Vpot=Vpot,
-                                                atol=sing[2], atol1=sing[3])
-            if self.wfn.name() == "CIWavefunction":
-                ebarWF = self.eng.grid.average_local_orbital_energy(self.Dt[0],
-                                                            C_a_GFM, eigs_a_GFM, Vpot=Vpot,
-                                                            grid_info=grid_info)
-                taup_rho_WF = self.eng.grid.pauli_kinetic_energy_density(self.Dt[0], 
+            vxchole = self._vxc_hole_quadrature(grid_info=grid_info,
+                                                atol=sing[2], atol1=sing[3], Vpot=Vpot)
+            if self.eng.wfn.name() == "CIWavefunction":
+                ebarWF = self.eng.grid._average_local_orbital_energy(self.Dt[0],
+                                                            C_a_GFM, eigs_a_GFM,
+                                                            grid_info=grid_info,Vpot=Vpot)
+                taup_rho_WF = self.eng.grid._pauli_kinetic_energy_density(self.Dt[0],
                                                                  C_a_NO, eigs_a_NO,
-                                                                 Vpot=Vpot,
-                                                                 grid_info=grid_info)
-            elif self.wfn.name() == "RHF":
-                ebarWF = self.eng.grid.average_local_orbital_energy(self.Dt[0],
+                                                                 grid_info=grid_info, Vpot=Vpot)
+            elif self.eng.wfn.name() == "RHF":
+                ebarWF = self.eng.grid._average_local_orbital_energy(self.Dt[0],
                                                             self.ct[0],
                                                             epsilon_a[:Nalpha],
-                                                            Vpot=Vpot,
-                                                            grid_info=grid_info)
-                taup_rho_WF = self.eng.grid.pauli_kinetic_energy_density(self.Dt[0],
-                                                                 self.ct[0], Vpot=Vpot,
-                                                                 grid_info=grid_info)
-            ebarKS = self.eng.grid.average_local_orbital_energy(self.Da, self.Coca,
-                                                        self.eigvecs_a[:Nalpha], Vpot=Vpot, 
-                                                        grid_info=grid_info)
-            taup_rho_KS = self.eng.grid.pauli_kinetic_energy_density(self.Da, self.Coca, Vpot=Vpot,
-                                                             grid_info=grid_info)
+                                                            grid_info=grid_info, Vpot=Vpot)
+                taup_rho_WF = self.eng.grid._pauli_kinetic_energy_density(self.Dt[0],
+                                                                 self.ct[0],
+                                                                 grid_info=grid_info, Vpot=Vpot)
+            ebarKS = self.eng.grid._average_local_orbital_energy(self.Da, self.Coca,
+                                                        self.eigvecs_a[:Nalpha], grid_info=grid_info)
+            taup_rho_KS = self.eng.grid._pauli_kinetic_energy_density(self.Da, self.Coca,
+                                                             grid_info=grid_info, Vpot=Vpot)
 
             potential_shift = np.max(ebarWF) - np.max(ebarKS)
             self.shift = potential_shift
 
             vxc = vxchole + ebarKS - ebarWF + taup_rho_WF - taup_rho_KS + potential_shift
-        self.vxc = vxc
+        self.grid_vxc = vxc
         return
 
     def _diagonalize_with_potential_vFock(self, v=None):

@@ -15,7 +15,7 @@ class Psi4Engine(Engine):
     # def __init__(self):
     #     pass
 
-    def set_system(self, molecule, basis, ref='1', pbs='same'):
+    def set_system(self, molecule, basis, ref='1', pbs='same', wfn=None):
         """
         Initializes geometry and basis infromation
         """
@@ -30,8 +30,10 @@ class Psi4Engine(Engine):
         self.pbs = pbs
         self.pbs_str   = basis if pbs == 'same' else pbs
 
-        self.nalpha = 0 
-        self.nbeta = 0 
+        self.nalpha = wfn.nalpha()
+        self.nbeta = wfn.nbeta()
+
+        self.wfn = wfn
 
     def initialize(self):
         """
@@ -121,6 +123,30 @@ class Psi4Engine(Engine):
         self.jk.C_clear()
         J = (np.array(self.jk.J()[0]), np.array(self.jk.J()[1]))
         return J
+
+    def hartree_NO(self, Dta):
+        """
+        Computes Hartree potential in AO basis from Natural Orbitals
+        """
+
+        if self.wfn is None:
+            raise ValueError('Please provide a wfn object to the Inverter, i.e., Inverter.eng = wfn')
+
+        if type(self.wfn) == psi4.core.CCWavefunction:
+            C_NO    = psi4.core.Matrix(self.nbf, self.nbf)
+            eigs_NO = psi4.core.Vector(self.nbf)
+            self.wfn.Da().diagonalize( C_NO, eigs_NO, psi4.core.DiagonalizeOrder.Descending )
+            occ = np.sqrt( np.array(eigs_NO) )
+            new_CA = occ * np.array(C_NO)
+            assert np.allclose( new_CA @ new_CA.T, Dta )
+            if self.ref == 1:
+                new_CB = np.copy( new_CA )
+            else:
+                self.wfn.Db().diagonalize( C_NO, eigs_NO, psi4.core.DiagonalizeOrder.Descending )
+                occ_b = np.sqrt( np.array( eigs_NO ) )
+                new_CB = occ_b * np.array( C_NO )
+            J0 = self.compute_hartree(new_CA, new_CB)
+            return J0
 
     def run_single_point(self, mol, basis, method):
         """
