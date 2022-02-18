@@ -28,7 +28,7 @@ class E:
 class Inverter(ZMP, WuYang, PDECO, OC, MRKS):
 
     def __init__( self, engine='psi4' ):
-        self.eng_str = engine
+        self.eng_str = engine.lower()
         if engine.lower() == 'psi4':
             self.eng = Psi4Engine()
         elif engine.lower() == 'pyscf':
@@ -39,10 +39,10 @@ class Inverter(ZMP, WuYang, PDECO, OC, MRKS):
     def __repr__( self ):
         return "n2v.Inverter"
 
-    def set_system( self, molecule, basis, ref=1, pbs='same' ):
+    def set_system( self, molecule, basis, ref=1, pbs='same' , **kwargs):
         # Communicate TO engine
 
-        self.eng.set_system(molecule, basis, ref, pbs)
+        self.eng.set_system(molecule, basis, ref, pbs, **kwargs)
         # self.mol_str = self.eng.mol_str
         self.ref = ref
 
@@ -136,13 +136,15 @@ class Inverter(ZMP, WuYang, PDECO, OC, MRKS):
         self.J0 = self.compute_hartree(self.ct[0], self.ct[1])
         N       = self.nalpha + self.nbeta
 
+        if self.eng_str == 'psi4':
+            self.J0 = self.eng.hartree_NO(self.Dt[0])
+
         if guide_components == 'none':
             warn("No guide potential was provided. Convergence may not be achieved")
         elif guide_components == 'hartree':
-            self.va += self.J0[0]
-            self.vb += self.J0[1]
+            self.va += self.J0[0] + self.J0[1]
+            self.vb += self.J0[0] + self.J0[1]
         elif guide_components == 'fermi_amaldi':
-            print("Computing Fermi Amaldi")
             v_fa = (1-1/N) * (self.J0[0] + self.J0[1])
             self.va += v_fa
             self.vb += v_fa
@@ -150,7 +152,7 @@ class Inverter(ZMP, WuYang, PDECO, OC, MRKS):
             raise ValueError("Guide component not recognized")
 
     def invert(self, method = 'zmp', 
-                     guide_components = 'hartree',
+                     guide_components = 'fermi_amaldi',
                      opt_max_iter = 50,
                      **keywords):
         """"""
