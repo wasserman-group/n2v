@@ -113,6 +113,29 @@ class Psi4Grider():
 
         return blocks, npoints, point_func
 
+    def generate_grids(self, x, y, z):
+        """
+        Genrates Mesh from 3 separate linear spaces and flatten,
+        needed for cubic grid.
+        Parameters
+        ----------
+        grid: tuple of three np.ndarray
+            (x, y, z)
+        Returns
+        -------
+        grid: np.ndarray
+            shape (3, len(x)*len(y)*len(z)).
+        """
+        # x,y,z, = grid
+        shape = (len(x), len(y), len(z))
+        X,Y,Z = np.meshgrid(x, y, z, indexing='ij')
+        X = X.reshape((X.shape[0] * X.shape[1] * X.shape[2], 1))
+        Y = Y.reshape((Y.shape[0] * Y.shape[1] * Y.shape[2], 1))
+        Z = Z.reshape((Z.shape[0] * Z.shape[1] * Z.shape[2], 1))
+        grid = np.concatenate((X,Y,Z), axis=1).T
+
+        return grid, shape
+
     def dft_grid_to_fock(self, value, Vpot=None):
             """For value on DFT spherical grid, Fock matrix is returned.
             VFock_ij = \int dx \phi_i(x) \phi_j(x) value(x)
@@ -287,7 +310,7 @@ class Psi4Grider():
 
         return density
 
-    def esp(self, Da=None, Db=None, vpot=None, grid=None, compute_hartree=True):
+    def esp(self, Da=None, Db=None, vpot=None, grid=None, compute_hartree=True, wfn=None):
         """
         Generates EXTERNAL/ESP/HARTREE and Fermi Amaldi Potential on given grid
         Parameters
@@ -307,7 +330,8 @@ class Psi4Grider():
             External, Hartree, ESP, and Fermi Amaldi potential on the given grid
             Shape: (npoints, )
         """
-        wfn = self.wfn
+        if wfn is None:
+            wfn = self.wfn
 
         if Da is not None or Db is not None:
             Da_temp = np.copy(self.wfn.Da().np)
@@ -386,7 +410,7 @@ class Psi4Grider():
         else:
             return vext
 
-    def vxc(self, func_id=1, grid=None, Da=None, Db=None):
+    def vxc(self, func_id=1, grid=None, Da=None, Db=None, Vpot=None):
         """
         Generates Vxc given grid
         Parameters
@@ -417,6 +441,9 @@ class Psi4Grider():
         if func_id not in local_functionals:
             raise ValueError("Only local functionals are supported on the grid")
 
+        if Vpot is None:
+            Vpot = self.Vpot
+
         if grid is not None:
             if type(grid) is np.ndarray:
                 blocks, npoints, points_function = self.grid_to_blocks(grid)
@@ -426,10 +453,10 @@ class Psi4Grider():
                 density = self.density(Da=Da, grid=grid)
             else:
                 density = self.density(Da=Da, Db=Db, grid=grid)
-        elif grid is None:
-            nblocks = self.Vpot.nblocks()
-            blocks = [self.Vpot.get_block(i) for i in range(nblocks)]
-            npoints = self.Vpot.grid().npoints()
+        elif grid is None and Vpot is not None:
+            nblocks = Vpot.nblocks()
+            blocks = [Vpot.get_block(i) for i in range(nblocks)]
+            npoints = Vpot.grid().npoints()
             if self.ref == 1:
                 density = self.density(Da=Da),
             else:
@@ -451,10 +478,13 @@ class Psi4Grider():
     def get_orbitals():
         pass
 
-    def average_local_orbital_energy(self, D, C, eig, Vpot=None, grid_info=None):
+    def _average_local_orbital_energy(self, D, C, eig, grid_info=None, Vpot=None):
         """
         (4)(6) in mRKS.
         """
+
+        # Nalpha = self.molecule.nalpha
+        # Nbeta = self.molecule.nbeta
 
         if Vpot is None:
             Vpot = self.Vpot
@@ -498,12 +528,87 @@ class Psi4Grider():
         assert iw == e_bar.shape[0], "Somehow the whole space is not fully integrated."
         return e_bar
 
-    def pauli_kinetic_energy_density(self, D, C, occ=None, Vpot=None, grid_info=None):
+    def _get_l_kinetic_energy_density_directly(self, D, C, grid_info=None, Vpot=None):
+        """
+        Calculate $\frac{\tau_L^{KS}}{\rho^{KS}}-\frac{\tau_P^{KS}}{\rho^{KS}}$:
+        laplace_rho_temp: $\frac{\nabla^2 \rho}{4}$;
+        tauW_temp: $\frac{|\napla \rho|^2}{8|\rho|}$;
+        tauLmP_rho: $\frac{|\napla \rho|^2}{8|\rho|^2} - \frac{\nabla^2 \rho}{4\rho}$.
+
+        (i.e. the 2dn and 3rd term in eqn. (17) in [1] over $\rho$.):
+        """
+        if Vpot is None:
+            Vpot = self.Vpot
+
+        if grid_info is None:
+            tauLmP_rho = np.zeros(Vpot.grid().npoints())
+            nblocks = Vpot.nblocks()
+            points_func = Vpot.properties()[0]
+            blocks = None
+
+        else:
+            blocks, npoints, points_func = grid_info
+            tauLmP_rho = np.zeros(npoints)
+            nblocks = len(blocks)
+
+        points_func.set_deriv(2)
+
+        iw = 0
+        for l_block in range(nblocks):
+            # Obtain general grid information
+            if blocks is None:
+                l_grid = Vpot.get_block(l_block)
+            else:
+                l_grid = blocks[l_block]
+            l_npoints = l_grid.npoints()
+
+            points_func.compute_points(l_grid)
+            l_lpos = np.array(l_grid.functions_local_to_global())
+            if len(l_lpos) == 0:
+                iw += l_npoints
+                continue
+            l_phi = np.array(points_func.basis_values()["PHI"])[:l_npoints, :l_lpos.shape[0]]
+            l_phi_x = np.array(points_func.basis_values()["PHI_X"])[:l_npoints, :l_lpos.shape[0]]
+            l_phi_y = np.array(points_func.basis_values()["PHI_Y"])[:l_npoints, :l_lpos.shape[0]]
+            l_phi_z = np.array(points_func.basis_values()["PHI_Z"])[:l_npoints, :l_lpos.shape[0]]
+            l_phi_xx = np.array(points_func.basis_values()["PHI_XX"])[:l_npoints, :l_lpos.shape[0]]
+            l_phi_yy = np.array(points_func.basis_values()["PHI_YY"])[:l_npoints, :l_lpos.shape[0]]
+            l_phi_zz = np.array(points_func.basis_values()["PHI_ZZ"])[:l_npoints, :l_lpos.shape[0]]
+
+            lD = D[(l_lpos[:, None], l_lpos)]
+            # lC = C[l_lpos, :]
+
+            rho = contract('pm,mn,pn->p', l_phi, lD, l_phi)
+            rho_inv = 1/rho
+
+            # Calculate the second term
+            laplace_rho_temp = contract('ab,pa,pb->p', lD, l_phi, l_phi_xx + l_phi_yy + l_phi_zz)
+            # laplace_rho_temp += contract('pm, mn, pn->p', l_phi_x,lD, l_phi_x)
+            # laplace_rho_temp += contract('pm, mn, pn->p', l_phi_y,lD, l_phi_y)
+            # laplace_rho_temp += contract('pm, mn, pn->p', l_phi_z,lD, l_phi_z)
+            laplace_rho_temp += np.sum((l_phi_x @ lD) * l_phi_x, axis=1)
+            laplace_rho_temp += np.sum((l_phi_y @ lD) * l_phi_y, axis=1)
+            laplace_rho_temp += np.sum((l_phi_z @ lD) * l_phi_z, axis=1)
+
+            laplace_rho_temp *= 0.25 * 2
+
+            # Calculate the third term
+            tauW_temp = contract('pm, mn, pn->p', l_phi, lD, l_phi_x) ** 2
+            tauW_temp += contract('pm, mn, pn->p', l_phi, lD, l_phi_y) ** 2
+            tauW_temp += contract('pm, mn, pn->p', l_phi, lD, l_phi_z) ** 2
+            tauW_temp *= rho_inv * 0.125 * 4
+
+            tauLmP_rho[iw: iw + l_npoints] = (-laplace_rho_temp + tauW_temp) * rho_inv
+            iw += l_npoints
+        assert iw == tauLmP_rho.shape[0], "Somehow the whole space is not fully integrated."
+
+        return tauLmP_rho
+
+    def _pauli_kinetic_energy_density(self, D, C, occ=None, grid_info=None, Vpot=None):
         """
         (16)(18) in mRKS. But notice this does not return taup but taup/n
         :return:
         """
-
         if Vpot is None:
             Vpot = self.Vpot
 
@@ -566,80 +671,3 @@ class Psi4Grider():
             iw += l_npoints
         assert iw == taup_rho.shape[0], "Somehow the whole space is not fully integrated."
         return taup_rho
-
-    def get_l_kinetic_energy_density_directly(self, D, C, Vpot=None, grid_info=None):
-        """
-        Calculate $\frac{\tau_L^{KS}}{\rho^{KS}}-\frac{\tau_P^{KS}}{\rho^{KS}}$:
-        laplace_rho_temp: $\frac{\nabla^2 \rho}{4}$;
-        tauW_temp: $\frac{|\napla \rho|^2}{8|\rho|}$;
-        tauLmP_rho: $\frac{|\napla \rho|^2}{8|\rho|^2} - \frac{\nabla^2 \rho}{4\rho}$.
-
-        (i.e. the 2dn and 3rd term in eqn. (17) in [1] over $\rho$.):
-        """
-        if Vpot is None:
-            Vpot = self.Vpot
-
-        if grid_info is None:
-            tauLmP_rho = np.zeros(Vpot.grid().npoints())
-            nblocks = Vpot.nblocks()
-
-            points_func = Vpot.properties()[0]
-            blocks = None
-
-        else:
-            blocks, npoints, points_func = grid_info
-            tauLmP_rho = np.zeros(npoints)
-            nblocks = len(blocks)
-
-        points_func.set_deriv(2)
-
-        iw = 0
-        for l_block in range(nblocks):
-            # Obtain general grid information
-            if blocks is None:
-                l_grid = Vpot.get_block(l_block)
-            else:
-                l_grid = blocks[l_block]
-            l_npoints = l_grid.npoints()
-
-            points_func.compute_points(l_grid)
-            l_lpos = np.array(l_grid.functions_local_to_global())
-            if len(l_lpos) == 0:
-                iw += l_npoints
-                continue
-            l_phi = np.array(points_func.basis_values()["PHI"])[:l_npoints, :l_lpos.shape[0]]
-            l_phi_x = np.array(points_func.basis_values()["PHI_X"])[:l_npoints, :l_lpos.shape[0]]
-            l_phi_y = np.array(points_func.basis_values()["PHI_Y"])[:l_npoints, :l_lpos.shape[0]]
-            l_phi_z = np.array(points_func.basis_values()["PHI_Z"])[:l_npoints, :l_lpos.shape[0]]
-            l_phi_xx = np.array(points_func.basis_values()["PHI_XX"])[:l_npoints, :l_lpos.shape[0]]
-            l_phi_yy = np.array(points_func.basis_values()["PHI_YY"])[:l_npoints, :l_lpos.shape[0]]
-            l_phi_zz = np.array(points_func.basis_values()["PHI_ZZ"])[:l_npoints, :l_lpos.shape[0]]
-
-            lD = D[(l_lpos[:, None], l_lpos)]
-            # lC = C[l_lpos, :]
-
-            rho = contract('pm,mn,pn->p', l_phi, lD, l_phi)
-            rho_inv = 1/rho
-
-            # Calculate the second term
-            laplace_rho_temp = contract('ab,pa,pb->p', lD, l_phi, l_phi_xx + l_phi_yy + l_phi_zz)
-            # laplace_rho_temp += contract('pm, mn, pn->p', l_phi_x,lD, l_phi_x)
-            # laplace_rho_temp += contract('pm, mn, pn->p', l_phi_y,lD, l_phi_y)
-            # laplace_rho_temp += contract('pm, mn, pn->p', l_phi_z,lD, l_phi_z)
-            laplace_rho_temp += np.sum((l_phi_x @ lD) * l_phi_x, axis=1)
-            laplace_rho_temp += np.sum((l_phi_y @ lD) * l_phi_y, axis=1)
-            laplace_rho_temp += np.sum((l_phi_z @ lD) * l_phi_z, axis=1)
-
-            laplace_rho_temp *= 0.25 * 2
-
-            # Calculate the third term
-            tauW_temp = contract('pm, mn, pn->p', l_phi, lD, l_phi_x) ** 2
-            tauW_temp += contract('pm, mn, pn->p', l_phi, lD, l_phi_y) ** 2
-            tauW_temp += contract('pm, mn, pn->p', l_phi, lD, l_phi_z) ** 2
-            tauW_temp *= rho_inv * 0.125 * 4
-
-            tauLmP_rho[iw: iw + l_npoints] = (-laplace_rho_temp + tauW_temp) * rho_inv
-            iw += l_npoints
-        assert iw == tauLmP_rho.shape[0], "Somehow the whole space is not fully integrated."
-
-        return tauLmP_rho
