@@ -83,14 +83,14 @@ class OC():
         # vext_opt -= shift
 
         if self.ref != 1:
-            e_bar_DFT_beta = self._average_local_orbital_energy(Db_LDA, Cb_LDA[:,:Nbeta], epsilon_b_LDA[:Nbeta], Vpot=LDA_Vpot)
-            e_bar_beta = self._average_local_orbital_energy(Db_LDA, Cb_LDA[:, :Nbeta], epsilon_b_LDA[:Nbeta], grid_info=grid_info)
+            e_bar_DFT_beta = self.eng.grid._average_local_orbital_energy(Db_LDA, Cb_LDA[:,:Nbeta], epsilon_b_LDA[:Nbeta], Vpot=LDA_Vpot)
+            e_bar_beta = self.eng.grid._average_local_orbital_energy(Db_LDA, Cb_LDA[:, :Nbeta], epsilon_b_LDA[:Nbeta], grid_info=grid_info)
 
-            tauLmP_rho_DFT_beta = self._get_l_kinetic_energy_density_directly(Db_LDA, Cb_LDA[:,:Nbeta], Vpot=LDA_Vpot)
-            tauLmP_rho_beta = self._get_l_kinetic_energy_density_directly(Db_LDA, Cb_LDA[:,:Nalpha], grid_info=grid_info)
+            tauLmP_rho_DFT_beta = self.eng.grid._get_l_kinetic_energy_density_directly(Db_LDA, Cb_LDA[:,:Nbeta], Vpot=LDA_Vpot)
+            tauLmP_rho_beta = self.eng.grid._get_l_kinetic_energy_density_directly(Db_LDA, Cb_LDA[:,:Nalpha], grid_info=grid_info)
 
-            tauP_rho_DFT_beta = self._pauli_kinetic_energy_density(Db_LDA, Cb_LDA[:,:Nbeta], Vpot=LDA_Vpot)
-            tauP_rho_beta = self._pauli_kinetic_energy_density(Db_LDA, Cb_LDA[:,:Nbeta], grid_info=grid_info)
+            tauP_rho_DFT_beta = self.eng.grid._pauli_kinetic_energy_density(Db_LDA, Cb_LDA[:,:Nbeta], Vpot=LDA_Vpot)
+            tauP_rho_beta = self.eng.grid._pauli_kinetic_energy_density(Db_LDA, Cb_LDA[:,:Nbeta], grid_info=grid_info)
 
             tauL_rho_DFT_beta = tauLmP_rho_DFT_beta + tauP_rho_DFT_beta
             tauL_rho_beta = tauLmP_rho_beta + tauP_rho_beta
@@ -98,7 +98,7 @@ class OC():
             vext_opt_no_H_DFT_beta = e_bar_DFT_beta - tauL_rho_DFT_beta - vxc_LDA_DFT_beta
             vext_opt_no_H_beta = e_bar_beta - tauL_rho_beta - vxc_LDA_beta
 
-            vext_opt_no_H_DFT_Fock_beta = self.dft_grid_to_fock(vext_opt_no_H_DFT_beta, self.Vpot)
+            vext_opt_no_H_DFT_Fock_beta = self.eng.grid.dft_grid_to_fock(vext_opt_no_H_DFT_beta, LDA_Vpot)
             vext_opt_DFT_Fock_beta = vext_opt_no_H_DFT_Fock_beta - J[0] - J[1]
 
             vext_opt_beta = vext_opt_no_H_beta - vH
@@ -210,8 +210,8 @@ class OC():
             vxc_extH = e_bar - tauLmP_rho - tauP_rho - shift
 
             if self.ref != 1:
-                tauP_rho_beta = self._pauli_kinetic_energy_density(self.Db, self.Cocb)
-                e_bar_beta    = self._average_local_orbital_energy(self.Db, self.Cocb, self.eigvecs_b[:Nbeta])
+                tauP_rho_beta = self.eng.grid._pauli_kinetic_energy_density(self.Db, self.Cocb)
+                e_bar_beta    = self.eng.grid._average_local_orbital_energy(self.Db, self.Cocb, self.eigvecs_b[:Nbeta])
                 shift_beta    = self.eigvecs_b[Nbeta - 1] - self.eng.wfn.epsilon_b().np[Nbeta - 1]
                 vxc_extH_beta = e_bar_beta - tauLmP_rho_beta - tauP_rho_beta - shift_beta
 
@@ -244,7 +244,7 @@ class OC():
             # print("4", np.diag(Vxc_Fock))
 
             if self.ref != 1:
-                Vxc_extH_Fock_beta = self.dft_grid_to_fock(vxc_extH_beta, self.LDA_Vpot)
+                Vxc_extH_Fock_beta = self.eng.grid.dft_grid_to_fock(vxc_extH_beta, self.LDA_Vpot)
                 Vxc_Fock_beta      = Vxc_extH_Fock_beta - vext_opt_Fock_beta - vH0_Fock
 
             if self.ref == 1:
@@ -265,20 +265,19 @@ class OC():
         shift      = self.eigvecs_a[Nalpha - 1] - self.eng.wfn.epsilon_a().np[Nalpha - 1]
 
         if self.ref != 1:
-            tauLmP_rho_beta = self._get_l_kinetic_energy_density_directly(self.Dt[1], self.ct[1][:, :Nbeta],
-                                                                     grid_info=grid_info)
-            tauP_rho_beta = self._pauli_kinetic_energy_density(self.Db, self.Cocb, grid_info=grid_info)
-            shift_beta = self.eigvecs_b[Nbeta - 1] - self.eng.wfn.epsilon_b().np[Nbeta - 1]
-            e_bar_beta = self._average_local_orbital_energy(self.Db, self.Cocb, self.eigvecs_b[:Nbeta], grid_info=grid_info)
+            tauLmP_rho_beta = self.eng.grid._get_l_kinetic_energy_density_directly(self.Dt[1], self.ct[1][:, :Nbeta],grid_info=grid_info)
+            tauP_rho_beta   = self.eng.grid._pauli_kinetic_energy_density(self.Db, self.Cocb, grid_info=grid_info)
+            e_bar_beta      = self.eng.grid._average_local_orbital_energy(self.Db, self.Cocb, self.eigvecs_b[:Nbeta], grid_info=grid_info)
+            shift_beta      = self.eigvecs_b[Nbeta - 1] - self.eng.wfn.epsilon_b().np[Nbeta - 1]
 
         if self.ref == 1:
             self.grid_vxc = e_bar - tauLmP_rho - tauP_rho - vext_opt - vH0 - shift
             return self.grid_vxc, e_bar, tauLmP_rho, tauP_rho, vext_opt, vH0, shift
         else:
-            self.grid.vxc = np.array((e_bar - tauLmP_rho - tauP_rho - vext_opt - vH0 - shift,
+            self.grid_vxc = np.array((e_bar - tauLmP_rho - tauP_rho - vext_opt - vH0 - shift,
                                       e_bar_beta - tauLmP_rho_beta - tauP_rho_beta - vext_opt_beta - vH0 - shift_beta
                                       ))
-            return self.grid.vxc, (e_bar, e_bar_beta), (tauLmP_rho, tauLmP_rho_beta), \
+            return self.grid_vxc, (e_bar, e_bar_beta), (tauLmP_rho, tauLmP_rho_beta), \
                    (tauP_rho,tauP_rho_beta), (vext_opt, vext_opt_beta), vH0, (shift, shift_beta)
 # """
 # oucarter.py
