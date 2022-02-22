@@ -226,8 +226,7 @@ class ZMP():
                 D_old = Da
                 derror = np.max(np.abs(ddm))
 
-                #Uncomment to debug internal SCF
-                if True:
+                if print_scf:
                     if np.mod(SCF_ITER,5) == 0.0:
                         print(f"Iteration: {SCF_ITER:3d} | Self Convergence Error: {derror:10.5e} | DIIS Error: {diis_error:10.5e}")
                 
