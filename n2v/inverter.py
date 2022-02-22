@@ -14,6 +14,7 @@ from .methods.wuyang import WuYang
 from .methods.pdeco import PDECO
 from .methods.oucarter import OC
 from .methods.mrks import MRKS
+from .methods.direct import Direct
 
 @dataclass
 class V:
@@ -25,7 +26,7 @@ class E:
     """Stores Energies"""
     pass
 
-class Inverter(ZMP, WuYang, PDECO, OC, MRKS):
+class Inverter(Direct, ZMP, WuYang, PDECO, OC, MRKS):
 
     def __init__( self, engine='psi4' ):
         self.eng_str = engine.lower()
@@ -59,6 +60,33 @@ class Inverter(ZMP, WuYang, PDECO, OC, MRKS):
         self.v_pbs = np.zeros( (self.npbs) ) if self.ref == 1 \
                                              else np.zeros( 2 * self.npbs )
 
+    @classmethod
+    def from_wfn( self, wfn, pbs='same' ):
+        """
+        Generates Inverter directly from wavefunction. 
+        
+        Parameters
+        ----------
+        wfn: Psi4.Core.{RHF, RKS, ROHF, CCWavefunction, UHF, UKS, CUHF}
+            Wavefunction Object
+        Returns
+        -------
+        inv: n2v.Inverter
+            Inverter Object. 
+        """
+
+        inv = self( engine='psi4' )
+        inv.eng = Psi4Engine()
+        ref = 1 if wfn.to_file()['boolean']['same_a_b_dens'] else 2
+        inv.set_system( wfn.molecule(), wfn.basisset().name(), pbs=pbs, ref=ref, wfn=wfn )
+        inv.Dt = [ np.array(wfn.Da()), np.array(wfn.Db()) ]
+        inv.ct = [ np.array(wfn.Ca_subset("AO", "OCC")), np.array(wfn.Cb_subset("AO", "OCC")) ]
+        inv.et = [ np.array(wfn.epsilon_a_subset("AO", "OCC")), np.array(wfn.epsilon_b_subset("AO", "OCC")) ]
+        inv.eng_str = 'psi4'
+        inv.eng.wfn = wfn
+
+        return inv
+        
     def set_basis_matrices( self ):
         """Generate basis dependant matrices"""
         self.T  = self.eng.get_T()
@@ -68,7 +96,7 @@ class Inverter(ZMP, WuYang, PDECO, OC, MRKS):
         self.S3      = self.eng.get_S3()
 
         if self.eng.pbs_str != 'same':  
-            self.T_pbas  = self.eng.get_Tpbas()
+            self.T_pbs  = self.eng.get_Tpbas()
 
         self.S4 = None
 
@@ -138,7 +166,7 @@ class Inverter(ZMP, WuYang, PDECO, OC, MRKS):
 
         if self.eng_str == 'psi4':
             J0_NO = self.eng.hartree_NO(self.Dt[0])
-            self.J0 = JO_NO if J0_NO is not None else self.J0
+            self.J0 = J0_NO if J0_NO is not None else self.J0
 
         if guide_components == 'none':
             warn("No guide potential was provided. Convergence may not be achieved")
