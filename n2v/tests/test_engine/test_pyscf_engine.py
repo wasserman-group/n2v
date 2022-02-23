@@ -31,13 +31,6 @@ def ine():
 
     return ine
 
-# # Generate grid
-# npoints=1001
-# x = np.linspace(-5,5,npoints)[:,None]
-# y = np.zeros_like(x)
-# z = y
-# grid = np.concatenate((x,y,z), axis=1).T
-
 def test_zmp(ine):
 
     ine.invert(method='zmp', guide_components='fermi_amaldi', lambda_list=[750], opt_max_iter=100, opt_tol=1e-5)
@@ -60,3 +53,24 @@ def test_pedeco(ine):
 
     assert np.isclose(  ine.eigvecs_a[:5].all(),  
                         np.array( [-30.75843463,  -1.60691725,  -0.75708326,  -0.75708173, -0.75708055] ).all())
+
+def test_oucarter(ine):
+
+    x = np.linspace(-5, 10, 1501)
+    y = [0]
+    z = [0]
+    grid, shape = ine.eng.grid.generate_grid(x, y, z)
+    
+    with pytest.raises(ValueError):
+        ine.invert('OC', vxc_grid=grid)
+
+
+def test_oucarter(ine):
+
+    x = np.linspace(-5, 10, 1501)
+    y = [0]
+    z = [0]
+    grid, shape = ine.eng.grid.generate_grid(x, y, z)
+    
+    with pytest.raises(ValueError):
+        ine.invert('mRKS', vxc_grid=grid, opt_max_iter=30, frac_old=0.8, init='scan')

@@ -11,52 +11,79 @@ def ine():
     symmetry c1
     units bohr
     """)
-
     # Perform Calculation
-    wfn = psi4.energy("scan/aug-cc-pvtz", molecule=Ne, return_wfn=True)[1]
-
-    # Extract data needed for n2v. 
-    da, db = np.array(wfn.Da()), np.array( wfn.Db())
-    ca, cb = np.array(wfn.Ca_subset("AO", "OCC")) , np.array(wfn.Ca_subset("AO", "OCC"))
-    ea, eb = np.array(wfn.epsilon_a()), np.array(wfn.epsilon_b())
-
+    wfn = psi4.properties("ccsd/aug-cc-pvtz", molecule=Ne, return_wfn=True, properties=['dipole'])[1]
     # Initialize inverter object. 
-    ine = n2v.Inverter( engine='psi4' )
-    ine.set_system( Ne, 'aug-cc-pvtz' )
-    ine.nalpha = wfn.nalpha()
-    ine.nbeta = wfn.nbeta()
-    ine.Dt = [da, db]
-    ine.ct = [ca, cb]
-    ine.et = [ea, eb]
+    ine = n2v.Inverter.from_wfn(wfn)
 
     return ine
 
-# # Generate grid
-# npoints=1001
-# x = np.linspace(-5,5,npoints)[:,None]
-# y = np.zeros_like(x)
-# z = y
-# grid = np.concatenate((x,y,z), axis=1).T
-
 def test_zmp(ine):
+    ine.invert("zmp", opt_max_iter=200, opt_tol=1e-7, zmp_mixing=1, 
+            lambda_list=np.linspace(10, 1000, 20), guide_components="fermi_amaldi")
 
-    ine.invert(method='zmp', guide_components='fermi_amaldi', lambda_list=[750], opt_max_iter=100, opt_tol=1e-5)
+    assert np.isclose( ine.eigvecs_a[:5].all(),  
+                       np.array([-30.96371089,  -1.64633607,  -0.78780286,  -0.78780286, -0.78780286]).all() ) 
+    assert np.isclose( np.diag(ine.Da)[:5].all(), 
+                       np.array([0.9520639 , 0.33023202, 0.03466103, 0.13804668, 0.16689393]).all())
 
-    assert np.isclose(  ine.eigvecs_a[:5].all(),  
-                        np.array( [-30.70374546,  -1.58893038,  -0.73510124,  -0.73510123, -0.73510123] ).all() ) 
     
-
 def test_wuyang(ine):
     
     ine.invert("WuYang", guide_components="fermi_amaldi")
 
     assert np.isclose( ine.eigvecs_a[:5].all(),  
-                        np.array( [-30.79513854,  -1.60108275,  -0.75109325,  -0.75109317, -0.75109295]).all() )
+                        np.array([-30.9112617 ,  -1.59602304,  -0.74201369,  -0.74201369, -0.74201369]).all() )
+    assert np.isclose( np.diag(ine.Da)[:5].all(),
+                       np.array([0.95298269, 0.32446633, 0.03453696, 0.14332516, 0.16706669]).all() )
 
 
 def test_pedeco(ine):
 
     ine.invert("PDECO", opt_max_iter=200, guide_components="fermi_amaldi", gtol=1e-6)
 
-    assert np.isclose(  ine.eigvecs_a[:5].all(),  
-                        np.array( [-30.80179687,  -1.60285771,  -0.75242195,  -0.7524181 ,-0.75241671] ).all())
+    assert np.isclose( ine.eigvecs_a[:5].all(),  
+                       np.array([-30.90838995,  -1.59752788,  -0.74329655,  -0.74328871, -0.74328082]).all() )
+    assert np.isclose( np.diag(ine.Da)[:5].all(),
+                       np.array([0.95291707, 0.32472977, 0.03449241, 0.1432748 , 0.16698491]).all() )
+
+def test_oucarter(ine):
+
+    x = np.linspace(-5, 10, 1501)
+    y = [0]
+    z = [0]
+    grid, shape = ine.eng.grid.generate_grid(x, y, z)
+
+    v = ine.invert("OC", vxc_grid=grid, opt_max_iter=21, frac_old=0.9, init='SCAN')
+
+    assert np.isclose( ine.eigvecs_a[:5].all(),  
+                       np.array([-31.02826629,  -1.7038403 ,  -0.85493085,  -0.85493085, -0.85493085]).all() )
+    assert np.isclose( np.diag(ine.Da)[:5].all(),
+                       np.array([0.94579632, 0.32844699, 0.03465013, 0.1395006 , 0.16976739]).all() )
+    assert np.isclose( v[0].all(), 
+                       np.array([-16.83962961,  -1.02552792,  -0.5309617 ,  -0.27295131, -0.23428725]).all() )
+
+def test_mrks(ine):
+
+    mol = ine.eng.mol
+    psi4.set_options({'opdm' : True,
+                      'tpdm' : True, 
+                      'dft_spherical_points' : 50,
+                      'dft_radial_points'    : 50, })
+
+    wfn = psi4.properties('detci/cc-pcvdz', return_wfn=True, molecule=mol, properties=['dipole'])[1]
+    ine = n2v.Inverter.from_wfn(wfn)
+    x = np.linspace(-5, 10, 1501)
+    y = [0]
+    z = [0]
+    grid, shape = ine.eng.grid.generate_grid(x, y, z)
+    ine.invert('mRKS', vxc_grid=grid, opt_max_iter=30, frac_old=0.8, init='scan')
+
+    assert np.isclose( ine.eigvecs_a[:5].all(),  
+                       np.array([-30.0960936 ,  -1.60549235,  -0.74989818,  -0.74989818, -0.74989818]).all() )
+    assert np.isclose( np.diag(ine.Da)[:5].all(),
+                       np.array([0.99495901, 0.24875539, 0.34138226, 0.46664006, 0.46664006]).all() )
+    assert np.isclose( ine.grid_vxc.all(), 
+                       np.array([-7.23643144, -1.05559238, -0.47135156, -0.28189798, -0.20578139]).all() )
+
+
