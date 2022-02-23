@@ -267,7 +267,7 @@ class ZMP():
 # -------------> END Iterating over lambdas:
 
         self.proto_density_a += successful_lam * successful_proto_density[0] * (1 - self.mixing)
-        if self.guide_components[0].lower() == "fermi_amaldi":
+        if self.guide_components.lower() == "fermi_amaldi":
             # for ref==1, vxc = \int dr (proto_density_a + proto_density_b)/|r-r'| - 1/N*vH
             if self.ref == 1:
                 self.proto_density_a -= (1 / (self.nalpha + self.nbeta)) * (self.Dt[0])
@@ -282,7 +282,7 @@ class ZMP():
 
         if self.ref == 2:
             self.proto_density_b += successful_lam * successful_proto_density[1] * (1 - self.mixing)
-            if self.guide_potential_components[0].lower() == "fermi_amaldi":
+            if self.guide_components.lower() == "fermi_amaldi":
                 # for ref==1, vxc = \int dr (proto_density_a + proto_density_b)/|r-r'| - 1/N*vH
                 if self.ref == 1:
                     self.proto_density_b -= (1 / (self.nalpha + self.nbeta)) * (self.Dt[1])
