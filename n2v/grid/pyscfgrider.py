@@ -66,6 +66,28 @@ class PySCFGrider:
     
         return points
 
+    def generate_grid(self, x, y, z):
+        """
+        Genrates Mesh from 3 separate linear spaces and flatten,
+        needed for cubic grid.
+        Parameters
+        ----------
+        grid: tuple of three np.ndarray
+            (x, y, z)
+        Returns
+        -------
+        grid: np.ndarray
+            shape (3, len(x)*len(y)*len(z)).
+        """
+        # x,y,z, = grid
+        shape = (len(x), len(y), len(z))
+        X,Y,Z = np.meshgrid(x, y, z, indexing='ij')
+        X = X.reshape((X.shape[0] * X.shape[1] * X.shape[2], 1))
+        Y = Y.reshape((Y.shape[0] * Y.shape[1] * Y.shape[2], 1))
+        Z = Z.reshape((Z.shape[0] * Z.shape[1] * Z.shape[2], 1))
+        grid = np.concatenate((X,Y,Z), axis=1).T
+
+        return grid, shape
 
     def build_rectangular(self, npoints):
         """

@@ -180,7 +180,7 @@ class Inverter(Direct, ZMP, WuYang, PDECO, OC, MRKS):
         else:
             raise ValueError("Guide component not recognized")
 
-    def invert(self, method = 'zmp', 
+    def invert(self, method, 
                      guide_components = 'hartree',
                      opt_max_iter = 50,
                      **keywords):
@@ -195,8 +195,12 @@ class Inverter(Direct, ZMP, WuYang, PDECO, OC, MRKS):
         elif method.lower() == "zmp":
             self.zmp(opt_max_iter, **keywords)
         elif method.lower() == "mrks":
+            if self.eng_str == 'pyscf':
+                raise ValueError("mRKS method not yet available with the PySCF engine. Try another method or another engine.")
             return self.mRKS(opt_max_iter, **keywords)
         elif method.lower() == 'oc':
+            if self.eng_str == 'pyscf':
+                raise ValueError("OuCarter method not yet available with the PySCF engine. Try another method or another engine.")
             return self.oucarter(opt_max_iter, **keywords)
         elif method.lower() == 'pdeco':
             return self.pdeco(opt_max_iter, **keywords)
