@@ -143,6 +143,7 @@ class PySCFGrider:
         if Db is not None:
             density_b = evaluate_density(Db, self.basis, points)
             density_g = np.concatenate([density_a, density,b])
+            return density_g
         else:
             return density_a
 
@@ -248,6 +249,61 @@ class PySCFGrider:
 
         return f_nm
     
+    def orbitals(self, C, grid='spherical'):
+        """
+        Obtains orbitals on grid
+        """
+
+        points = self.assert_grid(grid)
+
+        phis = evaluate_basis(self.basis, points)
+        mat_g = C.T.dot(phis)
+        return mat_g
+
+    def orbitals(self, C, grid='spherical'):
+        """
+        Obtains orbitals on grid
+        """
+
+        points = self.assert_grid(grid)
+
+        phis = evaluate_basis(self.basis, points)
+        mat_g = C.T.dot(phis)
+        return mat_g
+
+    def laplacian_density(self, density, grid='spherical'):
+        """
+        Calculates the laplacian of the density
+        """
+
+        points = self.assert_grid(grid)
+
+        lap_density = evaluate_density_laplacian( density, self.basis, points )
+        return lap_density
+  
+    def gradient_density(self, density, grid='spherical'):        
+        """
+        Evaluatges gradient of density on requested grid
+        """
+
+        points = self.assert_grid(grid)
+
+        grad_density = evaluate_density_gradient(density, self.basis, points)
+        return grad_density
+        
+    def ao_deriv(self, derivs=[0,0,0], transform=None, grid='spherical'):
+        """ 
+        Calculates AO on the grid (and its derivatives). 
+        If Transformation is given, e.g. ao2mo, MO will be given
+        """
+
+        points = self.assert_grid(grid)
+
+        orbs_deriv = evaluate_deriv_basis( self.basis, points, np.array(derivs), 
+                                           transform=transform )
+
+        return orbs_deriv
+
     # Specialized for methods. 
     def posdef_kinetic_energy_density(self, density, grid='spherical'):
         """
@@ -321,50 +377,6 @@ class PySCFGrider:
         tau_p /= (2*density_g)
 
         return tau_p
-
-    def orbitals(self, C, grid='spherical'):
-        """
-        Obtains orbitals on grid
-        """
-
-        points = self.assert_grid(grid)
-
-        phis = evaluate_basis(self.basis, points)
-        mat_g = C.T.dot(phis)
-        return mat_g
-
-    def ao_deriv(self, derivs=[0,0,0], transform=None, grid='spherical'):
-        """ 
-        Calculates AO on the grid (and its derivatives). 
-        If Transformation is given, e.g. ao2mo, MO will be given
-        """
-
-        points = self.assert_grid(grid)
-
-        orbs_deriv = evaluate_deriv_basis( self.basis, points, np.array(derivs), 
-                                           transform=transform )
-
-        return orbs_deriv
-
-    def laplacian_density(self, density, grid='spherical'):
-        """
-        Calculates the laplacian of the density
-        """
-
-        points = self.assert_grid(grid)
-
-        lap_density = evaluate_density_laplacian( density, self.basis, points )
-        return lap_density
-  
-    def gradient_density(self, density, grid='spherical'):
-        """
-        Evaluatges gradient of density on requested grid
-        """
-
-        points = self.assert_grid(grid)
-
-        grad_density = evaluate_density_gradient(density, self.basis, points)
-        return grad_density
 
     def avg_local_orb_energy(self, density, orbitals, eigvals, grid='spherical'):
         """
