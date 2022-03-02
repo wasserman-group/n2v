@@ -6,9 +6,6 @@ from dataclasses import dataclass
 import numpy as np
 from opt_einsum import contract
 
-from .engines import Psi4Engine
-from .engines import PySCFEngine
-
 from .methods.zmp import ZMP
 from .methods.wuyang import WuYang
 from .methods.pdeco import PDECO
@@ -31,8 +28,10 @@ class Inverter(Direct, ZMP, WuYang, PDECO, OC, MRKS):
     def __init__( self, engine='psi4' ):
         self.eng_str = engine.lower()
         if engine.lower() == 'psi4':
+            from .engines import Psi4Engine
             self.eng = Psi4Engine()
         elif engine.lower() == 'pyscf':
+            from .engines import PySCFEngine
             self.eng = PySCFEngine()
         else:
             raise ValueError("Engine name is incorrect. The availiable engines are: {psi4, pyscf}")
@@ -86,7 +85,7 @@ class Inverter(Direct, ZMP, WuYang, PDECO, OC, MRKS):
         inv.eng.wfn = wfn
 
         return inv
-        
+
     def set_basis_matrices( self ):
         """Generate basis dependant matrices"""
         self.T  = self.eng.get_T()
