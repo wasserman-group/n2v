@@ -73,7 +73,7 @@ class Inverter(Direct, ZMP, WuYang, PDECO, OC, MRKS):
         inv: n2v.Inverter
             Inverter Object. 
         """
-
+        from .engines import Psi4Engine
         inv = self( engine='psi4' )
         inv.eng = Psi4Engine()
         ref = 1 if wfn.to_file()['boolean']['same_a_b_dens'] else 2
