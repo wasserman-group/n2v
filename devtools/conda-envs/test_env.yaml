@@ -18,4 +18,5 @@ dependencies:
 
     # Pip-only installs
   - pip:
+    - pyscf
     - opt-einsum

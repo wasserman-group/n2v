@@ -4,6 +4,8 @@ direct.py
 
 import numpy as np
 np.seterr(divide='ignore', invalid='ignore')
+from ..grid.basis_set_artifact_correction import basis_set_correction
+
 
 class Direct():
     def direct_inversion(self, grid, correction=True):
@@ -36,7 +38,7 @@ class Direct():
             Equation (5)
         """
 
-        wfn = self.wfn
+        wfn = self.eng.wfn
 
         #Sanity check. 
         try:
@@ -49,25 +51,31 @@ class Direct():
         #Build components on grid:
         if grid is not None:
             #Use user-defined grid
-            orb       = self.on_grid_orbitals(Ca=wfn.Ca().np, Cb=wfn.Cb().np, grid=grid)
-            lap       = self.on_grid_lap_phi(Ca=wfn.Ca().np, Cb=wfn.Cb().np, grid=grid)
-            vex, vha  = self.on_grid_esp(Da=wfn.Da().np, Db=wfn.Db().np, grid=grid)[:2]
-            den       = self.on_grid_density(Da=wfn.Da().np, Db=wfn.Db().np, grid=grid)
+            orb       = self.eng.grid.orbitals(Ca=wfn.Ca().np, Cb=wfn.Cb().np, grid=grid)
+            lap       = self.eng.grid.lap_phi(Ca=wfn.Ca().np, Cb=wfn.Cb().np, grid=grid)
+            vex, vha  = self.eng.grid.esp(Da=wfn.Da().np, Db=wfn.Db().np, grid=grid)[:2]
+            if self.eng.ref == 1:
+                den       = self.eng.grid.density(Da=wfn.Da().np, grid=grid)
+            else:
+                den       = self.eng.grid.density(Da=wfn.Da().np, Db=wfn.Db().np, grid=grid)
             eig_a = wfn.epsilon_a_subset("AO", "ALL").np
             eig_b = wfn.epsilon_b_subset("AO", "ALL").np
             
             #Calculate correction
             if correction is True:
-                osc_profile = self.get_basis_set_correction(grid)
+                osc_profile = basis_set_correction(self, grid)
 
             
         else:
             #Use DFT grid
             Vpot = wfn.V_potential()
-            orb       = self.on_grid_orbitals(Ca=wfn.Ca().np, Cb=wfn.Cb().np, Vpot=Vpot)
-            lap       = self.on_grid_lap_phi(Ca=wfn.Ca().np, Cb=wfn.Cb().np, Vpot=Vpot)
-            vex, vha  = self.on_grid_esp(Da=wfn.Da().np, Db=wfn.Db().np, Vpot=Vpot)[:2]
-            den       = self.on_grid_density(Da=wfn.Da().np, Db=wfn.Db().np, Vpot=Vpot)
+            orb       = self.eng.grid.orbitals(Ca=wfn.Ca().np, Cb=wfn.Cb().np, Vpot=Vpot)
+            lap       = self.eng.grid.lap_phi(Ca=wfn.Ca().np, Cb=wfn.Cb().np, Vpot=Vpot)
+            vex, vha  = self.eng.grid.esp(Da=wfn.Da().np, Db=wfn.Db().np, Vpot=Vpot)[:2]
+            if self.eng.ref == 1:
+                den       = self.eng.grid.density(Da=wfn.Da().np, Vpot=Vpot)
+            else:
+                den       = self.eng.grid.density(Da=wfn.Da().np, Vpot=Vpot)
             eig_a = wfn.epsilon_a_subset("AO", "ALL").np
 
             #Calculate correction
@@ -108,5 +116,5 @@ class Direct():
         if correction is True:
             vxc_inverted -= osc_profile
 
-        self.grid.vxc = vxc_inverted
+        self.grid_vxc = vxc_inverted
         return vxc_inverted
