@@ -176,7 +176,6 @@ if has_pyscf:
             cb: np.ndarray
                 if ref == 2, cb -> Beta Occupied Orbitals in AO basis
             """
-
             da = (ca @ ca.T)
             if cb is not None:
                 db = (cb @ cb.T)

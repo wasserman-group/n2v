@@ -21,6 +21,20 @@ if has_psi4:
         def set_system(self, molecule, basis, ref='1', pbs='same', wfn=None):
             """
             Initializes geometry and basis infromation
+
+            Parameters
+            ----------
+            molecule: psi4.core.Molecule
+                Molecule of the system  used
+            basis: str
+                Basis set of calculation
+            ref: int
+                Reference: Restricted   -> 1
+                           Unrestricted -> 2
+            pbs: str
+                Basis set of potential used
+            wfn : psi4.core.{RHF, UHF, RKS, UKS, Wavefunction, CCWavefuncion...}
+                Psi4 wavefunction object
             """
             self.mol = molecule
             

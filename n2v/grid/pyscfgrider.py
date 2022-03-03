@@ -250,6 +250,18 @@ if has_pyscf:
         def to_ao(self, f_g, grid='spherical'):
             """
             Expresses grid quantity on the AO basis
+
+            Parameters
+            ----------
+            f_g: np.ndarray
+                Function expressed in g points 
+            grid: str
+                The grid used: 'radial' or 'spherical'
+
+            Returns
+            -------
+            f_nm: np.ndarray
+                f_g in ao basis
             """
 
             points = self.assert_grid(grid)
@@ -263,17 +275,18 @@ if has_pyscf:
         def orbitals(self, C, grid='spherical'):
             """
             Obtains orbitals on grid
-            """
 
-            points = self.assert_grid(grid)
+            Parameters
+            ----------
+            C: np.ndarray
+                Molecular Orbitals on Atomic Orbital basis set. 
+            grid: str
+                The grid used: 'radial' or 'spherical'
 
-            phis = evaluate_basis(self.basis, points)
-            mat_g = C.T.dot(phis)
-            return mat_g
-
-        def orbitals(self, C, grid='spherical'):
-            """
-            Obtains orbitals on grid
+            Returns
+            -------
+            mat_g: np.ndarray
+                Orbitals in g points in space
             """
 
             points = self.assert_grid(grid)
@@ -285,6 +298,18 @@ if has_pyscf:
         def laplacian_density(self, density, grid='spherical'):
             """
             Calculates the laplacian of the density
+            
+            Parameters
+            ----------
+            density: np.ndarray
+                Density in the ao basis 
+            grid: str
+                The grid used: 'radial' or 'spherical'
+
+            Returns
+            -------
+            lap_density: np.ndarray
+                Laplacian of density given on g points in space
             """
 
             points = self.assert_grid(grid)
@@ -295,6 +320,18 @@ if has_pyscf:
         def gradient_density(self, density, grid='spherical'):        
             """
             Evaluatges gradient of density on requested grid
+
+            Parameters
+            ----------
+            density: np.ndarray
+                Density in the ao basis 
+            grid: str
+                The grid used: 'radial' or 'spherical'
+
+            Returns
+            -------
+            grad_density: np.ndarray
+                Gradient of density given on g points in space
             """
 
             points = self.assert_grid(grid)
@@ -306,6 +343,26 @@ if has_pyscf:
             """ 
             Calculates AO on the grid (and its derivatives). 
             If Transformation is given, e.g. ao2mo, MO will be given
+
+            Parameters
+            ----------
+            derivs: List of 3 integers
+                Array that corresponds to the derivative of each spatial coordinate (x,y,z)
+                0 -> no derivative
+                1 -> first derivative ...
+                [1,0,3] -> first derivative on x. 
+                           no derivative on y.
+                           third derivative on z
+
+            transform: np.ndarray
+                Matrix to transform within basis. E.g. ao2mo -> MO will be given.
+            grid: str
+                The grid used: 'radial' or 'spherical'
+
+            Returns
+            -------
+            orbs_deriv: np.ndarray 
+                Array of atomic orbitals and/or their derivatives. 
             """
 
             points = self.assert_grid(grid)
@@ -318,6 +375,7 @@ if has_pyscf:
         # Specialized for methods. 
         def posdef_kinetic_energy_density(self, density, grid='spherical'):
             """
+            Please look at OuCarter or mRKS method
             Evaluates the positive-definite kinetic energy density on grid
             t = 1/2 \nabla \cdot \nabla \gamma(r,r') 
             """
@@ -329,6 +387,7 @@ if has_pyscf:
 
         def kinetic_energy_density(self, density, alpha=-1/4, grid='spherical'):
             """
+            Please look at OuCarter or mRKS method
             Evaluates the general form of the kinetic energy density
             t = 1/2 \nabla \cdot \nabla \gamma(r,r') + alpha \nabla^2 n(r)
             """
@@ -340,6 +399,7 @@ if has_pyscf:
 
         def kinetic_energy_density_pauli(self, C, grid='spherical', method='grid'):
             """
+            Please look at OuCarter or mRKS method
             Obtains kinetic energy density in terms of the Pauli kinetic energy density
             
             Parameters
@@ -391,6 +451,7 @@ if has_pyscf:
 
         def avg_local_orb_energy(self, density, orbitals, eigvals, grid='spherical'):
             """
+            Please look at OuCarter or mRKS method
             Generates average local orbital energy. Described by Staroverov
             J. Chem. Phys. 146, 084103. [Equations 4 and/or 6]
             $$
@@ -410,6 +471,7 @@ if has_pyscf:
 
         def external_tilde(self, grid='spherical', method='grid'):
             """
+            Please look at OuCarter or mRKS method
             Generates effective external potential from LDA exchange. Described by Ou + Carter. 
             J. Chem. Theory Comput. 2018, 14, 11, 5680–5689
 
