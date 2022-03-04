@@ -178,7 +178,7 @@ if has_pyscf:
                 if ref == 2, cb -> Beta Occupied Orbitals in AO basis
             """
             da = (Cocc_a @ Cocc_a.T)
-            if cb is not None:
+            if Cocc_a is not None:
                 db = (Cocc_b @ Cocc_b.T)
             else:
                 db = da

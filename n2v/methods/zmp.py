@@ -101,7 +101,12 @@ class ZMP():
             zmp_functional: options the penalty term.
             But others are not currently working except for Hartree penalty (original ZMP).
         ----------
-        """        
+        """       
+        # Target density on grid
+        if self.ref == 1:
+            D0 = self.eng.grid.density(Da=self.Dt[0])
+        else:
+            D0 = self.eng.grid.density(Da=self.Dt[0], Db=self.Dt[1])
         
         # Initialize Stuff
         vc_previous_a = np.zeros((self.nbf, self.nbf))
