@@ -14,6 +14,10 @@ except ImportError:
 
 if has_psi4:
     class Psi4Grider():
+        """
+        Psi4 Grider
+        Handles components on the grid using Psi4 grid blocks. 
+        """
         def __init__(self, mol, basis, ref):
             
             self.mol = mol
@@ -286,10 +290,10 @@ if has_psi4:
                 else:
                     blocks, npoints, points_function = grid
             elif grid is None:
-                nblocks = self.Vpot.nblocks()
-                blocks = [self.Vpot.get_block(i) for i in range(nblocks)]
-                npoints = self.Vpot.grid().npoints()
-                points_function = self.Vpot.properties()[0]
+                nblocks = Vpot.nblocks()
+                blocks = [Vpot.get_block(i) for i in range(nblocks)]
+                npoints = Vpot.grid().npoints()
+                points_function = Vpot.properties()[0]
             else:
                 raise ValueError("A grid or a V_potential (DFT grid) must be given.")
 
@@ -360,8 +364,6 @@ if has_psi4:
                 nblocks = vpot.nblocks()
                 blocks = [vpot.get_block(i) for i in range(nblocks)]
                 npoints = vpot.grid().npoints()
-            elif vpot is not None and grid is not None:
-                raise ValueError("Only one option can be given")
 
             #Initialize Arrays
             vext = np.zeros(npoints)
@@ -709,7 +711,6 @@ if has_psi4:
             else:
                 raise ValueError("A grid or a V_potential (DFT grid) must be given.")
 
-            vxc = np.zeros((npoints, self.ref))
             ingredients = {'rho' : density}
             if self.ref == 1:
                 functional = Functional(func_id, 1)

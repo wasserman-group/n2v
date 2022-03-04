@@ -5,14 +5,11 @@ Provides interface n2v interface to PySCF
 import numpy as np
 import scipy
 from opt_einsum import contract
-import warnings
-
-from gbasis.wrappers import from_pyscf
 
 from .engine import Engine
 
 try:
-    from pyscf import gto, scf, lib, dft
+    from pyscf import gto, dft
     has_pyscf = True
 except ImportError:
     has_pyscf = False
@@ -20,6 +17,9 @@ except ImportError:
 if has_pyscf:
     from ..grid import PySCFGrider
     class PySCFEngine(Engine):
+        """
+        PySCF Engine
+        """
 
         def set_system(self, molecule, basis, ref=1, pbs='same'):
             """
@@ -135,12 +135,13 @@ if has_pyscf:
 
             if self.pbs_str == 'same':
                 S3 = contract('ij, ik, il, i -> jkl', bs1, bs1, bs1, grid.weights)
-                bs1 = None
+                del bs1
 
             else:
                 bs2 = dft.numint.eval_ao(self.pbs, grid.coords)
                 S3 = contract('ij, ik, il, i -> jkl', bs1, bs1, bs2, grid.weights)
-                bs1, bs2 = None, None
+                del bs1
+                del bs2
 
             return S3
 
@@ -165,7 +166,7 @@ if has_pyscf:
 
             return S4
 
-        def compute_hartree(self, ca, cb=None):
+        def compute_hartree(self, Cocc_a, Cocc_b=None):
             """
             Computes Hartree Operator in AO basis
 
@@ -176,9 +177,9 @@ if has_pyscf:
             cb: np.ndarray
                 if ref == 2, cb -> Beta Occupied Orbitals in AO basis
             """
-            da = (ca @ ca.T)
+            da = (Cocc_a @ Cocc_a.T)
             if cb is not None:
-                db = (cb @ cb.T)
+                db = (Cocc_b @ Cocc_b.T)
             else:
                 db = da
             mf = dft.uks.UKS(self.mol)

@@ -142,7 +142,7 @@ class Engine(ABC):
         return S4
 
     @abstractmethod
-    def compute_hartree(self):
+    def compute_hartree(self, Cocc_a, Cocc_b):
         """
         Generates the Hartree potential on the atomic orbital basis set
         

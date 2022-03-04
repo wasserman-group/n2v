@@ -5,7 +5,6 @@ Functions associated with Ou-Carter inversion
 """
 
 import numpy as np
-from opt_einsum import contract
 import psi4
 
 class OC():

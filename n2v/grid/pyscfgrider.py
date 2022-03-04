@@ -4,15 +4,14 @@ Grider for PyScf
 """
 
 from gbasis.evals.density import (evaluate_density, 
-                                  evaluate_posdef_kinetic_energy_density,
+#                                  evaluate_posdef_kinetic_energy_density,
                                   evaluate_density_laplacian,
                                   evaluate_density_gradient,
-                                  evaluate_general_kinetic_energy_density,
+ #                                 evaluate_general_kinetic_energy_density,
                                 )
 from gbasis.evals.eval import evaluate_basis
 from gbasis.evals.eval_deriv import evaluate_deriv_basis
-from gbasis.evals.electrostatic_potential import (point_charge_integral, 
-     electrostatic_potential)
+from gbasis.evals.electrostatic_potential import point_charge_integral
 from gbasis.wrappers import from_pyscf
 
 # from grid.molgrid import MolGrid
@@ -30,6 +29,10 @@ except ImportError:
 
 if has_pyscf:
     class PySCFGrider:
+        """
+        PySCF Grider Class
+        Provides methods to obtain components on the grid using the package gbasis
+        """
         def __init__(self, mol, pbs_mol):
 
             self.mol   = mol
@@ -148,7 +151,7 @@ if has_pyscf:
             density_a = evaluate_density(Da, self.basis, points)
             if Db is not None:
                 density_b = evaluate_density(Db, self.basis, points)
-                density_g = np.concatenate([density_a, density,b])
+                density_g = np.concatenate([density_a, density_b])
                 return density_g
             else:
                 return density_a
@@ -373,141 +376,140 @@ if has_pyscf:
             return orbs_deriv
 
         # Specialized for methods. 
-        def posdef_kinetic_energy_density(self, density, grid='spherical'):
-            """
-            Please look at OuCarter or mRKS method
-            Evaluates the positive-definite kinetic energy density on grid
-            t = 1/2 \nabla \cdot \nabla \gamma(r,r') 
-            """
+        # def posdef_kinetic_energy_density(self, density, grid='spherical'):
+        #     """
+        #     Please look at OuCarter or mRKS method
+        #     Evaluates the positive-definite kinetic energy density on grid
+        #     t = 1/2 \nabla \cdot \nabla \gamma(r,r') 
+        #     """
 
-            points = self.assert_grid(grid)
-            t = evaluate_posdef_kinetic_energy_density(density, self.basis, points)
+        #     points = self.assert_grid(grid)
+        #     t = evaluate_posdef_kinetic_energy_density(density, self.basis, points)
 
-            return t
+        #     return t
 
-        def kinetic_energy_density(self, density, alpha=-1/4, grid='spherical'):
-            """
-            Please look at OuCarter or mRKS method
-            Evaluates the general form of the kinetic energy density
-            t = 1/2 \nabla \cdot \nabla \gamma(r,r') + alpha \nabla^2 n(r)
-            """
+        # def kinetic_energy_density(self, density, alpha=-1/4, grid='spherical'):
+        #     """
+        #     Please look at OuCarter or mRKS method
+        #     Evaluates the general form of the kinetic energy density
+        #     t = 1/2 \nabla \cdot \nabla \gamma(r,r') + alpha \nabla^2 n(r)
+        #     """
 
-            points = self.assert_grid(grid)
-            t = evaluate_general_kinetic_energy_density(density, self.basis, points, alpha=alpha)
+        #     points = self.assert_grid(grid)
+        #     t = evaluate_general_kinetic_energy_density(density, self.basis, points, alpha=alpha)
 
-            return t
+        #     return t
 
-        def kinetic_energy_density_pauli(self, C, grid='spherical', method='grid'):
-            """
-            Please look at OuCarter or mRKS method
-            Obtains kinetic energy density in terms of the Pauli kinetic energy density
+        # def kinetic_energy_density_pauli(self, C, grid='spherical', method='grid'):
+        #     """
+        #     Please look at OuCarter or mRKS method
+        #     Obtains kinetic energy density in terms of the Pauli kinetic energy density
             
-            Parameters
-            ----------
-            C: np.ndarray
-                Occupied Molecular Orbitals
-            """
+        #     Parameters
+        #     ----------
+        #     C: np.ndarray
+        #         Occupied Molecular Orbitals
+        #     """
 
-            points = self.assert_grid(grid)
+        #     points = self.assert_grid(grid)
 
-            density = C @ C.T
-            density_g = self.density(density, grid=grid)
+        #     density = C @ C.T
+        #     density_g = self.density(density, grid=grid)
 
-            basis_dx = self.ao_deriv(derivs=[1,0,0], transform=None, grid=grid)
-            basis_dy = self.ao_deriv(derivs=[0,1,0], transform=None, grid=grid)
-            basis_dz = self.ao_deriv(derivs=[0,0,1], transform=None, grid=grid)
+        #     basis_dx = self.ao_deriv(derivs=[1,0,0], transform=None, grid=grid)
+        #     basis_dy = self.ao_deriv(derivs=[0,1,0], transform=None, grid=grid)
+        #     basis_dz = self.ao_deriv(derivs=[0,0,1], transform=None, grid=grid)
 
-            if method == 'grid':
-                orbs = self.orbitals(C, grid=grid)
-                d_orbs = ((basis_dx + basis_dy + basis_dz).T @ C).T
-                tau_p = np.zeros_like( density_g )
-                orbs = self.orbitals(C, grid=grid)
-                for i in range(C.shape[1]):
-                    for j in range(C.shape[1]):
-                        if i == j:
-                            pass
-                        else:
-                            tau_p += np.abs( orbs[i,:] * (d_orbs[j,:]) - orbs[j,:] * (d_orbs[i,:]) )**2
+        #     if method == 'grid':
+        #         orbs = self.orbitals(C, grid=grid)
+        #         d_orbs = ((basis_dx + basis_dy + basis_dz).T @ C).T
+        #         tau_p = np.zeros_like( density_g )
+        #         for i in range(C.shape[1]):
+        #             for j in range(C.shape[1]):
+        #                 if i == j:
+        #                     pass
+        #                 else:
+        #                     tau_p += np.abs( orbs[i,:] * (d_orbs[j,:]) - orbs[j,:] * (d_orbs[i,:]) )**2
 
-            elif method == 'basis':
-                basis = self.ao_deriv(grid=grid)
-                dx = contract('pm,mi,nj,pn->ijp', basis.T, C, C, basis_dx.T)
-                dy = contract('pm,mi,nj,pn->ijp', basis.T, C, C, basis_dy.T)
-                dz = contract('pm,mi,nj,pn->ijp', basis.T, C, C, basis_dz.T)
+        #     elif method == 'basis':
+        #         basis = self.ao_deriv(grid=grid)
+        #         dx = contract('pm,mi,nj,pn->ijp', basis.T, C, C, basis_dx.T)
+        #         dy = contract('pm,mi,nj,pn->ijp', basis.T, C, C, basis_dy.T)
+        #         dz = contract('pm,mi,nj,pn->ijp', basis.T, C, C, basis_dz.T)
             
-                dx = (dx - np.transpose(dx, (1, 0, 2))) ** 2
-                dy = (dy - np.transpose(dy, (1, 0, 2))) ** 2
-                dz = (dz - np.transpose(dz, (1, 0, 2))) ** 2
+        #         dx = (dx - np.transpose(dx, (1, 0, 2))) ** 2
+        #         dy = (dy - np.transpose(dy, (1, 0, 2))) ** 2
+        #         dz = (dz - np.transpose(dz, (1, 0, 2))) ** 2
 
-                occ = np.ones(C.shape[1])
-                occ_matrix = np.expand_dims(occ, axis=0) @ np.expand_dims(occ, axis=1)
+        #         occ = np.ones(C.shape[1])
+        #         occ_matrix = np.expand_dims(occ, axis=0) @ np.expand_dims(occ, axis=1)
 
-                tau_p = np.sum((dx + dy + dz).T * occ_matrix, axis=(1,2)) 
+        #         tau_p = np.sum((dx + dy + dz).T * occ_matrix, axis=(1,2)) 
 
 
-            tau_p /= (2*density_g)
+        #     tau_p /= (2*density_g)
 
-            return tau_p
+        #     return tau_p
 
-        def avg_local_orb_energy(self, density, orbitals, eigvals, grid='spherical'):
-            """
-            Please look at OuCarter or mRKS method
-            Generates average local orbital energy. Described by Staroverov
-            J. Chem. Phys. 146, 084103. [Equations 4 and/or 6]
-            $$
-            e_tilde = 1/n(r) * [ \sum_i \varepsilon_i * | \phi_i(r) |^2 ]
-            $$
-            """
+        # def avg_local_orb_energy(self, density, orbitals, eigvals, grid='spherical'):
+        #     """
+        #     Please look at OuCarter or mRKS method
+        #     Generates average local orbital energy. Described by Staroverov
+        #     J. Chem. Phys. 146, 084103. [Equations 4 and/or 6]
+        #     $$
+        #     e_tilde = 1/n(r) * [ \sum_i \varepsilon_i * | \phi_i(r) |^2 ]
+        #     $$
+        #     """
 
-            points = self.assert_grid(grid)
+        #     points = self.assert_grid(grid)
 
-            phis      = evaluate_basis(self.basis, points)
-            density_g = self.density(density=density, grid=grid)
-            e_tilde   = contract('xp, xo, xo, x, xp-> p', phis, 
-                                                        orbitals, orbitals, eigvals, 
-                                                        phis) / density_g
+        #     phis      = evaluate_basis(self.basis, points)
+        #     density_g = self.density(density=density, grid=grid)
+        #     e_tilde   = contract('xp, xo, xo, x, xp-> p', phis, 
+        #                                                 orbitals, orbitals, eigvals, 
+        #                                                 phis) / density_g
 
-            return e_tilde
+        #     return e_tilde
 
-        def external_tilde(self, grid='spherical', method='grid'):
-            """
-            Please look at OuCarter or mRKS method
-            Generates effective external potential from LDA exchange. Described by Ou + Carter. 
-            J. Chem. Theory Comput. 2018, 14, 11, 5680–5689
+        # def external_tilde(self, grid='spherical', method='grid'):
+        #     """
+        #     Please look at OuCarter or mRKS method
+        #     Generates effective external potential from LDA exchange. Described by Ou + Carter. 
+        #     J. Chem. Theory Comput. 2018, 14, 11, 5680–5689
 
-            $$
-            v^{~}{ext}(r) = \epsilon^{-LDA}(r) - \frac{\tau^{LDA}{L}}{n^{LDA}(r)}
-            - v_{H}^{LDA}(r) - v_{xc}^{LDA}(r)
-            $$
-            (22) in [1].
-            """
+        #     $$
+        #     v^{~}{ext}(r) = \epsilon^{-LDA}(r) - \frac{\tau^{LDA}{L}}{n^{LDA}(r)}
+        #     - v_{H}^{LDA}(r) - v_{xc}^{LDA}(r)
+        #     $$
+        #     (22) in [1].
+        #     """
 
-            points = self.assert_grid(grid)
+        #     points = self.assert_grid(grid)
 
-            # LDA results
-            Da0, Db0 = self.mf.make_rdm1()
-            Ca0, Cb0 = self.mf.mo_coeff
-            ea0, eb0 = self.mf.mo_energy
+        #     # LDA results
+        #     Da0, Db0 = self.mf.make_rdm1()
+        #     Ca0, Cb0 = self.mf.mo_coeff
+        #     ea0, eb0 = self.mf.mo_energy
 
-            da0_g = self.density(Da0, grid)
-            db0_g = self.density(Db0, grid)
+        #     da0_g = self.density(Da0, grid)
+        #     db0_g = self.density(Db0, grid)
 
-            # LDA exchange
-            cx = -(3/np.pi)**(1/3)
-            vxca = cx * da0_g ** (1/3)
-            vxcb = cx * db0_g ** (1/3)
+        #     # LDA exchange
+        #     cx = -(3/np.pi)**(1/3)
+        #     vxca = cx * da0_g ** (1/3)
+        #     vxcb = cx * db0_g ** (1/3)
 
-            # External tilde
-            e_tilde = self.avg_local_orb_energy(Da0, Ca0, ea0, grid=grid)
-            lap     = self.laplacian_density(Da0, grid=grid)
-            grad    = self.gradient_density(Da0, grid=grid)
-            grad    = grad[:,0] + grad[:,1] + grad[:,2]
-            hartree = self.hartree(Da0, grid=grid)
+        #     # External tilde
+        #     e_tilde = self.avg_local_orb_energy(Da0, Ca0, ea0, grid=grid)
+        #     lap     = self.laplacian_density(Da0, grid=grid)
+        #     grad    = self.gradient_density(Da0, grid=grid)
+        #     grad    = grad[:,0] + grad[:,1] + grad[:,2]
+        #     hartree = self.hartree(Da0, grid=grid)
             
-            tau_l  = self.kinetic_energy_density_pauli(Ca0, grid=grid, method=method)
-            tau_l += - 0.25 * lap + np.abs( grad )**2 / (8*da0_g) 
+        #     tau_l  = self.kinetic_energy_density_pauli(Ca0, grid=grid, method=method)
+        #     tau_l += - 0.25 * lap + np.abs( grad )**2 / (8*da0_g) 
         
-            external_tilde = e_tilde - tau_l/da0_g - hartree - vxca
+        #     external_tilde = e_tilde - tau_l/da0_g - hartree - vxca
 
-            return external_tilde
+        #     return external_tilde
 

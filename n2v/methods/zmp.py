@@ -14,6 +14,15 @@ from functools import reduce
 eps = np.finfo(float).eps
 
 class ZMP():
+    """
+    ZMP Class
+    Performs ZMP optimization according to: 
+    
+    1) 'From electron densities to Kohn-Sham kinetic energies, orbital energies,
+    exchange-correlation potentials, and exchange-correlation energies' by
+    Zhao + Morrison + Parr. 
+    https://doi.org/10.1103/PhysRevA.50.2138
+    """
     def zmp(self, 
             opt_max_iter=100, 
             opt_tol= psi4.core.get_option("SCF", "D_CONVERGENCE"), 
@@ -93,15 +102,7 @@ class ZMP():
             But others are not currently working except for Hartree penalty (original ZMP).
         ----------
         """        
-
-        # Target density on grid
-        if self.ref == 1:
-            D0 = self.eng.grid.density(Da=self.Dt[0])
-            Da0, Db0 = D0, D0
-        else:
-            D0 = self.eng.grid.density(Da=self.Dt[0], Db=self.Dt[1])
-            Da0, Db0 = D0[:,0], D0[:,1]
-
+        
         # Initialize Stuff
         vc_previous_a = np.zeros((self.nbf, self.nbf))
         vc_previous_b = np.zeros((self.nbf, self.nbf))

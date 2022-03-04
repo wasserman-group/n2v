@@ -17,11 +17,9 @@ from .methods.direct import Direct
 class V:
     """Stores Potentials on AO"""
     T : np.ndarray
-    pass
 
 class E:
     """Stores Energies"""
-    pass
 
 class Inverter(Direct, ZMP, WuYang, PDECO, OC, MRKS):
     """
@@ -180,7 +178,7 @@ class Inverter(Direct, ZMP, WuYang, PDECO, OC, MRKS):
 
         self.S4 = None
 
-    def compute_hartree( self, *args ):
+    def compute_hartree( self, Cocc_a, Cocc_b ):
         """
         Computes Hartree Potential on AO basis set. 
 
@@ -194,7 +192,7 @@ class Inverter(Direct, ZMP, WuYang, PDECO, OC, MRKS):
         J: List of np.ndarray
             Hartree potential due to density from Cocc_a and Cocc_b
         """
-        return self.eng.compute_hartree(*args)
+        return self.eng.compute_hartree(self, Cocc_a, Cocc_b )
 
     def diagonalize( self, matrix, ndocc ):
         """

@@ -17,6 +17,9 @@ except ImportError:
 if has_psi4:
     from ..grid import Psi4Grider
     class Psi4Engine(Engine):
+        """
+        Psi4 Engine Class
+        """
 
         def set_system(self, molecule, basis, ref='1', pbs='same', wfn=None):
             """
