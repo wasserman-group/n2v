@@ -28,19 +28,14 @@ git clone https://github.com/theochem/gbasis.git
 cd gbasis
 pip install .
 ```
-- Libxc *and* pylibxc must be installed as well. 
+- Pylibxc must be installed as well. 
 ```
-conda install -c conda-forge libxc
+pip install pylibxc2
 ```
-- To communicate libxc with your python site-packages folder:
-```
-wget http://www.tddft.org/programs/libxc/down.php?file=5.1.7/libxc-5.1.7.tar.gz -O - | tar -xz # Download and extract libxc. May not be the most updated version
-cd libxc-5.1.7 # Move into libxc directory. 
-python setup.py install # Install pylibxc
-```
+
 ### Installation: 
 ```
-git clone --branch Engine https://github.com/wasserman-group/n2v.git
+git clone https://github.com/wasserman-group/n2v.git
 cd n2v
 pip install .
 ```
